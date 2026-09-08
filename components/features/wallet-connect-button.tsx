@@ -30,13 +30,13 @@ export function WalletConnectButton() {
         <button
           type="button"
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-bg-elevated text-text-primary border border-border-hairline text-body-sm hover:bg-bg-elevated-2 transition-colors font-mono"
+          className="inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-md bg-bg-elevated text-text-primary border border-border-hairline text-caption sm:text-body-sm hover:bg-bg-elevated-2 transition-colors font-mono"
         >
-          <div className="w-2 h-2 rounded-full bg-status-completed" />
-          <span className="text-accent font-semibold">{formattedBalance}</span>
-          <span className="text-text-secondary">|</span>
-          <span>{truncatedAddress}</span>
-          <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
+          <div className="w-2 h-2 rounded-full bg-status-completed shrink-0" />
+          <span className="text-accent font-semibold text-xs sm:text-body-sm">{formattedBalance}</span>
+          <span className="text-text-secondary hidden sm:inline">|</span>
+          <span className="hidden sm:inline">{truncatedAddress}</span>
+          <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-text-tertiary shrink-0" />
         </button>
 
         {dropdownOpen && (
@@ -69,10 +69,11 @@ export function WalletConnectButton() {
     <ButtonSecondary
       onClick={() => injectedConnector && connect({ connector: injectedConnector })}
       disabled={isPending || !injectedConnector}
-      className="!py-1.5 !px-3 text-body-sm inline-flex items-center gap-1.5"
+      className="!py-1.5 !px-2.5 sm:!px-3 text-caption sm:text-body-sm inline-flex items-center gap-1.5"
     >
-      <Wallet className="w-4 h-4 text-accent" />
-      <span>{isPending ? "Menghubungkan..." : "Connect Wallet"}</span>
+      <Wallet className="w-4 h-4 text-accent shrink-0" />
+      <span className="hidden sm:inline">{isPending ? "Menghubungkan..." : "Connect Wallet"}</span>
+      <span className="sm:hidden">{isPending ? "..." : "Connect"}</span>
     </ButtonSecondary>
   );
 }

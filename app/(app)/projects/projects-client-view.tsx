@@ -69,17 +69,17 @@ export function ProjectsClientView({
             Daftar seluruh kategori dan proyek airdrop yang kamu kelola.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <ButtonSecondary
             onClick={() => setIsFolderModalOpen(true)}
-            className="inline-flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm"
           >
             <Folder className="w-4 h-4" />
             <span>Buat Folder</span>
           </ButtonSecondary>
           <ButtonPrimary
             onClick={() => setIsProjectModalOpen(true)}
-            className="inline-flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm"
           >
             <Sparkles className="w-4 h-4 text-on-accent" />
             <span>Tambah Project</span>
@@ -89,11 +89,11 @@ export function ProjectsClientView({
 
       {/* Folders Filter Chips (if any exist) */}
       {folders.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
           <button
             type="button"
             onClick={() => setSelectedFolderFilter(null)}
-            className={`px-3 py-1 rounded-full text-caption font-medium transition-colors ${
+            className={`px-3 py-1 rounded-full text-caption font-medium transition-colors shrink-0 ${
               selectedFolderFilter === null
                 ? "bg-accent text-on-accent"
                 : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
@@ -109,7 +109,7 @@ export function ProjectsClientView({
                 key={f.id}
                 type="button"
                 onClick={() => setSelectedFolderFilter(f.id)}
-                className={`px-3 py-1 rounded-full text-caption font-medium transition-colors flex items-center gap-1.5 ${
+                className={`px-3 py-1 rounded-full text-caption font-medium transition-colors flex items-center gap-1.5 shrink-0 ${
                   isSelected
                     ? "bg-accent text-on-accent"
                     : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
@@ -161,15 +161,15 @@ export function ProjectsClientView({
                 <Link
                   href={`/projects/${proj.id}`}
                   prefetch={false}
-                  className="flex items-center justify-between"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-md bg-bg-elevated-2 flex items-center justify-center border border-border-hairline text-accent">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-md bg-bg-elevated-2 flex items-center justify-center border border-border-hairline text-accent shrink-0">
                       <FolderGit2 className="w-5 h-5" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-body-md font-semibold text-text-primary">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-body-md font-semibold text-text-primary truncate">
                           {proj.name}
                         </span>
                         {folder && (
@@ -178,14 +178,14 @@ export function ProjectsClientView({
                           </span>
                         )}
                       </div>
-                      <div className="text-caption text-text-tertiary font-mono">
+                      <div className="text-caption text-text-tertiary font-mono truncate">
                         {proj.chain ? `Chain: ${proj.chain}` : "No chain specified"}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 self-stretch sm:self-center w-full sm:w-auto pt-1 sm:pt-0 border-t border-border-subtle sm:border-0">
                     <StatusBadge status={badgeStatus} />
-                    <ChevronRight className="w-4 h-4 text-text-tertiary" />
+                    <ChevronRight className="w-4 h-4 text-text-tertiary shrink-0" />
                   </div>
                 </Link>
               </CardBase>

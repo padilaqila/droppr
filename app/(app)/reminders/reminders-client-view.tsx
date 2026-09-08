@@ -339,7 +339,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
                 </div>
 
                 {/* Right Actions & Direct Links */}
-                <div className="flex items-center justify-between md:justify-end gap-2.5 pt-3 md:pt-0 border-t md:border-t-0 border-border-hairline">
+                <div className="flex items-center justify-between md:justify-end gap-2.5 pt-3 md:pt-0 border-t md:border-t-0 border-border-hairline flex-wrap">
                   {/* Direct Launch Links */}
                   <div className="flex items-center gap-1.5">
                     {dappUrl && (

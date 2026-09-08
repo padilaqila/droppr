@@ -408,10 +408,10 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           <button
             onClick={handleSyncTelegram}
             disabled={isSyncing}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-accent text-text-inverse font-semibold text-body-sm hover:bg-accent-hover disabled:opacity-50 transition-all shadow-sm"
+            className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-md bg-accent text-on-accent font-semibold text-caption sm:text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-all shadow-sm"
             title="Pindai postingan waitlist (JOIN WAITLIST / New Waitlist:) dari Telegram 3 bulan terakhir"
           >
-            <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin" : ""}`} />
             <span>{isSyncing ? "Menyinkronkan 90 Hari..." : "Sinkronkan Telegram 90 Hari"}</span>
           </button>
         </div>
@@ -442,7 +442,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => router.push(`/projects/${transferSuccessNotification.projectId}`)}
-              className="px-3 py-1 rounded bg-status-completed text-text-inverse text-caption font-semibold hover:opacity-90 transition-opacity"
+              className="px-3 py-1 rounded bg-status-completed text-white text-caption font-semibold hover:opacity-90 transition-opacity"
             >
               Buka Proyek →
             </button>
@@ -459,16 +459,16 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
       {/* Navigation Tabs & Filters */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         {/* Dual Tabs */}
-        <div className="flex items-center p-1 rounded-lg bg-bg-elevated border border-border-hairline self-start">
+        <div className="flex items-center p-1 rounded-lg bg-bg-elevated border border-border-hairline self-start max-w-full overflow-x-auto">
           <button
             onClick={() => setActiveTab("joined")}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-body-sm font-semibold transition-all ${
+            className={`flex items-center gap-2 px-2.5 sm:px-4 py-1.5 rounded-md text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
               activeTab === "joined"
                 ? "bg-bg-elevated-2 text-text-primary shadow-sm ring-1 ring-border-hairline"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
-            <UserCheck className="w-4 h-4 text-status-completed" />
+            <UserCheck className="w-4 h-4 text-status-completed shrink-0" />
             <span>Waitlist yang Saya Ikuti</span>
             <span className="px-1.5 py-0.2 rounded-full text-[11px] font-mono bg-status-completed/20 text-status-completed font-bold">
               {joinedCount}
@@ -477,13 +477,13 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
 
           <button
             onClick={() => setActiveTab("pending")}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-body-sm font-semibold transition-all ${
+            className={`flex items-center gap-2 px-2.5 sm:px-4 py-1.5 rounded-md text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
               activeTab === "pending"
                 ? "bg-bg-elevated-2 text-text-primary shadow-sm ring-1 ring-border-hairline"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
-            <Sparkles className="w-4 h-4 text-accent" />
+            <Sparkles className="w-4 h-4 text-accent shrink-0" />
             <span>Eksplorasi Waitlist Baru</span>
             <span className="px-1.5 py-0.2 rounded-full text-[11px] font-mono bg-accent/20 text-accent font-bold">
               {pendingCount}
@@ -508,7 +508,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           </div>
 
           {/* Search Box */}
-          <div className="relative min-w-[220px]">
+          <div className="relative flex-1 min-w-[180px] sm:min-w-[220px]">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
             <input
               type="text"

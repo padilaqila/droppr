@@ -125,7 +125,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
   return (
     <div className="space-y-4 max-w-6xl">
       {/* Top Navigation & Back Link */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           href="/projects"
           prefetch={false}
@@ -173,7 +173,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
           </div>
 
           {/* 1-Click Status Pills */}
-          <div className="flex flex-col sm:items-end gap-1">
+          <div className="flex flex-col sm:items-end gap-1 w-full sm:w-auto overflow-hidden">
             <span className="text-[11px] font-medium text-text-tertiary">
               Status Proyek (1-Klik):
             </span>

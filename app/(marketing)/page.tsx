@@ -76,11 +76,11 @@ export default function MarketingPage() {
       </main>
 
       {/* Docked Minimalist Footer */}
-      <footer className="h-11 sm:h-12 px-6 lg:px-12 flex items-center justify-between text-caption text-text-tertiary z-20 border-t border-border-hairline/40 shrink-0">
+      <footer className="h-auto sm:h-12 py-2 sm:py-0 px-4 sm:px-6 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-1 text-caption text-text-tertiary z-20 border-t border-border-hairline/40 shrink-0">
         <div>
           <span>&copy; 2026 Droppr. Workspace personal airdrop hunter.</span>
         </div>
-        <div className="flex items-center gap-3 font-mono text-data-mono-sm">
+        <div className="hidden sm:flex items-center gap-3 font-mono text-data-mono-sm">
           <span>Non-custodial & Read-only</span>
           <span>·</span>
           <span>Client-side Protected</span>

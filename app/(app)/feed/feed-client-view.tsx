@@ -280,7 +280,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <ButtonSecondary
             onClick={handleCleanupExpired}
             className="!py-1.5 !px-3 text-caption text-text-tertiary hover:text-text-primary border-border-subtle"
@@ -296,7 +296,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             className="!py-1.5 !px-3.5 text-body-sm inline-flex items-center gap-2"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-            <span>{isSyncing ? "Memindai Telegram..." : "Sinkronkan Feed"}</span>
+            <span>{isSyncing ? "Memindai..." : "Sinkronkan Feed"}</span>
           </ButtonPrimary>
         </div>
       </div>
@@ -308,7 +308,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
           <button
             type="button"
             onClick={() => setSyncStatus(null)}
-            className="text-caption hover:underline text-text-tertiary hover:text-text-primary ml-2"
+            className="text-caption hover:underline text-text-tertiary hover:text-text-primary ml-2 shrink-0"
           >
             Tutup
           </button>
@@ -319,11 +319,11 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
       <CardBase className="p-4 space-y-3.5 border-border-subtle">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Channel Tabs */}
-          <div className="flex items-center gap-1 bg-bg-elevated-2 p-1 rounded-lg text-caption overflow-x-auto">
+          <div className="flex items-center gap-1 bg-bg-elevated-2 p-1 rounded-lg text-caption overflow-x-auto max-w-full pb-0.5">
             <button
               type="button"
               onClick={() => setChannelFilter("all")}
-              className={`px-3 py-1 rounded-md transition-all font-medium ${
+              className={`px-3 py-1 rounded-md transition-all font-medium shrink-0 ${
                 channelFilter === "all"
                   ? "bg-bg-elevated text-text-primary font-semibold shadow-xs"
                   : "text-text-tertiary hover:text-text-primary"
@@ -334,7 +334,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             <button
               type="button"
               onClick={() => setChannelFilter("dutacryptoairdrop")}
-              className={`px-3 py-1 rounded-md transition-all font-medium flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md transition-all font-medium flex items-center gap-1.5 shrink-0 ${
                 channelFilter === "dutacryptoairdrop"
                   ? "bg-accent/20 text-accent font-semibold shadow-xs"
                   : "text-text-tertiary hover:text-text-primary"
@@ -346,7 +346,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             <button
               type="button"
               onClick={() => setChannelFilter("airdropfind")}
-              className={`px-3 py-1 rounded-md transition-all font-medium flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md transition-all font-medium flex items-center gap-1.5 shrink-0 ${
                 channelFilter === "airdropfind"
                   ? "bg-link-teal/20 text-link-teal font-semibold shadow-xs"
                   : "text-text-tertiary hover:text-text-primary"

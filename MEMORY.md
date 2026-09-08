@@ -2,6 +2,12 @@
 
 > File ini ditulis oleh agen AI, bukan oleh manusia. Dibaca otomatis di awal sesi (bagian atas file diprioritaskan). Lihat `AGENTS.md` §5 untuk format entri dan aturan pemangkasan.
 
+## [2026-09-08] Layout Shell Hardcoded ml-64 dan Ketiadaan Mobile Drawer Navigasi
+- Apa yang salah: Tampilan aplikasi rusak dan konten terpotong pada layar mobile karena sidebar fixed `w-64` menutupi layar dan area konten utama didorong margin kiri tetap `ml-64` (256px), serta topbar mengalami tabrakan elemen.
+- Kenapa terjadi (root cause, bukan cuma gejala): Layout utama `app/(app)/layout.tsx` menggunakan class desktop statis tanpa breakpoint responsif (`ml-64` alih-alih `ml-0 md:ml-64`), komponen Sidebar tidak memiliki drawer state, backdrop overlay, atau tombol tutup mobile, serta Topbar tidak menyediakan tombol toggle hamburger.
+- Perbaikan yang dilakukan: Membuat komponen `AppShell` (`components/features/app-shell.tsx`) yang mengontrol pembukaan drawer mobile dengan gesture esc/route change/backdrop click, mengubah Sidebar menjadi slide-over drawer di mobile dengan animasi transisi dan tombol close X, menambahkan tombol hamburger dan mini brand logo di Topbar, memadatkan tombol aksi (Tambah, Wallet, Filter pills), serta mengoptimalkan padding konten halaman dan touch targets checklist.
+- Aturan ke depan: Semua shell layout dan navigasi wajib memiliki breakpoint mobile-first (`ml-0 md:ml-...`), sediakan mobile slide-over drawer dengan backdrop untuk navigasi sidebar, dan pastikan container filter selalu memiliki `overflow-x-auto max-w-full`.
+
 ## [2026-09-08] Preferensi Desain Resmi User: Signature Aesthetic Landing Page
 - Apa yang disukai: User sangat menyukai gaya visual landing page Droppr (Stitch/Awwwards style) dan menginstruksikan agar gaya ini dijadikan standar identitas visual utama untuk halaman publik & otentikasi (Landing, Login, Register).
 - Karakteristik desain yang disukai:

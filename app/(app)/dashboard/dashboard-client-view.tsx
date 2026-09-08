@@ -224,21 +224,21 @@ export function DashboardClientView({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ButtonSecondary
             onClick={() => {
               setSelectedReminderProjectId("");
               setEditingReminder(null);
               setIsReminderModalOpen(true);
             }}
-            className="inline-flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm"
           >
             <Bell className="w-4 h-4 text-accent" />
             <span>Pasang Pengingat</span>
           </ButtonSecondary>
 
           <Link href="/projects" prefetch={false}>
-            <ButtonPrimary className="inline-flex items-center gap-1.5">
+            <ButtonPrimary className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm">
               <Plus className="w-4 h-4 text-on-accent" />
               <span>Tambah Proyek</span>
             </ButtonPrimary>
@@ -314,18 +314,18 @@ export function DashboardClientView({
           {/* Header & Filter Tabs */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
             <div className="flex items-center gap-2">
-              <FolderGit2 className="w-4 h-4 text-accent" />
+              <FolderGit2 className="w-4 h-4 text-accent shrink-0" />
               <h2 className="text-body-md font-bold text-text-primary">
                 Tugas Garapan Berbasis Proyek
               </h2>
             </div>
 
             {/* Quick Filter Pill Buttons */}
-            <div className="flex items-center gap-1 bg-bg-elevated p-1 rounded-lg border border-border-hairline self-start">
+            <div className="flex items-center gap-1 bg-bg-elevated p-1 rounded-lg border border-border-hairline self-start max-w-full overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("today_and_active")}
-                className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors shrink-0 ${
                   activeProjectFilter === "today_and_active"
                     ? "bg-accent text-on-accent font-semibold"
                     : "text-text-secondary hover:text-text-primary"
@@ -336,7 +336,7 @@ export function DashboardClientView({
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("all")}
-                className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors shrink-0 ${
                   activeProjectFilter === "all"
                     ? "bg-accent text-on-accent font-semibold"
                     : "text-text-secondary hover:text-text-primary"
@@ -347,7 +347,7 @@ export function DashboardClientView({
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("completed")}
-                className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors shrink-0 ${
                   activeProjectFilter === "completed"
                     ? "bg-status-completed text-white font-semibold"
                     : "text-text-secondary hover:text-text-primary"
@@ -421,7 +421,7 @@ export function DashboardClientView({
                       className="p-4 cursor-pointer select-none space-y-3 transition-colors hover:bg-bg-elevated-2/50"
                     >
                       {/* Top Row: Project Name, Badges & Direct Launch Links */}
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3">
                         <div className="space-y-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Link
@@ -482,7 +482,7 @@ export function DashboardClientView({
 
                         {/* Direct Action Launch Buttons (Isolated from card expand) */}
                         <div
-                          className="flex items-center gap-1.5 shrink-0"
+                          className="flex items-center gap-1.5 shrink-0 self-end sm:self-start flex-wrap"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {dappUrl && (

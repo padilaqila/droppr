@@ -124,11 +124,11 @@ export function WalletsClientView({
             Kelola alamat wallet publik untuk keperluan multi-akun dan tracking airdrop agar tidak tertukar.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isConnected && connectedAddress ? (
             <ButtonSecondary
               onClick={handleImportConnectedWallet}
-              className="inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2 text-caption sm:text-body-sm"
             >
               <Link2 className="w-4 h-4 text-accent" />
               <span>Simpan Wallet Terkoneksi</span>
@@ -137,7 +137,7 @@ export function WalletsClientView({
             <ButtonSecondary
               onClick={() => injectedConnector && connect({ connector: injectedConnector })}
               disabled={isConnecting || !injectedConnector}
-              className="inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2 text-caption sm:text-body-sm"
             >
               <Wallet className="w-4 h-4 text-accent" />
               <span>{isConnecting ? "Menghubungkan..." : "Hubungkan Browser Wallet"}</span>
@@ -151,7 +151,7 @@ export function WalletsClientView({
               setChain("");
               setIsModalOpen(true);
             }}
-            className="inline-flex items-center gap-2"
+            className="inline-flex items-center gap-2 text-caption sm:text-body-sm"
           >
             <Plus className="w-4 h-4 text-on-accent" />
             <span>Tambah Wallet Manual</span>
@@ -181,11 +181,11 @@ export function WalletsClientView({
           <p className="text-body-sm text-text-secondary max-w-md mx-auto">
             Simpan alamat wallet yang kamu pakai untuk hunting airdrop agar mudah disalin dan dipasangkan ke project.
           </p>
-          <div className="pt-2 flex items-center justify-center gap-2">
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
             {isConnected && connectedAddress && (
               <ButtonSecondary
                 onClick={handleImportConnectedWallet}
-                className="inline-flex items-center gap-1.5"
+                className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm"
               >
                 <Link2 className="w-4 h-4 text-accent" />
                 <span>Simpan Wallet Terkoneksi ({connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)})</span>
@@ -193,7 +193,7 @@ export function WalletsClientView({
             )}
             <ButtonPrimary
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm"
             >
               <Plus className="w-4 h-4 text-on-accent" />
               <span>Tambah Wallet Pertama</span>
@@ -211,7 +211,7 @@ export function WalletsClientView({
                 key={w.id}
                 className="space-y-3 hover:border-border-hairline-strong transition-colors"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-body-md font-semibold text-text-primary">

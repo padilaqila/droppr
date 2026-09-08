@@ -233,7 +233,7 @@ export function InteractiveTaskList({
   return (
     <div className="space-y-3">
       {/* Header Bar: Filter tabs & Counter */}
-      <div className="flex items-center justify-between gap-2 pb-1 border-b border-border-hairline">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-border-hairline">
         <div className="flex items-center gap-2">
           <span className="text-body-sm font-semibold text-text-primary">
             Langkah Garapan
@@ -244,11 +244,11 @@ export function InteractiveTaskList({
         </div>
 
         {showFilters && tasks.length > 0 && (
-          <div className="flex items-center gap-1 bg-bg-elevated-2 p-0.5 rounded-md text-caption">
+          <div className="flex items-center gap-1 bg-bg-elevated-2 p-0.5 rounded-md text-caption self-start sm:self-auto overflow-x-auto max-w-full">
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className={`px-2 py-0.5 rounded transition-colors ${
+              className={`px-2 py-0.5 rounded transition-colors shrink-0 ${
                 filter === "all"
                   ? "bg-bg-elevated text-text-primary font-medium shadow-sm"
                   : "text-text-tertiary hover:text-text-primary"
@@ -259,7 +259,7 @@ export function InteractiveTaskList({
             <button
               type="button"
               onClick={() => setFilter("pending")}
-              className={`px-2 py-0.5 rounded transition-colors ${
+              className={`px-2 py-0.5 rounded transition-colors shrink-0 ${
                 filter === "pending"
                   ? "bg-bg-elevated text-text-primary font-medium shadow-sm"
                   : "text-text-tertiary hover:text-text-primary"
@@ -270,7 +270,7 @@ export function InteractiveTaskList({
             <button
               type="button"
               onClick={() => setFilter("done")}
-              className={`px-2 py-0.5 rounded transition-colors ${
+              className={`px-2 py-0.5 rounded transition-colors shrink-0 ${
                 filter === "done"
                   ? "bg-bg-elevated text-text-primary font-medium shadow-sm"
                   : "text-text-tertiary hover:text-text-primary"
@@ -415,7 +415,7 @@ export function InteractiveTaskList({
                     <button
                       type="button"
                       onClick={() => handleStartEdit(task)}
-                      className="p-1 text-text-tertiary hover:text-text-primary rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-text-tertiary hover:text-text-primary rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                       title="Ubah teks langkah"
                     >
                       <Edit2 className="w-3 h-3" />
@@ -425,7 +425,7 @@ export function InteractiveTaskList({
                     <button
                       type="button"
                       onClick={() => handleDeleteTask(task.id)}
-                      className="p-1 text-text-tertiary hover:text-status-overdue rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-text-tertiary hover:text-status-overdue rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                       title="Hapus langkah ini"
                     >
                       <Trash2 className="w-3 h-3" />
@@ -441,24 +441,26 @@ export function InteractiveTaskList({
       {/* Seamless Inline Quick-Add Form */}
       <form
         onSubmit={handleQuickAdd}
-        className="p-2 rounded-md bg-bg-elevated border border-border-hairline focus-within:border-accent flex items-center gap-2 transition-colors"
+        className="p-2 rounded-md bg-bg-elevated border border-border-hairline focus-within:border-accent flex flex-col sm:flex-row sm:items-center gap-2 transition-colors"
       >
-        <div className="p-1 text-accent">
-          <Plus className="w-4 h-4" />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="p-1 text-accent shrink-0">
+            <Plus className="w-4 h-4" />
+          </div>
+
+          <input
+            ref={addInputRef}
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="+ Tambah langkah baru... (Ketik judul/link)"
+            className="flex-1 bg-transparent text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none min-w-0"
+            disabled={isAdding}
+          />
         </div>
 
-        <input
-          ref={addInputRef}
-          type="text"
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          placeholder="+ Tambah langkah baru... (Ketik judul / link, lalu tekan Enter)"
-          className="flex-1 bg-transparent text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none"
-          disabled={isAdding}
-        />
-
         {/* Quick frequency toggle */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center justify-end gap-1.5 shrink-0 pt-1 sm:pt-0 border-t border-border-subtle sm:border-0">
           <select
             value={newType}
             onChange={(e) => setNewType(e.target.value as TaskType)}

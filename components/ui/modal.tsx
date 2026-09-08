@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { X } from "lucide-react";
 
 interface ModalProps {
@@ -29,7 +29,7 @@ export function Modal({
   }[maxWidth];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4">
       {/* Backdrop overlay (token: --color-modal-overlay) */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
@@ -43,13 +43,13 @@ export function Modal({
         aria-modal="true"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-hairline">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-border-hairline">
           <div>
-            <h3 className="text-heading-3 font-semibold text-text-primary">
+            <h3 className="text-body-md sm:text-heading-3 font-semibold text-text-primary">
               {title}
             </h3>
             {description && (
-              <p className="text-body-sm text-text-secondary mt-0.5">
+              <p className="text-caption sm:text-body-sm text-text-secondary mt-0.5">
                 {description}
               </p>
             )}
@@ -58,14 +58,14 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Tutup"
-            className="w-8 h-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-elevated-2 transition-colors"
+            className="w-8 h-8 rounded-md flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-elevated-2 transition-colors shrink-0 ml-2"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body Content */}
-        <div className="p-6 overflow-y-auto">{children}</div>
+        <div className="p-3.5 sm:p-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

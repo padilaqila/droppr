@@ -314,11 +314,11 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-border-hairline overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 border-b border-border-hairline overflow-x-auto max-w-full pb-1">
         <button
           type="button"
           onClick={() => setActiveTab("account")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "account"
               ? "bg-accent text-on-accent"
               : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
@@ -331,7 +331,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => setActiveTab("notifications")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "notifications"
               ? "bg-accent text-on-accent"
               : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
@@ -344,7 +344,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => setActiveTab("appearance_ai")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "appearance_ai"
               ? "bg-accent text-on-accent"
               : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
@@ -357,7 +357,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => setActiveTab("backup")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "backup"
               ? "bg-accent text-on-accent"
               : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
@@ -370,7 +370,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => setActiveTab("danger")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "danger"
               ? "bg-status-overdue text-text-primary"
               : "text-text-secondary hover:text-status-overdue hover:bg-bg-elevated"

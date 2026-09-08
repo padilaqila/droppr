@@ -134,11 +134,11 @@ export function TasksClientView({
 
       {/* Filter Tabs Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-hairline pb-3">
-        <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1">
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors shrink-0 ${
               filter === "all"
                 ? "bg-accent text-on-accent font-semibold"
                 : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
@@ -149,7 +149,7 @@ export function TasksClientView({
           <button
             type="button"
             onClick={() => setFilter("pending")}
-            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors shrink-0 ${
               filter === "pending"
                 ? "bg-accent text-on-accent font-semibold"
                 : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
@@ -160,7 +160,7 @@ export function TasksClientView({
           <button
             type="button"
             onClick={() => setFilter("daily")}
-            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors flex items-center gap-1 ${
+            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors flex items-center gap-1 shrink-0 ${
               filter === "daily"
                 ? "bg-accent text-on-accent font-semibold"
                 : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
@@ -172,9 +172,9 @@ export function TasksClientView({
           <button
             type="button"
             onClick={() => setFilter("done")}
-            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors shrink-0 ${
               filter === "done"
-                ? "bg-accent text-on-accent font-semibold"
+                ? "bg-status-completed text-white font-semibold"
                 : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
             }`}
           >
