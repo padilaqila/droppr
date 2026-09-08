@@ -6,18 +6,33 @@ import { useRouter } from "next/navigation";
 import { CardBase } from "@/components/ui/card";
 import { StatusBadge, type ProjectStatus } from "@/components/ui/status-badge";
 import { ButtonSecondary, ButtonPrimary } from "@/components/ui/button";
-import { ArrowLeft, Plus, Globe, Send, ExternalLink, ShieldAlert, CheckCircle2, Circle } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Globe,
+  Send,
+  ExternalLink,
+  ShieldAlert,
+  CheckCircle2,
+  Circle,
+  Wallet,
+  Copy,
+  Check,
+} from "lucide-react";
 import { CreateTaskModal } from "@/components/features/create-task-modal";
+import { AttachWalletModal } from "@/components/features/attach-wallet-modal";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
 type AccountRow = Database["public"]["Tables"]["accounts"]["Row"];
+type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
 
 interface ProjectDetail extends ProjectRow {
   tasks?: TaskRow[];
   accounts?: AccountRow[];
+  wallets?: WalletRow[];
 }
 
 interface ProjectDetailClientViewProps {
@@ -27,10 +42,19 @@ interface ProjectDetailClientViewProps {
 export function ProjectDetailClientView({ project }: ProjectDetailClientViewProps) {
   const router = useRouter();
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [tasks, setTasks] = useState<TaskRow[]>(project.tasks || []);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const badgeStatus = project.status.replace("_", "-") as ProjectStatus;
   const socialLinks = (project.social_links as Record<string, string>) || {};
+  const wallets = project.wallets || [];
+
+  const handleCopyAddress = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleToggleTask = async (taskId: string, currentStatus: string) => {
     const nextStatus = currentStatus === "done" ? "pending" : "done";
@@ -77,6 +101,13 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ButtonSecondary
+            onClick={() => setIsWalletModalOpen(true)}
+            className="inline-flex items-center gap-1.5"
+          >
+            <Wallet className="w-4 h-4" />
+            <span>Atur Wallet ({wallets.length})</span>
+          </ButtonSecondary>
           <ButtonPrimary
             onClick={() => setIsTaskModalOpen(true)}
             className="inline-flex items-center gap-1.5"
@@ -87,7 +118,85 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         </div>
       </div>
 
-      {/* Section 1: Social Links */}
+      {/* Section 1: Wallet Khusus Project Ini (Agar tidak tertukar) */}
+      <CardBase className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wallet className="w-4 h-4 text-accent" />
+            <h2 className="text-app-section-title font-semibold text-text-primary">
+              Wallet yang Digunakan ({wallets.length})
+            </h2>
+          </div>
+          <ButtonSecondary
+            onClick={() => setIsWalletModalOpen(true)}
+            className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" />
+            <span>Pasang / Kelola</span>
+          </ButtonSecondary>
+        </div>
+
+        {wallets.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {wallets.map((w) => {
+              const isCopied = copiedId === w.id;
+              return (
+                <div
+                  key={w.id}
+                  className="p-3 rounded-md bg-bg-elevated-2 border border-border-hairline flex items-center justify-between"
+                >
+                  <div className="min-w-0 pr-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-body-sm font-semibold text-text-primary truncate">
+                        {w.label || "Wallet Utama"}
+                      </span>
+                      {w.chain && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated border border-border-hairline font-mono text-text-tertiary">
+                          {w.chain}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-caption font-mono text-text-secondary truncate mt-0.5">
+                      {w.address}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCopyAddress(w.id, w.address)}
+                    className="p-1.5 rounded hover:bg-bg-elevated text-text-tertiary hover:text-text-primary transition-colors shrink-0"
+                    title="Salin Address"
+                  >
+                    {isCopied ? (
+                      <Check className="w-4 h-4 text-status-completed" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-4 rounded-md bg-bg-elevated-2/60 border border-dashed border-border-hairline text-center space-y-1.5">
+            <p className="text-body-sm text-text-secondary">
+              Belum ada wallet yang dipasangkan ke project ini.
+            </p>
+            <p className="text-caption text-text-tertiary">
+              Pasangkan address wallet agar riwayat garapan atau multi-akun tidak tertukar antar airdrop.
+            </p>
+            <ButtonSecondary
+              onClick={() => setIsWalletModalOpen(true)}
+              className="!py-1 !px-3 text-caption mt-1 inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Pilih Wallet</span>
+            </ButtonSecondary>
+          </div>
+        )}
+      </CardBase>
+
+      {/* Section 2: Social Links */}
       <CardBase className="space-y-3">
         <h2 className="text-app-section-title font-semibold text-text-primary">
           Link Sosial & Dokumen
@@ -142,7 +251,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         )}
       </CardBase>
 
-      {/* Section 2: Panduan Kerja (Guide) */}
+      {/* Section 3: Panduan Kerja (Guide) */}
       <CardBase className="space-y-3">
         <h2 className="text-app-section-title font-semibold text-text-primary">
           Panduan Kerja (Guide)
@@ -158,7 +267,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         )}
       </CardBase>
 
-      {/* Section 3: Task List */}
+      {/* Section 4: Task List */}
       <CardBase className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-app-section-title font-semibold text-text-primary">
@@ -212,7 +321,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         )}
       </CardBase>
 
-      {/* Section 4: Akun Terkait (Non-sensitif) */}
+      {/* Section 5: Akun Terkait (Non-sensitif) */}
       <CardBase className="space-y-2">
         <div className="flex items-center gap-2 text-caption text-text-tertiary">
           <ShieldAlert className="w-3.5 h-3.5 text-accent" />
@@ -237,12 +346,20 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         )}
       </CardBase>
 
-      {/* Create Task Modal */}
+      {/* Modals */}
       <CreateTaskModal
         isOpen={isTaskModalOpen}
         onClose={() => setIsTaskModalOpen(false)}
         projectId={project.id}
         onTaskCreated={() => router.refresh()}
+      />
+
+      <AttachWalletModal
+        isOpen={isWalletModalOpen}
+        onClose={() => setIsWalletModalOpen(false)}
+        projectId={project.id}
+        assignedWalletIds={wallets.map((w) => w.id)}
+        onWalletsUpdated={() => router.refresh()}
       />
     </div>
   );

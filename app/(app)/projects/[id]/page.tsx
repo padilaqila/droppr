@@ -9,10 +9,12 @@ import { ProjectDetailClientView } from "./project-detail-client";
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
 type AccountRow = Database["public"]["Tables"]["accounts"]["Row"];
+type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
 
 interface ProjectDetail extends ProjectRow {
   tasks?: TaskRow[];
   accounts?: AccountRow[];
+  wallets?: WalletRow[];
 }
 
 interface PageProps {
@@ -25,16 +27,14 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   const supabase = await createClient();
 
-  // Fetch project by id for the current user
-  const { data: rawProject } = await supabase
+  // Fetch project by id with tasks, accounts, and joined wallets
+  const { data: rawProject } = await (supabase as any)
     .from("projects")
-    .select("*, tasks(*), accounts(*)")
+    .select("*, tasks(*), accounts(*), project_wallets(wallets(*))")
     .eq("id", projectId)
     .single();
 
-  const project = rawProject as unknown as ProjectDetail | null;
-
-  if (!project) {
+  if (!rawProject) {
     return (
       <div className="space-y-6 max-w-4xl">
         <Link
@@ -60,6 +60,16 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       </div>
     );
   }
+
+  // Flatten joined wallets
+  const wallets: WalletRow[] = (rawProject.project_wallets || [])
+    .map((pw: any) => pw.wallets)
+    .filter(Boolean);
+
+  const project: ProjectDetail = {
+    ...rawProject,
+    wallets,
+  };
 
   return <ProjectDetailClientView project={project} />;
 }
