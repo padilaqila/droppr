@@ -14,6 +14,7 @@ import {
   ChevronRight,
   LogOut,
   User as UserIcon,
+  Plus,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -21,6 +22,11 @@ interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+}
+
+interface QuickProject {
+  id: string;
+  name: string;
 }
 
 const mainNavItems: NavItem[] = [
@@ -36,14 +42,29 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [projects, setProjects] = useState<QuickProject[]>([]);
 
   useEffect(() => {
     const supabase = createClient();
+
+    // Fetch authenticated user
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user?.email) {
         setUserEmail(data.user.email);
       }
     });
+
+    // Fetch user's real projects (no dummy mock data)
+    supabase
+      .from("projects")
+      .select("id, name")
+      .order("created_at", { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (data) {
+          setProjects(data);
+        }
+      });
 
     const {
       data: { subscription },
@@ -110,23 +131,33 @@ export function Sidebar() {
 
         {/* Quick Folders & Projects Section */}
         <div className="pt-6 px-2 pb-2 text-[11px] font-semibold text-text-tertiary uppercase tracking-wider flex items-center justify-between">
-          <span>Pinned Projects</span>
+          <span>Projects</span>
+          <Link
+            href="/projects"
+            className="text-text-tertiary hover:text-accent transition-colors"
+            title="Kelola Project"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </Link>
         </div>
+
         <div className="space-y-0.5">
-          <Link
-            href="/projects/demo-1"
-            className="flex items-center justify-between px-3 py-1.5 rounded-sm text-caption text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
-          >
-            <span className="truncate">Story Protocol</span>
-            <ChevronRight className="w-3 h-3 text-text-tertiary" />
-          </Link>
-          <Link
-            href="/projects/demo-2"
-            className="flex items-center justify-between px-3 py-1.5 rounded-sm text-caption text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
-          >
-            <span className="truncate">Berachain V2</span>
-            <ChevronRight className="w-3 h-3 text-text-tertiary" />
-          </Link>
+          {projects.length > 0 ? (
+            projects.map((proj) => (
+              <Link
+                key={proj.id}
+                href={`/projects/${proj.id}`}
+                className="flex items-center justify-between px-3 py-1.5 rounded-sm text-caption text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
+              >
+                <span className="truncate">{proj.name}</span>
+                <ChevronRight className="w-3 h-3 text-text-tertiary shrink-0" />
+              </Link>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-[11px] text-text-tertiary">
+              Belum ada project
+            </div>
+          )}
         </div>
       </nav>
 

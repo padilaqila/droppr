@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "@/styles/globals.css";
-import { Web3Provider } from "@/lib/wallet/provider";
 
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -30,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
       <body className="min-h-screen bg-bg-base text-text-primary antialiased">
-        <Web3Provider>{children}</Web3Provider>
+        {children}
       </body>
     </html>
   );

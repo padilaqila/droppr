@@ -1,8 +1,19 @@
-import { CardBase } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { ButtonSecondary, ButtonPrimary } from "@/components/ui/button";
-import { ArrowLeft, ExternalLink, Globe, Send, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import { CardBase } from "@/components/ui/card";
+import { StatusBadge, type ProjectStatus } from "@/components/ui/status-badge";
+import { ButtonSecondary, ButtonPrimary } from "@/components/ui/button";
+import { ArrowLeft, Plus, Globe, Send, ExternalLink, ShieldAlert } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/database.types";
+
+type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
+type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
+type AccountRow = Database["public"]["Tables"]["accounts"]["Row"];
+
+interface ProjectDetail extends ProjectRow {
+  tasks?: TaskRow[];
+  accounts?: AccountRow[];
+}
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -11,6 +22,47 @@ interface PageProps {
 export default async function ProjectDetailPage({ params }: PageProps) {
   const resolvedParams = await params;
   const projectId = resolvedParams.id;
+
+  const supabase = await createClient();
+
+  // Fetch project by id for the current user
+  const { data: rawProject } = await supabase
+    .from("projects")
+    .select("*, tasks(*), accounts(*)")
+    .eq("id", projectId)
+    .single();
+
+  const project = rawProject as unknown as ProjectDetail | null;
+
+  if (!project) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <Link
+          href="/projects"
+          className="inline-flex items-center gap-1.5 text-body-sm text-text-secondary hover:text-text-primary transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Kembali ke daftar project</span>
+        </Link>
+        <CardBase className="text-center py-12 space-y-3">
+          <h2 className="text-heading-3 font-semibold text-text-primary">
+            Project tidak ditemukan
+          </h2>
+          <p className="text-body-sm text-text-secondary max-w-md mx-auto">
+            Project ini belum ada atau Anda tidak memiliki akses ke project ini.
+          </p>
+          <div className="pt-2">
+            <Link href="/projects">
+              <ButtonPrimary>Lihat Semua Project</ButtonPrimary>
+            </Link>
+          </div>
+        </CardBase>
+      </div>
+    );
+  }
+
+  const badgeStatus = (project.status.replace("_", "-") as ProjectStatus);
+  const socialLinks = (project.social_links as Record<string, string>) || {};
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -27,18 +79,21 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border-hairline pb-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-heading-1 font-semibold text-text-primary capitalize">
-              {projectId.replace("-", " ")}
+            <h1 className="text-heading-1 font-semibold text-text-primary">
+              {project.name}
             </h1>
-            <StatusBadge status="in-progress" />
+            <StatusBadge status={badgeStatus} />
           </div>
           <p className="text-body-sm text-text-secondary font-mono mt-1">
-            Chain: Ethereum / Arbitrum · Folder: Testnet L2
+            Chain: {project.chain || "Belum ditentukan"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ButtonSecondary>Edit</ButtonSecondary>
-          <ButtonPrimary>Tambah Task</ButtonPrimary>
+          <ButtonSecondary>Edit Project</ButtonSecondary>
+          <ButtonPrimary className="inline-flex items-center gap-1.5">
+            <Plus className="w-4 h-4" />
+            <span>Tambah Task</span>
+          </ButtonPrimary>
         </div>
       </div>
 
@@ -47,32 +102,44 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         <h2 className="text-app-section-title font-semibold text-text-primary">
           Link Sosial & Dokumen
         </h2>
-        <div className="flex flex-wrap gap-2 text-body-sm">
-          <a
-            href="https://twitter.com"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
-          >
-            <Globe className="w-3.5 h-3.5" /> X / Twitter
-          </a>
-          <a
-            href="https://discord.com"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
-          >
-            <Send className="w-3.5 h-3.5" /> Discord
-          </a>
-          <a
-            href="https://example.com"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
-          >
-            <ExternalLink className="w-3.5 h-3.5" /> Website
-          </a>
-        </div>
+        {Object.keys(socialLinks).length > 0 ? (
+          <div className="flex flex-wrap gap-2 text-body-sm">
+            {socialLinks.twitter && (
+              <a
+                href={socialLinks.twitter}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
+              >
+                <Globe className="w-3.5 h-3.5" /> Twitter / X
+              </a>
+            )}
+            {socialLinks.discord && (
+              <a
+                href={socialLinks.discord}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
+              >
+                <Send className="w-3.5 h-3.5" /> Discord
+              </a>
+            )}
+            {socialLinks.website && (
+              <a
+                href={socialLinks.website}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Website
+              </a>
+            )}
+          </div>
+        ) : (
+          <p className="text-body-sm text-text-tertiary">
+            Belum ada link sosial yang disimpan.
+          </p>
+        )}
       </CardBase>
 
       {/* Section 2: Panduan Kerja (Guide) */}
@@ -80,11 +147,15 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         <h2 className="text-app-section-title font-semibold text-text-primary">
           Panduan Kerja (Guide)
         </h2>
-        <div className="p-4 rounded-md bg-bg-elevated-2 text-body-sm text-text-secondary space-y-2">
-          <p>1. Hubungkan wallet ke testnet faucet.</p>
-          <p>2. Request faucet token tiap 24 jam.</p>
-          <p>3. Lakukan mint testnet IP NFT di portal resmi.</p>
-        </div>
+        {project.guide_content ? (
+          <div className="p-4 rounded-md bg-bg-elevated-2 text-body-sm text-text-secondary whitespace-pre-wrap">
+            {project.guide_content}
+          </div>
+        ) : (
+          <p className="text-body-sm text-text-tertiary">
+            Belum ada catatan atau panduan kerja untuk project ini.
+          </p>
+        )}
       </CardBase>
 
       {/* Section 3: Task List */}
@@ -97,32 +168,50 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             + Task
           </ButtonSecondary>
         </div>
-        <p className="text-body-sm text-text-tertiary">
-          (Fitur checklist task dan recurring task belum diimplementasi)
-        </p>
+        {project.tasks && project.tasks.length > 0 ? (
+          <div className="space-y-2">
+            {project.tasks.map((task) => (
+              <div
+                key={task.id}
+                className="p-3 rounded-md bg-bg-elevated-2 border border-border-hairline flex items-center justify-between"
+              >
+                <span className="text-body-sm text-text-primary">{task.title}</span>
+                <span className="text-caption font-mono text-text-tertiary uppercase">
+                  {task.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-body-sm text-text-tertiary">
+            Belum ada task yang dibuat untuk project ini.
+          </p>
+        )}
       </CardBase>
 
-      {/* Section 4: Wallet Terhubung */}
-      <CardBase className="space-y-3">
-        <h2 className="text-app-section-title font-semibold text-text-primary">
-          Wallet Terhubung
-        </h2>
-        <div className="flex items-center justify-between p-3 rounded-md bg-bg-elevated-2 font-mono text-data-mono-sm">
-          <span className="text-text-primary">0x71C...49A1</span>
-          <span className="text-text-tertiary">Wallet Utama</span>
-        </div>
-      </CardBase>
-
-      {/* Section 5: Akun Terkait (Non-sensitif) */}
+      {/* Section 4: Akun Terkait (Non-sensitif) */}
       <CardBase className="space-y-2">
         <div className="flex items-center gap-2 text-caption text-text-tertiary">
           <ShieldAlert className="w-3.5 h-3.5 text-accent" />
           <span>Akun non-sensitif (Droppr tidak pernah menyimpan password)</span>
         </div>
-        <div className="p-3 rounded-md bg-bg-elevated-2 text-body-sm">
-          <span className="text-text-secondary">Username:</span>{" "}
-          <span className="text-text-primary font-mono">@hunter_alpha</span>
-        </div>
+        {project.accounts && project.accounts.length > 0 ? (
+          <div className="space-y-2 pt-1">
+            {project.accounts.map((acc) => (
+              <div
+                key={acc.id}
+                className="p-3 rounded-md bg-bg-elevated-2 text-body-sm flex items-center justify-between"
+              >
+                <span className="text-text-secondary">{acc.label}:</span>
+                <span className="text-text-primary font-mono">{acc.username_email}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-body-sm text-text-tertiary">
+            Belum ada akun terkait yang disimpan.
+          </p>
+        )}
       </CardBase>
     </div>
   );
