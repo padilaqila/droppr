@@ -6,7 +6,7 @@ description: Droppr presents itself as a mission-control workspace for airdrop h
 
 ## Design Plan (read this before the tokens)
 
-- **Color:** Base `#14181F` (navy-charcoal, not pure black) · Elevated panel `#1B212B` · Hairline border `#2C3542` · Text `#F4F6F8` · Accent `#F0A93B` (marigold — reserved for primary CTA + "Ready to Claim" status only) · Secondary link `#4FC3B0` (teal, distinct role from accent, never used for CTAs).
+- **Color:** Base `#14181F` (navy-charcoal, not pure black) · Elevated panel `#1B212B` · Hairline border `#222A35` · Text `#F4F6F8` · Accent `#F0A93B` (marigold — reserved for primary CTA + "Ready to Claim" status only) · Secondary link `#4FC3B0` (teal, distinct role from accent, never used for CTAs).
 - **Type:** IBM Plex Sans for all UI/headline text (humanist-grotesque, has personality without being a display font). IBM Plex Mono strictly for on-chain/data values (wallet addresses, tx hashes, ISO dates, token amounts) — functional choice, not a "tech aesthetic" label.
 - **Layout:** App is left-aligned, dense, sidebar + content (like a work tool, not a brochure). Landing page hero is split (copy left / real product manifest preview right) — not a centered hero with a decorative mockup card, because the actual task list IS the product's most characteristic image.
 - **Principles:** Every color must mean something (status, not decoration). Radius stays tight (4–8px) — this is a money-tracking tool, not a playful notes app. No shadow-under-every-card; depth comes from panel layering (`bg-base` vs `bg-elevated`), which also happens to be how real terminal/dashboard tools already read as "serious."
@@ -20,8 +20,8 @@ colors:
   bg-elevated: "#1B212B"
   bg-elevated-2: "#232A36"
   bg-sidebar: "#10141A"
-  border-hairline: "#2C3542"
-  border-hairline-strong: "#3A4453"
+  border-hairline: "#222A35"
+  border-hairline-strong: "#2F3844"
   text-primary: "#F4F6F8"
   text-secondary: "#A9B3C1"
   text-tertiary: "#6B7684"
@@ -399,3 +399,23 @@ Flat by default. Only true overlays get shadow:
 - Landing page hero preview needs a **real** screenshot of the app once built — don't ship a fake mockup illustration at public launch.
 - Decide light mode necessity after MVP usage feedback, not before.
 - Rich text editor component (guide-content) needs its own detailed spec once an editor library is chosen (e.g., Tiptap) — toolbar token above is a placeholder only.
+
+---
+
+## Usulan Perubahan
+
+Sama seperti aturan di `AGENTS.md §7`, dokumen ini tidak ditimpa langsung ketika ada perubahan desain/spesifikasi visual baru yang belum dikonsolidasikan. Tulis usulan di bagian ini dengan format tanggal, bagian yang diusulkan, alasan, dan usulan pengganti / token baru.
+
+### Entri Usulan
+
+- **Tanggal:** 2026-09-08
+- **Bagian yang diusulkan:** § Layout Landing Page (Hero) & Section Elevation
+- **Alasan:** Keputusan desain dari user untuk menghadirkan atmosfer visual yang lebih modern dan hidup di hero landing page (terinspirasi dari Stitch / single-screen centered layout). Efek ini **hanya berlaku untuk landing page** (`app/(marketing)/`), sedangkan app shell / dashboard tetap flat sesuai prinsip no-shadow panel layering di DESIGN.md.
+- **Usulan pengganti / Token Baru yang Digunakan:**
+  1. **Layout Hero:** Menggunakan centered composition (Headline terpusat di atas, Centerpiece card search & preview terpusat di bawahnya, diiringi chip filter horizontal netral).
+  2. **Layering Background Hero:**
+     - Base: Radial gradient lembut `{colors.bg-base}` (`#14181F`) ke arah amber marigold sangat redup di sudut kanan bawah (`rgba(240, 169, 59, 0.04)`).
+     - Glass Card: `bg-bg-elevated/75` (`rgba(27, 33, 43, 0.75)`), `backdrop-filter: blur(16px)`, border hairline `1px solid var(--color-border-hairline)`.
+     - Interactive Dot Grid (CSS): Grid dot 24px x 24px statis `rgba(244, 246, 248, 0.14)`, dipadukan dengan spotlight dot grid amber (`rgba(240, 169, 59, 0.85)` ukuran 1.5px) yang di-masking secara radial (radius 180px) mengikuti koordinat kursor mouse `--mouse-x`, `--mouse-y` via `requestAnimationFrame`. Menghormati preferensi aksesibilitas `prefers-reduced-motion` (menjadi statis murni).
+  3. **Disiplin Data:** Menegaskan larangan fabrikasi statistik nominal reward/dolar palsu; seluruh chip hanya menampilkan nama project contoh dan status operasional netral.
+
