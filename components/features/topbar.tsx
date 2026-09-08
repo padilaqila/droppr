@@ -2,11 +2,21 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Search, Plus, Bell } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { CreateProjectModal } from "@/components/features/create-project-modal";
-import { WalletConnectButton } from "@/components/features/wallet-connect-button";
 import { useRouter } from "next/navigation";
+
+const WalletConnectButton = dynamic(
+  () => import("@/components/features/wallet-connect-button").then((m) => m.WalletConnectButton),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-9 w-24 bg-white/[0.04] rounded-md border border-white/10 animate-pulse" />
+    ),
+  }
+);
 
 export function Topbar() {
   const router = useRouter();

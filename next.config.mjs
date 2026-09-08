@@ -13,7 +13,10 @@ const nextConfig = {
     optimizePackageImports: [
       "lucide-react",
       "wagmi",
+      "wagmi/chains",
+      "wagmi/connectors",
       "viem",
+      "viem/chains",
       "@tanstack/react-query",
       "@supabase/supabase-js",
     ],
