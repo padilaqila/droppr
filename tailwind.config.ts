@@ -14,6 +14,7 @@ const config: Config = {
         "bg-sidebar": "var(--color-bg-sidebar)",
         "border-hairline": "var(--color-border-hairline)",
         "border-hairline-strong": "var(--color-border-hairline-strong)",
+        "border-subtle": "var(--color-border-subtle)",
         "text-primary": "var(--color-text-primary)",
         "text-secondary": "var(--color-text-secondary)",
         "text-tertiary": "var(--color-text-tertiary)",
@@ -53,8 +54,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
-        mono: ["var(--font-mono)"],
+        sans: ["var(--font-ibm-sans)", "var(--font-sans)", "'IBM Plex Sans'", "-apple-system", "BlinkMacSystemFont", "'Segoe UI'", "Roboto", "sans-serif"],
+        mono: ["var(--font-ibm-mono)", "var(--font-mono)", "'IBM Plex Mono'", "SFMono-Regular", "Menlo", "monospace"],
       },
       fontSize: {
         "landing-hero": ["64px", { lineHeight: "1.08", letterSpacing: "-1px", fontWeight: "600" }],
@@ -94,6 +95,13 @@ const config: Config = {
       boxShadow: {
         "elevation-1": "var(--shadow-elevation-1)",
         "elevation-2": "var(--shadow-elevation-2)",
+        "card-subtle": "var(--shadow-card-subtle)",
+      },
+      borderColor: {
+        DEFAULT: "var(--color-border-hairline)",
+        hairline: "var(--color-border-hairline)",
+        "hairline-strong": "var(--color-border-hairline-strong)",
+        subtle: "var(--color-border-subtle)",
       },
     },
   },
