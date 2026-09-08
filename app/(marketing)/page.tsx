@@ -18,11 +18,40 @@ export default function MarketingPage() {
   return (
     <div 
       className="min-h-screen lg:h-screen lg:max-h-screen flex flex-col justify-between bg-bg-base text-text-primary relative overflow-hidden select-none"
-      style={{
-        background: "radial-gradient(circle at 15% 20%, rgba(240, 169, 59, 0.10) 0%, transparent 40%), radial-gradient(circle at 85% 75%, rgba(79, 168, 224, 0.08) 0%, transparent 45%), var(--bg-base, #14181F)",
-      }}
     >
-      {/* Layer 3: Interactive CSS Dot Grid (RAF throttled + prefers-reduced-motion respected) */}
+      {/* Layer 0: Heavy Blurred Atmospheric Glow Blobs (Screen Blend Mode) */}
+      {/* Blob 1 - amber, kiri atas */}
+      <div
+        className="absolute pointer-events-none z-0"
+        aria-hidden="true"
+        style={{
+          top: "-200px",
+          left: "-150px",
+          width: "650px",
+          height: "650px",
+          borderRadius: "50%",
+          background: "rgba(240, 169, 59, 0.35)",
+          filter: "blur(120px)",
+          mixBlendMode: "screen",
+        }}
+      />
+      {/* Blob 2 - violet/biru, kanan bawah */}
+      <div
+        className="absolute pointer-events-none z-0"
+        aria-hidden="true"
+        style={{
+          bottom: "-250px",
+          right: "-200px",
+          width: "750px",
+          height: "750px",
+          borderRadius: "50%",
+          background: "rgba(139, 127, 232, 0.32)",
+          filter: "blur(140px)",
+          mixBlendMode: "screen",
+        }}
+      />
+
+      {/* Layer 1: Interactive CSS Dot Grid (RAF throttled + prefers-reduced-motion respected) */}
       <HeroDotGrid />
 
       {/* Navigation Header */}
