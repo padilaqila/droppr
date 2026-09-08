@@ -1,7 +1,8 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FolderGit2,
@@ -11,7 +12,10 @@ import {
   Settings,
   Flame,
   ChevronRight,
+  LogOut,
+  User as UserIcon,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface NavItem {
   name: string;
@@ -30,6 +34,34 @@ const mainNavItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) {
+        setUserEmail(data.user.email);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-64 bg-bg-sidebar border-r border-border-hairline flex flex-col z-30 select-none">
@@ -98,10 +130,27 @@ export function Sidebar() {
         </div>
       </nav>
 
-      {/* Footer Info */}
-      <div className="p-3 border-t border-border-hairline text-caption text-text-tertiary flex items-center justify-between">
-        <span className="font-mono text-data-mono-sm">v0.1.0-alpha</span>
-        <span className="text-[11px] text-link-teal">Local</span>
+      {/* User Session & Sign Out Footer */}
+      <div className="p-3 border-t border-border-hairline space-y-2 bg-bg-sidebar">
+        {userEmail && (
+          <div className="flex items-center gap-2 px-2 py-1 text-caption text-text-secondary">
+            <UserIcon className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+            <span className="truncate font-mono text-[11px]">{userEmail}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-sm text-caption text-text-secondary hover:text-status-overdue hover:bg-bg-elevated transition-colors"
+            title="Keluar dari akun"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Keluar</span>
+          </button>
+          <span className="font-mono text-data-mono-sm text-text-tertiary">
+            v0.1.0-alpha
+          </span>
+        </div>
       </div>
     </aside>
   );
