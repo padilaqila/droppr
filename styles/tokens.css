@@ -1,7 +1,9 @@
 :root {
   /* Colors - Base Surfaces */
   --color-bg-base: #14181F;
+  --bg-base: #14181F;
   --color-bg-elevated: #1B212B;
+  --bg-elevated: #1B212B;
   --color-bg-elevated-2: #232A36;
   --color-bg-sidebar: #10141A;
 
@@ -103,7 +105,9 @@
 /* Enforce dark surfaces strictly for marketing showcase */
 .marketing-root {
   --color-bg-base: #14181F;
+  --bg-base: #14181F;
   --color-bg-elevated: #1B212B;
+  --bg-elevated: #1B212B;
   --color-bg-elevated-2: #232A36;
   --color-bg-sidebar: #10141A;
 

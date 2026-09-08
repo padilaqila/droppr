@@ -19,7 +19,7 @@ export default function MarketingPage() {
     <div 
       className="min-h-screen lg:h-screen lg:max-h-screen flex flex-col justify-between bg-bg-base text-text-primary relative overflow-hidden select-none"
       style={{
-        background: "radial-gradient(circle at 85% 92%, rgba(240, 169, 59, 0.04) 0%, var(--color-bg-base) 65%)",
+        background: "radial-gradient(circle at 15% 20%, rgba(240, 169, 59, 0.10) 0%, transparent 40%), radial-gradient(circle at 85% 75%, rgba(79, 168, 224, 0.08) 0%, transparent 45%), var(--bg-base, #14181F)",
       }}
     >
       {/* Layer 3: Interactive CSS Dot Grid (RAF throttled + prefers-reduced-motion respected) */}
@@ -81,29 +81,18 @@ export default function MarketingPage() {
 
         {/* Centerpiece Search / Preview Card (Manifest Console Panel) */}
         <div className="w-full max-w-2xl mt-8 relative">
-          <div className="relative rounded-xl bg-bg-elevated border-t-2 border-accent border-x border-b border-border-hairline p-5 sm:p-6 shadow-[0_0_40px_-6px_rgba(240,169,59,0.10),0_12px_28px_-6px_rgba(0,0,0,0.5)] text-left space-y-4">
-            
-            {/* 4 Corner Crosshair Tick Marks (10px, coordinate / radar look) */}
-            <div className="absolute top-2 left-2.5 w-2.5 h-2.5 text-text-tertiary pointer-events-none select-none" aria-hidden="true">
-              <svg viewBox="0 0 10 10" fill="none" className="w-full h-full stroke-current stroke-[1.2]">
-                <path d="M5 0v10M0 5h10" />
-              </svg>
-            </div>
-            <div className="absolute top-2 right-2.5 w-2.5 h-2.5 text-text-tertiary pointer-events-none select-none" aria-hidden="true">
-              <svg viewBox="0 0 10 10" fill="none" className="w-full h-full stroke-current stroke-[1.2]">
-                <path d="M5 0v10M0 5h10" />
-              </svg>
-            </div>
-            <div className="absolute bottom-2 left-2.5 w-2.5 h-2.5 text-text-tertiary pointer-events-none select-none" aria-hidden="true">
-              <svg viewBox="0 0 10 10" fill="none" className="w-full h-full stroke-current stroke-[1.2]">
-                <path d="M5 0v10M0 5h10" />
-              </svg>
-            </div>
-            <div className="absolute bottom-2 right-2.5 w-2.5 h-2.5 text-text-tertiary pointer-events-none select-none" aria-hidden="true">
-              <svg viewBox="0 0 10 10" fill="none" className="w-full h-full stroke-current stroke-[1.2]">
-                <path d="M5 0v10M0 5h10" />
-              </svg>
-            </div>
+          <div 
+            className="relative rounded-xl bg-bg-elevated border border-border-hairline p-5 sm:p-6 space-y-4 text-left"
+            style={{ boxShadow: "0 0 40px -10px rgba(240, 169, 59, 0.12)" }}
+          >
+            {/* Garis aksen atas */}
+            <div className="absolute top-0 left-4 right-4 h-[2px] bg-accent rounded-full" />
+
+            {/* 4 Corner tick marks */}
+            <div className="absolute top-2 left-2 w-2 h-2 border-t border-l border-text-tertiary" />
+            <div className="absolute top-2 right-2 w-2 h-2 border-t border-r border-text-tertiary" />
+            <div className="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-text-tertiary" />
+            <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-text-tertiary" />
 
             {/* Search Input Bar Imitation */}
             <Link href="/dashboard" className="block">
