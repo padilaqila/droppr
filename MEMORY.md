@@ -20,8 +20,8 @@
 - Perbaikan yang dilakukan: Mengonfigurasi `resolve.fallback` di `next.config.mjs` dengan nilai `false` untuk dependensi opsional tersebut.
 - Aturan ke depan: Saat menambah connector web3 atau upgrade wagmi/@wagmi/connectors, selalu verifikasi `next build` dan cek apakah fallback webpack di `next.config.mjs` masih perlu atau sudah tidak relevan.
 
-## [2026-09-08] PowerShell execution policy memblokir npm script wrapper
-- Apa yang salah: Menjalankan `npm` dan `npx` di PowerShell menghasilkan security error `PSSecurityException`.
-- Kenapa terjadi (root cause, bukan cuma gejala): PowerShell mencoba memanggil `npm.ps1` yang terkena script restriction Windows.
-- Perbaikan yang dilakukan: Menggunakan executable langsung `npm.cmd` dan `npx.cmd`.
-- Aturan ke depan: Di environment Windows PowerShell, selalu panggil `npm.cmd` dan `npx.cmd` secara eksplisit untuk eksekusi perintah terminal.
+## [2026-09-08] Next.js Link prefetch membanjiri middleware auth dan membekukan navigasi
+- Apa yang salah: Perpindahan antar tab/halaman via sidebar terasa sangat berat dan lambat (menunggu 5-8 detik).
+- Kenapa terjadi (root cause, bukan cuma gejala): Next.js App Router secara default melakukan prefetching otomatis untuk semua komponen `<Link>` yang ada di viewport. Setiap prefetch mengeksekusi `middleware.ts` yang memanggil `await supabase.auth.getUser()`. Panggilan HTTP jarak jauh paralel ke server Supabase cloud memenuhi batas koneksi browser (head-of-line blocking), sehingga navigasi yang diklik user mengantri lama di belakang request prefetch.
+- Perbaikan yang dilakukan: Menambahkan bypass di `lib/supabase/middleware.ts` untuk request prefetch jika auth cookie sudah ada, serta menambahkan `prefetch={false}` pada link sidebar di `components/features/sidebar.tsx`.
+- Aturan ke depan: Jangan biarkan middleware melakukan remote HTTP auth validation pada header `next-router-prefetch` / `purpose: prefetch`, dan matikan prefetching pada navigasi utama sidebar jika tidak krusial.
