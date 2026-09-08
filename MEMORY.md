@@ -2,6 +2,12 @@
 
 > File ini ditulis oleh agen AI, bukan oleh manusia. Dibaca otomatis di awal sesi (bagian atas file diprioritaskan). Lihat `AGENTS.md` §5 untuk format entri dan aturan pemangkasan.
 
+## [2026-09-08] CSS Tailwind gagal ter-bundle akibat @import relatif di globals.css
+- Apa yang salah: Halaman browser muncul putih polos tanpa styling Tailwind (layout.css menghasilkan 404).
+- Kenapa terjadi (root cause, bukan cuma gejala): `styles/globals.css` memuat baris `@import "./tokens.css";` yang tidak didukung oleh PostCSS tanpa plugin tambahan, sehingga kompilasi CSS Tailwind terhenti.
+- Perbaikan yang dilakukan: Menghapus `@import` relatif dari `globals.css` dan mengimpor `tokens.css` serta `globals.css` secara langsung di `app/layout.tsx`, lalu membersihkan cache `.next`.
+- Aturan ke depan: Hindari `@import` lokal di dalam file CSS Tailwind Next.js; selalu impor file CSS terpisah langsung di level RootLayout.
+
 ## [2026-09-08] Utang teknis penulisan manual lib/supabase/database.types.ts
 - Apa yang salah: File `lib/supabase/database.types.ts` dibuat dengan penulisan manual, berisiko mengalami schema drift dari skema database aktual.
 - Kenapa terjadi (root cause, bukan cuma gejala): Instance Supabase belum terhubung dan Docker tidak tersedia di environment ini untuk menjalankan `supabase gen types`.
