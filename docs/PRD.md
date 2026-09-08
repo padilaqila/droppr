@@ -218,6 +218,15 @@ notification_log
 
 **Catatan keamanan:** tabel `accounts` **tidak boleh** punya kolom password/seed phrase secara desain — cegah dari level skema, bukan cuma UI.
 
+### Catatan Tambahan Implementasi Skema SQL (Migration 20260908101500)
+Untuk memenuhi integritas data, audit trail, performa RLS, dan cascading rule:
+- **Timestamp Audit:** Kolom `updated_at` ditambahkan pada `folders`, `wallets`, `accounts`, `reminders`, dan `claims`. Kolom `created_at` serta `updated_at` ditambahkan pada `tasks`. Seluruh tabel dengan `updated_at` dilengkapi trigger otomatis `BEFORE UPDATE`.
+- **Status Proyek:** Kolom `projects.status` diimplementasikan menggunakan enum Postgres `project_status` ('not_started', 'in_progress', 'waiting', 'ready_to_claim', 'completed', 'archived') untuk menjamin integritas 6 status lifecycle.
+- **Relasi Folder-Project:** Kolom `projects.folder_id` menggunakan constraint `ON DELETE SET NULL`, sehingga penghapusan folder tidak menghapus project di dalamnya.
+- **Tabel Reminders:** Kolom `user_id` ditambahkan secara eksplisit pada tabel `reminders` untuk mempermudah eksekusi cron Edge Function per pengguna dan menyederhanakan isolasi RLS. Diberikan constraint `CHECK (project_id IS NOT NULL OR task_id IS NOT NULL)`.
+- **Tabel Tasks:** `recurrence_rule` disimpan bertipe `TEXT` untuk menampung ekspresi string standar iCalendar (RRULE) atau pola kustom.
+- **Tabel Project Wallets:** Composite primary key didefinisikan pada `(project_id, wallet_id)` dengan tambahan kolom `created_at`.
+
 ---
 
 ## 7. Kebutuhan Teknis Kunci
