@@ -81,42 +81,42 @@ export function HeroSearchConsole() {
   });
 
   return (
-    <div className="w-full max-w-2xl mt-6 relative select-none">
-      {/* Main Console Box (Stitch-inspired clean elevated container) */}
-      <div className="relative rounded-2xl bg-[#151923]/95 backdrop-blur-xl border border-white/10 shadow-[0_24px_50px_-12px_rgba(0,0,0,0.8),0_0_50px_-15px_rgba(139,127,232,0.25)] p-4 sm:p-5 text-left transition-all">
+    <div className="w-full max-w-2xl mt-4 sm:mt-5 relative select-none">
+      {/* Main Console Box: True Translucent Frosted Glass Effect */}
+      <div className="relative rounded-2xl bg-[#0f1420]/45 backdrop-blur-2xl border border-white/15 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.2),0_0_35px_-5px_rgba(139,127,232,0.25)] p-3.5 sm:p-4 text-left transition-all">
         
-        {/* Top Input Area: Large Elegant Query Field */}
-        <div className="flex items-center gap-3 pb-3 border-b border-border-hairline/80">
-          <Search className="w-5 h-5 text-text-tertiary shrink-0 ml-1" />
+        {/* Top Input Area: Transparent Field with Subtle Border */}
+        <div className="flex items-center gap-2.5 pb-2.5 border-b border-white/10">
+          <Search className="w-4 h-4 text-white/60 shrink-0 ml-1" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Protokol airdrop atau task apa yang ingin kamu lacak hari ini?"
-            className="w-full bg-transparent text-text-primary placeholder:text-text-tertiary text-body-md sm:text-base font-sans focus:outline-none tracking-normal"
+            className="w-full bg-transparent text-text-primary placeholder:text-white/40 text-body-sm sm:text-body-md font-sans focus:outline-none tracking-normal"
           />
-          <div className="hidden sm:flex items-center gap-1 font-mono text-[11px] text-text-tertiary px-2 py-0.5 rounded bg-bg-base border border-border-hairline shrink-0">
+          <div className="hidden sm:flex items-center gap-1 font-mono text-[10px] text-white/50 px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 shrink-0">
             <span>⌘</span>
             <span>K</span>
           </div>
         </div>
 
-        {/* Middle Live Intel Section: Filtered Real-Time Protocol Tracker */}
-        <div className="py-3 space-y-2">
+        {/* Middle Live Intel Section: Translucent Protocol Tracker Items */}
+        <div className="py-2.5 space-y-1.5">
           {filteredData.map((project) => (
             <Link
               key={project.id}
               href="/dashboard"
-              className="group flex items-center justify-between p-2.5 rounded-xl bg-bg-elevated/80 hover:bg-bg-elevated-2 border border-border-hairline hover:border-border-hairline-strong transition-all duration-150"
+              className="group flex items-center justify-between p-2 sm:p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.09] backdrop-blur-md border border-white/[0.08] hover:border-white/20 transition-all duration-150 shadow-sm"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-bg-base/80 border border-border-hairline flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-black/40 border border-white/10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   {project.status === "ready-claim" ? (
-                    <Flame className="w-4 h-4 text-accent" />
+                    <Flame className="w-3.5 h-3.5 text-accent" />
                   ) : project.status === "in-progress" ? (
-                    <CheckCircle2 className="w-4 h-4 text-status-in-progress" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-status-in-progress" />
                   ) : (
-                    <Clock className="w-4 h-4 text-status-waiting" />
+                    <Clock className="w-3.5 h-3.5 text-status-waiting" />
                   )}
                 </div>
                 <div className="min-w-0 truncate">
@@ -124,17 +124,17 @@ export function HeroSearchConsole() {
                     <span className="text-body-sm font-semibold text-text-primary group-hover:text-white transition-colors truncate">
                       {project.name}
                     </span>
-                    <span className="text-[10px] font-mono text-text-tertiary truncate hidden sm:inline">
+                    <span className="text-[10px] font-mono text-white/50 truncate hidden sm:inline">
                       {project.ecosystem}
                     </span>
                   </div>
-                  <p className="text-caption text-text-secondary truncate mt-0.5">
+                  <p className="text-caption text-white/70 truncate mt-0.5">
                     {project.taskHeadline}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 ml-3">
+              <div className="flex items-center gap-2 shrink-0 ml-2">
                 <StatusBadge 
                   status={project.status} 
                   label={project.statusLabel}
@@ -149,32 +149,32 @@ export function HeroSearchConsole() {
           ))}
 
           {filteredData.length === 0 && (
-            <div className="py-6 text-center text-text-tertiary text-caption font-sans">
+            <div className="py-4 text-center text-white/50 text-caption font-sans">
               Tidak ada airdrop yang cocok dengan pencarian "{query}".
             </div>
           )}
         </div>
 
         {/* Bottom Control Bar: Stitch-like Segmented Controls & Submit Button */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border-hairline/80">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-white/10">
           {/* Left Segmented Filter Group */}
           <div className="flex items-center gap-1.5">
             <Link 
               href="/dashboard"
-              className="w-8 h-8 rounded-lg bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline text-text-secondary hover:text-text-primary flex items-center justify-center transition-colors"
+              className="w-7 h-7 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white/80 hover:text-white flex items-center justify-center transition-colors"
               title="Tambah airdrop baru ke workspace"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
             </Link>
 
-            <div className="flex items-center p-0.5 rounded-lg bg-bg-base border border-border-hairline">
+            <div className="flex items-center p-0.5 rounded-lg bg-black/40 backdrop-blur-md border border-white/10">
               <button
                 type="button"
                 onClick={() => setActiveFilter("all")}
-                className={`px-2.5 py-1 rounded-md text-caption font-medium transition-all ${
+                className={`px-2.5 py-0.5 rounded-md text-caption font-medium transition-all ${
                   activeFilter === "all"
-                    ? "bg-bg-elevated-2 text-text-primary shadow-sm"
-                    : "text-text-tertiary hover:text-text-secondary"
+                    ? "bg-white/15 text-white shadow-sm"
+                    : "text-white/50 hover:text-white/80"
                 }`}
               >
                 Semua
@@ -182,10 +182,10 @@ export function HeroSearchConsole() {
               <button
                 type="button"
                 onClick={() => setActiveFilter("testnet")}
-                className={`px-2.5 py-1 rounded-md text-caption font-medium transition-all ${
+                className={`px-2.5 py-0.5 rounded-md text-caption font-medium transition-all ${
                   activeFilter === "testnet"
-                    ? "bg-bg-elevated-2 text-text-primary shadow-sm"
-                    : "text-text-tertiary hover:text-text-secondary"
+                    ? "bg-white/15 text-white shadow-sm"
+                    : "text-white/50 hover:text-white/80"
                 }`}
               >
                 Testnet
@@ -193,10 +193,10 @@ export function HeroSearchConsole() {
               <button
                 type="button"
                 onClick={() => setActiveFilter("mainnet")}
-                className={`px-2.5 py-1 rounded-md text-caption font-medium transition-all ${
+                className={`px-2.5 py-0.5 rounded-md text-caption font-medium transition-all ${
                   activeFilter === "mainnet"
-                    ? "bg-bg-elevated-2 text-text-primary shadow-sm"
-                    : "text-text-tertiary hover:text-text-secondary"
+                    ? "bg-white/15 text-white shadow-sm"
+                    : "text-white/50 hover:text-white/80"
                 }`}
               >
                 Mainnet
@@ -206,18 +206,18 @@ export function HeroSearchConsole() {
 
           {/* Right Action Group: Status Indicator & Submit Action Button */}
           <div className="flex items-center gap-2">
-            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-base/70 border border-border-hairline text-[11px] font-sans text-text-secondary">
-              <span className="w-2 h-2 rounded-full bg-status-completed animate-pulse" />
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/[0.05] border border-white/10 text-[11px] font-sans text-white/70">
+              <span className="w-1.5 h-1.5 rounded-full bg-status-completed animate-pulse" />
               <span>Multi-Chain Radar</span>
             </div>
 
             <Link href="/dashboard">
               <button
                 type="button"
-                className="w-8 h-8 rounded-full bg-accent hover:bg-accent-pressed text-on-accent flex items-center justify-center shadow-[0_0_15px_rgba(240,169,59,0.4)] hover:scale-105 active:scale-95 transition-all"
+                className="w-7 h-7 rounded-full bg-accent hover:bg-accent-pressed text-on-accent flex items-center justify-center shadow-[0_0_15px_rgba(240,169,59,0.5)] hover:scale-105 active:scale-95 transition-all"
                 title="Buka Workspace Droppr"
               >
-                <ArrowUp className="w-4 h-4 font-bold stroke-[2.5]" />
+                <ArrowUp className="w-3.5 h-3.5 font-bold stroke-[2.5]" />
               </button>
             </Link>
           </div>
@@ -225,29 +225,29 @@ export function HeroSearchConsole() {
 
       </div>
 
-      {/* Suggestion Chips Below Card (Stitch-inspired Quick Query Pills) */}
-      <div className="flex flex-wrap items-center justify-center gap-2 mt-4 max-w-2xl mx-auto">
+      {/* Suggestion Chips Below Card: 1 Clean Horizontal Row */}
+      <div className="flex flex-wrap items-center justify-center gap-2 mt-3 max-w-2xl mx-auto">
         <Link 
           href="/dashboard"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#151923]/80 hover:bg-[#1C2230] border border-white/10 hover:border-white/20 text-caption text-text-secondary hover:text-text-primary font-sans transition-all shadow-sm"
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-white/25 text-[11px] text-white/85 hover:text-white font-sans transition-all shadow-sm"
         >
-          <Sparkles className="w-3.5 h-3.5 text-accent" />
-          <span>Checklist task harian Monad Testnet</span>
+          <Sparkles className="w-3 h-3 text-accent" />
+          <span>Checklist Monad Testnet</span>
         </Link>
 
         <Link 
           href="/dashboard"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#151923]/80 hover:bg-[#1C2230] border border-white/10 hover:border-white/20 text-caption text-text-secondary hover:text-text-primary font-sans transition-all shadow-sm"
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-white/25 text-[11px] text-white/85 hover:text-white font-sans transition-all shadow-sm"
         >
-          <Sparkles className="w-3.5 h-3.5 text-link-teal" />
-          <span>Klaim reward bGT Berachain V2</span>
+          <Sparkles className="w-3 h-3 text-link-teal" />
+          <span>Klaim reward Berachain V2</span>
         </Link>
 
         <Link 
           href="/dashboard"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#151923]/80 hover:bg-[#1C2230] border border-white/10 hover:border-white/20 text-caption text-text-secondary hover:text-text-primary font-sans transition-all shadow-sm"
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-white/25 text-[11px] text-white/85 hover:text-white font-sans transition-all shadow-sm"
         >
-          <Sparkles className="w-3.5 h-3.5 text-status-waiting" />
+          <Sparkles className="w-3 h-3 text-status-waiting" />
           <span>Registrasi IP Story Protocol</span>
         </Link>
       </div>

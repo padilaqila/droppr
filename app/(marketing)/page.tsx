@@ -8,7 +8,7 @@ import { Flame } from "lucide-react";
 export default function MarketingPage() {
   return (
     <div 
-      className="min-h-screen lg:h-screen lg:max-h-screen flex flex-col justify-between bg-bg-base text-text-primary relative overflow-hidden select-none"
+      className="h-screen max-h-screen flex flex-col justify-between bg-bg-base text-text-primary relative overflow-hidden select-none"
     >
       {/* Layer 0: Stitch-style Curved Neon Aurora Wave Ribbon */}
       <AuroraWave />
@@ -17,7 +17,7 @@ export default function MarketingPage() {
       <HeroDotGrid />
 
       {/* Navigation Header */}
-      <header className="h-16 lg:h-20 px-6 lg:px-12 flex items-center justify-between z-20">
+      <header className="h-14 lg:h-16 px-6 lg:px-12 flex items-center justify-between z-20 shrink-0">
         {/* Brand */}
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-md bg-accent/15 border border-accent/40 flex items-center justify-center text-accent shadow-sm">
@@ -34,7 +34,7 @@ export default function MarketingPage() {
         {/* Action Button */}
         <div>
           <Link href="/dashboard">
-            <ButtonPrimary className="text-body-sm py-2 px-4 shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-transform">
+            <ButtonPrimary className="text-body-sm py-1.5 px-3.5 shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-transform">
               Buka Workspace
             </ButtonPrimary>
           </Link>
@@ -42,31 +42,31 @@ export default function MarketingPage() {
       </header>
 
       {/* Centered Hero Viewport */}
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 flex flex-col justify-center items-center text-center z-10 -mt-2 lg:-mt-5">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 flex flex-col justify-center items-center text-center z-10 py-1">
         
         {/* Top Eyebrow Badge (Label sistem: font-mono diperbolehkan) */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-bg-elevated/80 border border-border-hairline text-caption text-text-secondary mb-4 shadow-sm">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.05] backdrop-blur-md border border-white/10 text-caption text-text-secondary mb-2.5 sm:mb-3 shadow-sm">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
           </span>
-          <span className="font-mono text-[11px] tracking-wide text-text-primary">
+          <span className="font-mono text-[10.5px] tracking-wide text-text-primary">
             PERSONAL AIRDROP WORKSPACE
           </span>
           <span className="text-border-hairline">/</span>
-          <span className="font-mono text-[11px] text-link-teal">
+          <span className="font-mono text-[10.5px] text-link-teal">
             MISSION CONTROL
           </span>
         </div>
 
-        {/* Main Headline (typography.landing-hero: 64px, 600, -1px letterSpacing) */}
-        <h1 className="text-heading-1 md:text-landing-hero font-semibold text-text-primary tracking-tight leading-[1.08] max-w-3xl font-sans">
+        {/* Main Headline (Scaled responsively to protect vertical space) */}
+        <h1 className="text-heading-2 sm:text-heading-1 md:text-[44px] lg:text-[52px] font-semibold text-text-primary tracking-tight leading-[1.1] max-w-3xl font-sans">
           Kendali penuh <br />
           seluruh airdrop kamu
         </h1>
 
-        {/* Subtitle (typography.subtitle: 18px, 400, 1.5 lineHeight) */}
-        <p className="text-subtitle font-normal text-text-secondary max-w-xl mx-auto leading-relaxed mt-3 font-sans">
+        {/* Subtitle */}
+        <p className="text-caption sm:text-body-md font-normal text-text-secondary max-w-xl mx-auto leading-relaxed mt-2 font-sans">
           Satu workspace personal untuk melacak task harian, jadwal snapshot, status wallet, dan reminder klaim token tanpa spreadsheet yang berantakan.
         </p>
 
@@ -76,7 +76,7 @@ export default function MarketingPage() {
       </main>
 
       {/* Docked Minimalist Footer */}
-      <footer className="h-14 px-6 lg:px-12 flex items-center justify-between text-caption text-text-tertiary z-20 border-t border-border-hairline/60">
+      <footer className="h-11 sm:h-12 px-6 lg:px-12 flex items-center justify-between text-caption text-text-tertiary z-20 border-t border-border-hairline/40 shrink-0">
         <div>
           <span>&copy; 2026 Droppr. Workspace personal airdrop hunter.</span>
         </div>
