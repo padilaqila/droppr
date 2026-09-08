@@ -102,7 +102,24 @@ Prosedurnya:
 3. User yang review dan pindahkan usulan ke bagian utama kalau disetujui, lalu hapus dari daftar usulan.
 
 ### Usulan Perubahan
-*(kosong — isi di sini kalau ada usulan, jangan edit section di atas secara langsung)*
+
+- **Tanggal:** 2026-09-08
+- **Bagian yang keliru:** §2 Struktur Proyek — pohon direktori `app/(app)/` tidak mencantumkan folder `reminders/`.
+- **Alasan:** Folder `reminders/` valid dan diperlukan sesuai `docs/PRD.md` §5.7 (Reminders/Notification Center), namun luput ditulis saat `AGENTS.md` pertama kali dibuat.
+- **Usulan pengganti:** Tambahkan `reminders/` ke tree struktur proyek di §2 di bawah `app/(app)/`:
+  ```
+  droppr/
+  ├── ...
+  ├── app/                       # Next.js App Router
+  │   ├── (marketing)/           # landing page publik
+  │   └── (app)/                 # dashboard setelah login
+  │       ├── dashboard/
+  │       ├── projects/[id]/
+  │       ├── tasks/
+  │       ├── wallets/
+  │       ├── reminders/
+  │       └── settings/
+  ```
 
 ## 8. Referensi
 
