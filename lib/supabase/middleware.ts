@@ -36,6 +36,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Next.js Router Prefetch optimization:
+  // If this is a prefetch request and user already has auth cookie,
+  // pass through immediately without waiting for Supabase remote HTTP roundtrip.
+  const isPrefetch =
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch";
+  if (isPrefetch && hasAuthCookie) {
+    return supabaseResponse;
+  }
+
   // If visiting public/marketing routes without auth cookies, skip remote session check
   if (!isAppRoute && !isAuthRoute && !hasAuthCookie) {
     return supabaseResponse;

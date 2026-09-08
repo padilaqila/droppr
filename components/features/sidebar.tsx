@@ -117,6 +117,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-sm text-body-sm font-medium transition-colors ${
                 isActive
                   ? "bg-bg-elevated-2 text-text-primary"
@@ -134,6 +135,7 @@ export function Sidebar() {
           <span>Projects</span>
           <Link
             href="/projects"
+            prefetch={false}
             className="text-text-tertiary hover:text-accent transition-colors"
             title="Kelola Project"
           >
@@ -147,6 +149,7 @@ export function Sidebar() {
               <Link
                 key={proj.id}
                 href={`/projects/${proj.id}`}
+                prefetch={false}
                 className="flex items-center justify-between px-3 py-1.5 rounded-sm text-caption text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
               >
                 <span className="truncate">{proj.name}</span>
