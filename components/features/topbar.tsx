@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { Search, Plus, Bell } from "lucide-react";
-import { ButtonSecondary } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { CreateProjectModal } from "@/components/features/create-project-modal";
+import { WalletConnectButton } from "@/components/features/wallet-connect-button";
 import { useRouter } from "next/navigation";
 
 export function Topbar() {
@@ -52,10 +52,8 @@ export function Topbar() {
             <span className="w-2 h-2 rounded-full bg-accent absolute top-2 right-2 ring-2 ring-bg-base" />
           </button>
 
-          {/* Wallet Connect Placeholder (secondary styling as per DESIGN.md) */}
-          <ButtonSecondary className="!py-1.5 !px-3 text-body-sm">
-            Connect Wallet
-          </ButtonSecondary>
+          {/* Real Web3 Wallet Connect & On-chain Balance */}
+          <WalletConnectButton />
         </div>
       </header>
 

@@ -1,12 +1,14 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import { CardBase } from "@/components/ui/card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
-import { ShieldCheck, Wallet, Plus, Copy, Check, Trash2, FolderGit2 } from "lucide-react";
+import { ShieldCheck, Wallet, Plus, Copy, Check, Trash2, FolderGit2, Link2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useAccount, useConnect } from "wagmi";
+import { injected } from "wagmi/connectors";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
@@ -29,10 +31,22 @@ export function WalletsClientView({
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Wagmi connection
+  const { address: connectedAddress, isConnected, chain: connectedChain } = useAccount();
+  const { connect, isPending: isConnecting } = useConnect();
+
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleImportConnectedWallet = () => {
+    if (!connectedAddress) return;
+    setAddress(connectedAddress);
+    setLabel(`Wallet Terkoneksi (${connectedChain?.name || "EVM"})`);
+    setChain(connectedChain?.name || "EVM");
+    setIsModalOpen(true);
   };
 
   const handleCreateWallet = async (e: React.FormEvent) => {
@@ -105,13 +119,37 @@ export function WalletsClientView({
             Kelola alamat wallet publik untuk keperluan multi-akun dan tracking airdrop agar tidak tertukar.
           </p>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          {isConnected && connectedAddress ? (
+            <ButtonSecondary
+              onClick={handleImportConnectedWallet}
+              className="inline-flex items-center gap-2"
+            >
+              <Link2 className="w-4 h-4 text-accent" />
+              <span>Simpan Wallet Terkoneksi</span>
+            </ButtonSecondary>
+          ) : (
+            <ButtonSecondary
+              onClick={() => connect({ connector: injected() })}
+              disabled={isConnecting}
+              className="inline-flex items-center gap-2"
+            >
+              <Wallet className="w-4 h-4 text-accent" />
+              <span>{isConnecting ? "Menghubungkan..." : "Hubungkan Browser Wallet"}</span>
+            </ButtonSecondary>
+          )}
+
           <ButtonPrimary
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setAddress("");
+              setLabel("");
+              setChain("");
+              setIsModalOpen(true);
+            }}
             className="inline-flex items-center gap-2"
           >
             <Plus className="w-4 h-4 text-on-accent" />
-            <span>Tambah Wallet</span>
+            <span>Tambah Wallet Manual</span>
           </ButtonPrimary>
         </div>
       </div>
@@ -138,7 +176,16 @@ export function WalletsClientView({
           <p className="text-body-sm text-text-secondary max-w-md mx-auto">
             Simpan alamat wallet yang kamu pakai untuk hunting airdrop agar mudah disalin dan dipasangkan ke project.
           </p>
-          <div className="pt-2">
+          <div className="pt-2 flex items-center justify-center gap-2">
+            {isConnected && connectedAddress && (
+              <ButtonSecondary
+                onClick={handleImportConnectedWallet}
+                className="inline-flex items-center gap-1.5"
+              >
+                <Link2 className="w-4 h-4 text-accent" />
+                <span>Simpan Wallet Terkoneksi ({connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)})</span>
+              </ButtonSecondary>
+            )}
             <ButtonPrimary
               onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center gap-1.5"

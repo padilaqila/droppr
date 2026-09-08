@@ -4,8 +4,10 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Wallet, Plus, Check } from "lucide-react";
+import { Wallet, Plus, Check, Link2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useAccount, useConnect } from "wagmi";
+import { injected } from "wagmi/connectors";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
@@ -30,6 +32,10 @@ export function AttachWalletModal({
   const [selectedIds, setSelectedIds] = useState<string[]>(assignedWalletIds);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Wagmi state
+  const { address: connectedAddress, isConnected, chain: connectedChain } = useAccount();
+  const { connect } = useConnect();
 
   // New Wallet Form States
   const [address, setAddress] = useState("");
@@ -58,6 +64,16 @@ export function AttachWalletModal({
         ? prev.filter((id) => id !== walletId)
         : [...prev, walletId]
     );
+  };
+
+  const handleUseConnectedWallet = () => {
+    if (!connectedAddress) {
+      connect({ connector: injected() });
+      return;
+    }
+    setAddress(connectedAddress);
+    setLabel(`Browser Wallet (${connectedChain?.name || "EVM"})`);
+    setChain(connectedChain?.name || "EVM");
   };
 
   const handleCreateAndAssignWallet = async (e: React.FormEvent) => {
@@ -259,6 +275,25 @@ export function AttachWalletModal({
       {/* TAB 2: CREATE NEW WALLET AND LINK */}
       {activeTab === "new" && (
         <form onSubmit={handleCreateAndAssignWallet} className="space-y-4">
+          {isConnected && connectedAddress && (
+            <div className="p-3 rounded-md bg-accent/10 border border-accent/30 flex items-center justify-between">
+              <div className="text-body-sm">
+                <span className="text-text-primary font-medium">Browser Wallet Terdeteksi: </span>
+                <span className="font-mono text-caption text-text-secondary">
+                  {connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)}
+                </span>
+              </div>
+              <ButtonSecondary
+                type="button"
+                onClick={handleUseConnectedWallet}
+                className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1.5"
+              >
+                <Link2 className="w-3 h-3 text-accent" />
+                <span>Gunakan Ini</span>
+              </ButtonSecondary>
+            </div>
+          )}
+
           <div>
             <label className="block text-body-sm font-medium text-text-secondary mb-1">
               Label / Identitas Wallet <span className="text-status-overdue">*</span>
