@@ -6,7 +6,19 @@ import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "./config";
 
 export function Web3Provider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            refetchOnWindowFocus: false,
+            refetchOnMount: false,
+            retry: false,
+            staleTime: 60 * 1000,
+          },
+        },
+      })
+  );
 
   return (
     <WagmiProvider config={wagmiConfig}>

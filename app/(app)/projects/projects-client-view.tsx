@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CardBase } from "@/components/ui/card";
@@ -24,8 +24,12 @@ export function ProjectsClientView({
   initialFolders,
 }: ProjectsClientViewProps) {
   const router = useRouter();
-  const [projects] = useState<Project[]>(initialProjects);
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [folders, setFolders] = useState<FolderType[]>(initialFolders);
+
+  // Re-sync client state when server re-fetches after router.refresh()
+  useEffect(() => { setProjects(initialProjects); }, [initialProjects]);
+  useEffect(() => { setFolders(initialFolders); }, [initialFolders]);
 
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);

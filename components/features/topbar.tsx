@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Search, Plus, Bell } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { CreateProjectModal } from "@/components/features/create-project-modal";
@@ -43,14 +44,16 @@ export function Topbar() {
           <ThemeToggle />
 
           {/* Notifications */}
-          <button
-            type="button"
-            aria-label="Notifikasi"
+          <Link
+            href="/reminders"
+            prefetch={false}
+            aria-label="Notifikasi & Pengingat"
             className="w-9 h-9 flex items-center justify-center rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 border border-border-hairline transition-colors relative"
+            title="Buka Pengingat & Notifikasi"
           >
             <Bell className="w-4 h-4" />
             <span className="w-2 h-2 rounded-full bg-accent absolute top-2 right-2 ring-2 ring-bg-base" />
-          </button>
+          </Link>
 
           {/* Real Web3 Wallet Connect & On-chain Balance */}
           <WalletConnectButton />

@@ -1,33 +1,32 @@
-import { CardBase } from "@/components/ui/card";
-import { ButtonPrimary } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/database.types";
+import { TasksClientView } from "./tasks-client-view";
 
-export default function TasksPage() {
+type Project = Database["public"]["Tables"]["projects"]["Row"];
+type Task = Database["public"]["Tables"]["tasks"]["Row"];
+
+export default async function TasksPage() {
+  const supabase = await createClient();
+
+  // Fetch all projects and tasks in parallel
+  const [{ data: rawProjects }, { data: rawTasks }] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: true }),
+  ]);
+
+  const projects = (rawProjects as Project[]) || [];
+  const tasks = (rawTasks as Task[]) || [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-heading-2 font-semibold text-text-primary">Tasks</h1>
-          <p className="text-body-sm text-text-secondary">
-            Agregat seluruh tugas dari semua project yang sedang berjalan.
-          </p>
-        </div>
-        <div>
-          <ButtonPrimary className="inline-flex items-center gap-1.5">
-            <Plus className="w-4 h-4" />
-            <span>Tambah Task</span>
-          </ButtonPrimary>
-        </div>
-      </div>
-
-      <CardBase className="text-center py-12 space-y-2">
-        <h3 className="text-heading-3 font-semibold text-text-primary">
-          Belum ada task aktif
-        </h3>
-        <p className="text-body-sm text-text-secondary max-w-md mx-auto">
-          Fitur filter grup (Hari Ini / Minggu Ini / Overdue) dan integrasi database belum diimplementasikan.
-        </p>
-      </CardBase>
-    </div>
+    <TasksClientView
+      initialProjects={projects}
+      initialTasks={tasks}
+    />
   );
 }

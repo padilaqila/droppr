@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { CardBase } from "@/components/ui/card";
 import { ButtonPrimary } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -10,11 +10,13 @@ type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
 type AccountRow = Database["public"]["Tables"]["accounts"]["Row"];
 type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
+type ReminderRow = Database["public"]["Tables"]["reminders"]["Row"];
 
 interface ProjectDetail extends ProjectRow {
   tasks?: TaskRow[];
   accounts?: AccountRow[];
   wallets?: WalletRow[];
+  reminders?: ReminderRow[];
 }
 
 interface PageProps {
@@ -27,10 +29,10 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   const supabase = await createClient();
 
-  // Fetch project by id with tasks, accounts, and joined wallets
+  // Fetch project by id with tasks, accounts, joined wallets, and reminders
   const { data: rawProject } = await (supabase as any)
     .from("projects")
-    .select("*, tasks(*), accounts(*), project_wallets(wallets(*))")
+    .select("*, tasks(*), accounts(*), project_wallets(wallets(*)), reminders(*)")
     .eq("id", projectId)
     .single();
 

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Wallet, Plus, Check, Link2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAccount, useConnect } from "wagmi";
-import { injected } from "wagmi/connectors";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
@@ -35,7 +34,8 @@ export function AttachWalletModal({
 
   // Wagmi state
   const { address: connectedAddress, isConnected, chain: connectedChain } = useAccount();
-  const { connect } = useConnect();
+  const { connect, connectors } = useConnect();
+  const injectedConnector = connectors.find((c) => c.type === "injected");
 
   // New Wallet Form States
   const [address, setAddress] = useState("");
@@ -68,7 +68,9 @@ export function AttachWalletModal({
 
   const handleUseConnectedWallet = () => {
     if (!connectedAddress) {
-      connect({ connector: injected() });
+      if (injectedConnector) {
+        connect({ connector: injectedConnector });
+      }
       return;
     }
     setAddress(connectedAddress);

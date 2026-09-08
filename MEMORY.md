@@ -2,6 +2,23 @@
 
 > File ini ditulis oleh agen AI, bukan oleh manusia. Dibaca otomatis di awal sesi (bagian atas file diprioritaskan). Lihat `AGENTS.md` §5 untuk format entri dan aturan pemangkasan.
 
+## [2026-09-08] Preferensi Desain Resmi User: Signature Aesthetic Landing Page
+- Apa yang disukai: User sangat menyukai gaya visual landing page Droppr (Stitch/Awwwards style) dan menginstruksikan agar gaya ini dijadikan standar identitas visual utama untuk halaman publik & otentikasi (Landing, Login, Register).
+- Karakteristik desain yang disukai:
+  1. Kanvas gelap pekat Midnight Obsidian (`#07090E` / `bg-bg-base`).
+  2. Background dot matrix interaktif (`HeroDotGrid`) yang merespons kursor mouse pada 60 FPS dengan spotlight radial pendaran amber (`#F0A93B`) & violet (`#8B7FE8`).
+  3. Gelombang neon aurora ribbon (`AuroraWave`) yang melengkung mulus dari kiri bawah ke kanan atas tanpa garis batas yang terpotong.
+  4. Komponen card frosted glass transparan: `bg-[#0f1420]/50 backdrop-blur-2xl border border-white/15 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.6),inset_0_1px_1px_0_rgba(255,255,255,0.2),0_0_35px_-5px_rgba(139,127,232,0.25)]` dengan rounded corners modern (`rounded-2xl`).
+  5. Form input semi-transparan `bg-white/[0.04]` dengan `border-white/15` dan fokus ring amber.
+  6. Tipografi Plus Jakarta Sans modern dengan tracking ketat dan aksen badge mono fungsional.
+- Aturan ke depan: Untuk setiap penambahan atau pembaruan UI pada halaman publik, auth, atau marketing, selalu gunakan signature aesthetic landing page ini secara konsisten.
+
+## [2026-09-08] SVG default overflow:hidden memotong pendaran blur gradient dan HTML entities Telegram tidak terdecode
+- Apa yang salah: Gradient violet di pojok kiri bawah landing page terpotong garis horizontal tajam, dan teks airdrop yang disinkronkan dari Telegram memunculkan string raw HTML entity seperti `&#036;` (bukan `$`).
+- Kenapa terjadi (root cause, bukan cuma gejala): Elemen `<svg>` secara spesifikasi W3C memiliki property bawaan `overflow: hidden`. Komponen pita cahaya aurora membungkus filter feGaussianBlur di dalam SVG fixed height, sehingga setiap blur stroke yang meluber ke bawah terpotong rata. Selain itu, scraper Telegram web mengembalikan teks mentah berformat HTML entity yang belum dikonversi ke karakter standar.
+- Perbaikan yang dilakukan: Mengatur container SVG aurora wave menjadi `inset-0 w-full h-full` dengan class `overflow-visible`, menambahkan ambient bleed glow di pojok bawah untuk memastikan transisi warna mulus tanpa garis potong, serta menambahkan regex decoder entity HTML (`&#036;`, `&amp;`, `&quot;`, dll.) pada modul scraper Telegram `app/api/feed/live/route.ts`.
+- Aturan ke depan: Pastikan elemen SVG yang menggunakan efek gaussian blur diberi class `overflow-visible` atau padding/bleed yang cukup agar tidak terpotong garis batas canvas, dan selalu decode HTML entities pada teks hasil web scrape Telegram.
+
 ## [2026-09-08] Missing parser tautan manual pada konversi feed dan waitlist ke proyek airdrop
 - Apa yang salah: Saat tombol manual "Buat Proyek" ditekan dari kartu Feed atau Waitlist, field `social_links` hanya menyimpan link Telegram sumber tanpa mem-parse link DApp, Website, Faucet, Docs, X/Twitter, Discord, dan Referral link yang ada di teks. Akibatnya tombol aksi cepat di workstation proyek ("Buka DApp", "Faucet", dll.) tidak muncul.
 - Kenapa terjadi (root cause, bukan cuma gejala): Logika awal `convertFeedToProject` dan `convertWaitlistToProject` mengandalkan AI untuk ekstraksi link mendalam dan hanya mengisi fallback minimal (`telegram`) pada mode manual, padahal teks Telegram memuat tautan penting yang bisa diekstrak 100% secara deterministik dengan regex dan klasifikasi URL tanpa biaya token AI ($0).
@@ -110,3 +127,8 @@
 - Perbaikan yang dilakukan: Memperbarui inline script di `app/layout.tsx` untuk mengecualikan rute landing page (`/`) dan auth gateway (`/login`, `/auth`), membuat `app/(marketing)/layout.tsx` dan `theme-sync.tsx` yang secara deterministik me-remove class `.light`, serta mengisolasi scoped CSS variables `.marketing-root` di `styles/tokens.css` agar selalu terkunci pada token dark `#14181F`.
 - Aturan ke depan: Halaman publik/showcase yang memiliki spesifikasi desain gelap eksklusif WAJIB diisolasi dari injeksi class tema global di root layout dan memiliki scoped CSS variables independen.
 
+## [2026-09-08] Browser autofill merusak kontras gelap form auth dan tombol intip password terhalang z-index/autofill
+- Apa yang salah: Saat browser (Chrome/Edge/Brave) melakukan autofill email/password di halaman login, background input berubah menjadi putih/biru terang (`#e8f0fe`) sehingga icon form (`Mail` & `Lock`) yang berwarna putih transparan menjadi tidak terlihat, serta tombol intip kata sandi (`Eye`/`EyeOff`) tidak muncul atau terhalang.
+- Kenapa terjadi (root cause, bukan cuma gejala): (1) Chromium secara default menginjeksi pseudo-class `input:-webkit-autofill` dengan background terang dan teks gelap jika tidak dioverride dengan `-webkit-box-shadow inset`. (2) Tombol intip password sebelumnya tidak memiliki `z-index` yang cukup (`z-20`), sehingga terhalang layer autofill browser dan native Edge password reveal (`::-ms-reveal`). (3) Halaman register belum mengimplementasikan state `showPassword` dan `showConfirmPassword`.
+- Perbaikan yang dilakukan: Menambahkan override global `input:-webkit-autofill` di `styles/globals.css` dengan `-webkit-box-shadow: 0 0 0 1000px #0f1420 inset !important` dan teks `#F4F6F8`, menonaktifkan native reveal Chromium/Edge (`input::-ms-reveal, input::-ms-clear { display: none !important; }`), menaikkan kontras warna icon (`text-text-secondary` dengan alignment presisi `top-1/2 -translate-y-1/2` dan `z-10`), serta memasang tombol intip password interaktif (`z-20`, tooltip, hit area nyaman) pada login dan kedua field password register.
+- Aturan ke depan: Setiap form autentikasi gelap WAJIB memiliki CSS override `:-webkit-autofill` dan `::-ms-reveal`, icon input harus memiliki `z-10`, dan tombol aksi di dalam input wajib memiliki `z-20` dengan alignment `top-1/2 -translate-y-1/2`.

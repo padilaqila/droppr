@@ -45,3 +45,7 @@ export function ButtonPrimary(props: Omit<ButtonProps, "variant">) {
 export function ButtonSecondary(props: Omit<ButtonProps, "variant">) {
   return <Button variant="secondary" {...props} />;
 }
+
+export function ButtonDanger(props: Omit<ButtonProps, "variant">) {
+  return <Button variant="danger" {...props} />;
+}

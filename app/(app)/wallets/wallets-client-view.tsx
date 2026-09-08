@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CardBase } from "@/components/ui/card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,6 @@ import { Modal } from "@/components/ui/modal";
 import { ShieldCheck, Wallet, Plus, Copy, Check, Trash2, FolderGit2, Link2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAccount, useConnect } from "wagmi";
-import { injected } from "wagmi/connectors";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
@@ -23,6 +22,16 @@ export function WalletsClientView({
   initialWallets: WalletWithProjects[];
 }) {
   const [wallets, setWallets] = useState<WalletWithProjects[]>(initialWallets);
+
+  // Re-sync when server re-renders after router.refresh()
+  useEffect(() => { setWallets(initialWallets); }, [initialWallets]);
+
+  // Wagmi connection
+  const { address: connectedAddress, isConnected, chain: connectedChain } = useAccount();
+  const { connect, connectors, isPending: isConnecting } = useConnect();
+
+  // Find injected connector from config (avoids importing wagmi/connectors barrel)
+  const injectedConnector = connectors.find((c) => c.type === "injected");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [address, setAddress] = useState("");
   const [label, setLabel] = useState("");
@@ -30,10 +39,6 @@ export function WalletsClientView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  // Wagmi connection
-  const { address: connectedAddress, isConnected, chain: connectedChain } = useAccount();
-  const { connect, isPending: isConnecting } = useConnect();
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -130,8 +135,8 @@ export function WalletsClientView({
             </ButtonSecondary>
           ) : (
             <ButtonSecondary
-              onClick={() => connect({ connector: injected() })}
-              disabled={isConnecting}
+              onClick={() => injectedConnector && connect({ connector: injectedConnector })}
+              disabled={isConnecting || !injectedConnector}
               className="inline-flex items-center gap-2"
             >
               <Wallet className="w-4 h-4 text-accent" />

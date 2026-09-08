@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
+  Rss,
+  Hourglass,
   FolderGit2,
   CheckSquare,
   Wallet,
@@ -31,6 +33,8 @@ interface QuickProject {
 
 const mainNavItems: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Feed Airdrop", href: "/feed", icon: Rss },
+  { name: "Waitlist", href: "/waitlist", icon: Hourglass },
   { name: "Projects & Folders", href: "/projects", icon: FolderGit2 },
   { name: "Tasks", href: "/tasks", icon: CheckSquare },
   { name: "Wallets & Accounts", href: "/wallets", icon: Wallet },
@@ -87,7 +91,7 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-64 bg-bg-sidebar border-r border-border-hairline flex flex-col z-30 select-none">
       {/* Brand Header */}
-      <div className="h-14 px-4 flex items-center gap-2 border-b border-border-hairline">
+      <div className="h-14 px-4 flex items-center gap-2 border-b border-border-subtle">
         <div className="w-7 h-7 rounded-sm bg-accent/15 border border-accent/30 flex items-center justify-center text-accent">
           <Flame className="w-4 h-4" />
         </div>
@@ -165,7 +169,7 @@ export function Sidebar() {
       </nav>
 
       {/* User Session & Sign Out Footer */}
-      <div className="p-3 border-t border-border-hairline space-y-2 bg-bg-sidebar">
+      <div className="p-3 border-t border-border-subtle space-y-2 bg-bg-sidebar">
         {userEmail && (
           <div className="flex items-center gap-2 px-2 py-1 text-caption text-text-secondary">
             <UserIcon className="w-3.5 h-3.5 text-text-tertiary shrink-0" />

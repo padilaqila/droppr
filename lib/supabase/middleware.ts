@@ -12,6 +12,8 @@ export async function updateSession(request: NextRequest) {
   // Protect app routes if user is not authenticated
   const isAppRoute =
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/feed") ||
+    pathname.startsWith("/waitlist") ||
     pathname.startsWith("/projects") ||
     pathname.startsWith("/tasks") ||
     pathname.startsWith("/wallets") ||
@@ -36,13 +38,18 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Next.js Router Prefetch optimization:
-  // If this is a prefetch request and user already has auth cookie,
-  // pass through immediately without waiting for Supabase remote HTTP roundtrip.
-  const isPrefetch =
+  // Next.js Router RSC & Prefetch optimization:
+  // When a user is navigating between pages client-side, Next.js sends `rsc: 1`, `next-router-prefetch: 1`,
+  // `purpose: prefetch`, or `accept: text/x-component`.
+  // If the user already has auth cookies, pass through immediately without waiting for an
+  // extra remote HTTP roundtrip to Supabase Auth on every single tab click.
+  const isClientNav =
+    request.headers.get("rsc") === "1" ||
     request.headers.get("next-router-prefetch") === "1" ||
-    request.headers.get("purpose") === "prefetch";
-  if (isPrefetch && hasAuthCookie) {
+    request.headers.get("purpose") === "prefetch" ||
+    Boolean(request.headers.get("accept")?.includes("text/x-component"));
+
+  if (isClientNav && hasAuthCookie) {
     return supabaseResponse;
   }
 

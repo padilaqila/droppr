@@ -4,7 +4,20 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Plus, Trash2, Globe, Send, MessageSquare } from "lucide-react";
+import {
+  Sparkles,
+  Plus,
+  Trash2,
+  Globe,
+  Send,
+  MessageSquare,
+  Droplets,
+  Layers,
+  BookOpen,
+  Share2,
+  Zap,
+} from "lucide-react";
+import { parseAirdropProjectData } from "@/lib/supabase/airdrop-parser";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -46,9 +59,14 @@ export function CreateProjectModal({
   const [folderId, setFolderId] = useState<string>(initialFolderId || "");
   const [status, setStatus] = useState<ProjectStatus>("in_progress");
   const [website, setWebsite] = useState("");
+  const [dappUrl, setDappUrl] = useState("");
+  const [faucetUrl, setFaucetUrl] = useState("");
+  const [docsUrl, setDocsUrl] = useState("");
   const [twitter, setTwitter] = useState("");
   const [telegram, setTelegram] = useState("");
+  const [telegramPostUrl, setTelegramPostUrl] = useState("");
   const [discord, setDiscord] = useState("");
+  const [refLink, setRefLink] = useState("");
   const [guideContent, setGuideContent] = useState("");
   const [tasks, setTasks] = useState<ParsedTask[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -102,6 +120,9 @@ export function CreateProjectModal({
       if (data.chain) setChain(data.chain);
       if (data.status) setStatus(data.status);
       if (data.social_links?.website) setWebsite(data.social_links.website);
+      if (data.social_links?.dapp_url) setDappUrl(data.social_links.dapp_url);
+      if (data.social_links?.faucet_url) setFaucetUrl(data.social_links.faucet_url);
+      if (data.social_links?.docs_url) setDocsUrl(data.social_links.docs_url);
       if (data.social_links?.twitter) setTwitter(data.social_links.twitter);
       if (data.social_links?.telegram) setTelegram(data.social_links.telegram);
       if (data.social_links?.discord) setDiscord(data.social_links.discord);
@@ -123,6 +144,37 @@ export function CreateProjectModal({
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // Instant zero-token manual link & content extractor
+  const handleManualFastExtract = () => {
+    if (!rawText.trim()) {
+      setAiError("Paste teks pesan airdrop terlebih dahulu.");
+      return;
+    }
+    setAiError(null);
+    const parsed = parseAirdropProjectData(rawText.split("\n")[0] || "Airdrop Project", rawText);
+    if (parsed.name) setName(parsed.name);
+    if (parsed.chain) setChain(parsed.chain);
+    if (parsed.social_links?.website) setWebsite(parsed.social_links.website);
+    if (parsed.social_links?.dapp_url) setDappUrl(parsed.social_links.dapp_url);
+    if (parsed.social_links?.faucet_url) setFaucetUrl(parsed.social_links.faucet_url);
+    if (parsed.social_links?.docs_url) setDocsUrl(parsed.social_links.docs_url);
+    if (parsed.social_links?.twitter) setTwitter(parsed.social_links.twitter);
+    if (parsed.social_links?.telegram) setTelegram(parsed.social_links.telegram);
+    if (parsed.social_links?.telegram_post_url) setTelegramPostUrl(parsed.social_links.telegram_post_url);
+    if (parsed.social_links?.discord) setDiscord(parsed.social_links.discord);
+    if (parsed.social_links?.ref_link) setRefLink(parsed.social_links.ref_link);
+    if (parsed.guide_content) setGuideContent(parsed.guide_content);
+    if (parsed.tasks && parsed.tasks.length > 0) {
+      setTasks(
+        parsed.tasks.map((t) => ({
+          title: t.title,
+          type: t.type,
+        }))
+      );
+    }
+    setActiveTab("manual");
   };
 
   const handleAddTask = () => {
@@ -157,11 +209,16 @@ export function CreateProjectModal({
         return;
       }
 
-      const social_links: Record<string, string> = {};
+      const social_links: Record<string, any> = {};
       if (website.trim()) social_links.website = website.trim();
+      if (dappUrl.trim()) social_links.dapp_url = dappUrl.trim();
+      if (faucetUrl.trim()) social_links.faucet_url = faucetUrl.trim();
+      if (docsUrl.trim()) social_links.docs_url = docsUrl.trim();
       if (twitter.trim()) social_links.twitter = twitter.trim();
       if (telegram.trim()) social_links.telegram = telegram.trim();
+      if (telegramPostUrl.trim()) social_links.telegram_post_url = telegramPostUrl.trim();
       if (discord.trim()) social_links.discord = discord.trim();
+      if (refLink.trim()) social_links.ref_link = refLink.trim();
 
       // 1. Insert Project
       const { data: projectData, error: projError } = await supabase
@@ -198,15 +255,19 @@ export function CreateProjectModal({
         }
       }
 
-      // Reset
+      // Reset Form
       setName("");
       setChain("");
       setRawText("");
       setTasks([]);
       setGuideContent("");
       setWebsite("");
+      setDappUrl("");
+      setFaucetUrl("");
+      setDocsUrl("");
       setTwitter("");
       setTelegram("");
+      setTelegramPostUrl("");
       setDiscord("");
 
       if (onProjectCreated && projectData) {
@@ -274,28 +335,41 @@ export function CreateProjectModal({
               rows={8}
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
-              placeholder="Contoh:&#10;• TESTNET AURA •&#10;Aura, Building the future of robotics.&#10;Cost: Gratis&#10;&#10;JOIN TESTNET:&#10;- https://beta.auralaunch.org/&#10;- Hubungkan wallet&#10;- Menu 'Incentive'&#10;- Hubungkan sosmed&#10;- Mint faucet&#10;- Menu 'Stake & Yield'..."
+              placeholder="Contoh:&#10;• TESTNET AURA •&#10;Cost: Gratis&#10;&#10;1. Official Web: https://aura.network&#10;2. Testnet App: https://beta.auralaunch.org/&#10;3. Faucet: https://faucet.aura.network&#10;- Hubungkan wallet&#10;- Mint faucet&#10;- Lakukan staking di menu Stake & Yield..."
               className="w-full bg-bg-elevated-2 text-text-primary text-body-sm p-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent font-mono transition-colors"
               disabled={isAnalyzing}
             />
             <p className="text-caption text-text-tertiary mt-1">
-              AI akan otomatis mengekstrak Nama Project, Chain, URL resmi, Panduan, dan memecah langkah-langkah menjadi Daftar Task.
+              AI akan otomatis mengekstrak Nama Project, Chain, URL resmi, Web App Testnet, Link Faucet, Panduan, dan memecah langkah-langkah menjadi Task.
             </p>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-hairline">
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-border-hairline">
             <ButtonSecondary type="button" onClick={onClose} disabled={isAnalyzing}>
               Batal
             </ButtonSecondary>
-            <ButtonPrimary
-              type="button"
-              onClick={handleAiExtract}
-              disabled={isAnalyzing || !rawText.trim()}
-              className="inline-flex items-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{isAnalyzing ? "Menganalisis dengan AI..." : "Ekstrak dengan AI"}</span>
-            </ButtonPrimary>
+            <div className="flex items-center gap-2">
+              <ButtonPrimary
+                type="button"
+                onClick={handleManualFastExtract}
+                disabled={isAnalyzing || !rawText.trim()}
+                className="inline-flex items-center gap-1.5"
+                title="Ekstrak link, nama, chain, dan tasks instan ($0 token)"
+              >
+                <Zap className="w-4 h-4" />
+                <span>Ekstrak Cepat (Manual)</span>
+              </ButtonPrimary>
+              <ButtonSecondary
+                type="button"
+                onClick={handleAiExtract}
+                disabled={isAnalyzing || !rawText.trim()}
+                className="inline-flex items-center gap-1.5"
+                title="Ekstrak menggunakan AI"
+              >
+                <Sparkles className="w-4 h-4 text-accent" />
+                <span>{isAnalyzing ? "Analisis AI..." : "Ekstrak via AI"}</span>
+              </ButtonSecondary>
+            </div>
           </div>
         </div>
       )}
@@ -317,26 +391,11 @@ export function CreateProjectModal({
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Contoh: Aura Network"
-                required
+                placeholder="Contoh: Monad Testnet"
                 disabled={isSaving}
               />
             </div>
 
-            <div>
-              <label className="block text-body-sm font-medium text-text-secondary mb-1">
-                Chain / Jaringan
-              </label>
-              <Input
-                value={chain}
-                onChange={(e) => setChain(e.target.value)}
-                placeholder="Contoh: Aura Testnet, Arbitrum, Solana"
-                disabled={isSaving}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-body-sm font-medium text-text-secondary mb-1">
                 Folder Kategori
@@ -344,10 +403,10 @@ export function CreateProjectModal({
               <select
                 value={folderId}
                 onChange={(e) => setFolderId(e.target.value)}
-                className="w-full h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+                className="w-full h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent cursor-pointer"
                 disabled={isSaving}
               >
-                <option value="">(Tanpa Folder)</option>
+                <option value="">Tanpa Folder (Root)</option>
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -358,12 +417,24 @@ export function CreateProjectModal({
 
             <div>
               <label className="block text-body-sm font-medium text-text-secondary mb-1">
-                Status Lifecycle
+                Jaringan / Chain
+              </label>
+              <Input
+                value={chain}
+                onChange={(e) => setChain(e.target.value)}
+                placeholder="Contoh: Solana, Base, EVM"
+                disabled={isSaving}
+              />
+            </div>
+
+            <div>
+              <label className="block text-body-sm font-medium text-text-secondary mb-1">
+                Status Pengerjaan
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-                className="w-full h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+                className="w-full h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent cursor-pointer"
                 disabled={isSaving}
               >
                 <option value="not_started">Belum Mulai</option>
@@ -375,23 +446,105 @@ export function CreateProjectModal({
             </div>
           </div>
 
-          {/* Social Links */}
-          <div className="space-y-2">
-            <label className="block text-body-sm font-medium text-text-secondary">
-              Link Terkait
+          {/* Web Portals & Faucets */}
+          <div className="space-y-3 pt-2 border-t border-border-hairline">
+            <label className="block text-body-sm font-semibold text-text-primary">
+              Website & Sumber Daya Airdrop
             </label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="relative">
-                <Globe className="w-4 h-4 text-text-tertiary absolute left-3 top-3 pointer-events-none" />
-                <input
-                  type="url"
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  placeholder="Website / App URL"
-                  className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
-                  disabled={isSaving}
-                />
+              <div>
+                <label className="block text-caption text-text-secondary mb-1">
+                  Website Resmi (Info / Portal Utama)
+                </label>
+                <div className="relative">
+                  <Globe className="w-4 h-4 text-text-tertiary absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="url"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="https://project.xyz"
+                    className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+                    disabled={isSaving}
+                  />
+                </div>
               </div>
+
+              <div>
+                <label className="block text-caption text-text-secondary mb-1">
+                  Web App / DApp Testnet (Platform Garapan)
+                </label>
+                <div className="relative">
+                  <Layers className="w-4 h-4 text-accent absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="url"
+                    value={dappUrl}
+                    onChange={(e) => setDappUrl(e.target.value)}
+                    placeholder="https://app.project.xyz atau swap portal"
+                    className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+                    disabled={isSaving}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-caption text-text-secondary mb-1">
+                  Link Faucet (Klaim Token Testnet)
+                </label>
+                <div className="relative">
+                  <Droplets className="w-4 h-4 text-link-teal absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="url"
+                    value={faucetUrl}
+                    onChange={(e) => setFaucetUrl(e.target.value)}
+                    placeholder="https://faucet.project.xyz"
+                    className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+                    disabled={isSaving}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-caption text-text-secondary mb-1">
+                  Link Referral / Undangan
+                </label>
+                <div className="relative">
+                  <Share2 className="w-4 h-4 text-accent absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="url"
+                    value={refLink}
+                    onChange={(e) => setRefLink(e.target.value)}
+                    placeholder="https://project.xyz?ref=..."
+                    className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+                    disabled={isSaving}
+                  />
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-caption text-text-secondary mb-1">
+                  Dokumentasi / Docs Resmi
+                </label>
+                <div className="relative">
+                  <BookOpen className="w-4 h-4 text-text-tertiary absolute left-3 top-3 pointer-events-none" />
+                  <input
+                    type="url"
+                    value={docsUrl}
+                    onChange={(e) => setDocsUrl(e.target.value)}
+                    placeholder="https://docs.project.xyz"
+                    className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+                    disabled={isSaving}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Social Links */}
+          <div className="space-y-2 pt-2 border-t border-border-hairline">
+            <label className="block text-body-sm font-semibold text-text-primary">
+              Media Sosial
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="relative">
                 <span className="text-body-sm font-bold text-text-tertiary absolute left-3 top-2 pointer-events-none">
                   𝕏
@@ -400,7 +553,7 @@ export function CreateProjectModal({
                   type="text"
                   value={twitter}
                   onChange={(e) => setTwitter(e.target.value)}
-                  placeholder="Twitter / X URL atau @handle"
+                  placeholder="Twitter (@handle)"
                   className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
                   disabled={isSaving}
                 />
@@ -428,25 +581,46 @@ export function CreateProjectModal({
                 />
               </div>
             </div>
+
+            {/* Telegram Root Post Link (For Update Tracking) */}
+            <div className="pt-2">
+              <label className="block text-caption text-text-secondary mb-1">
+                📌 Link Postingan Telegram Induk / Sumber Garapan
+              </label>
+              <div className="relative">
+                <Send className="w-4 h-4 text-accent absolute left-3 top-3 pointer-events-none" />
+                <input
+                  type="url"
+                  value={telegramPostUrl}
+                  onChange={(e) => setTelegramPostUrl(e.target.value)}
+                  placeholder="https://t.me/airdropfind/115116 atau https://t.me/dutacryptoairdrop/4294"
+                  className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+                  disabled={isSaving}
+                />
+              </div>
+              <p className="text-[11px] text-text-tertiary mt-1">
+                Tautan postingan awal garapan ini di Telegram. Berguna untuk melacak update berantai otomatis meskipun admin channel hanya me-reply post ini.
+              </p>
+            </div>
           </div>
 
           {/* Guide Content */}
-          <div>
+          <div className="pt-2 border-t border-border-hairline">
             <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Panduan / Catatan Ringkas
+              Panduan / Catatan Ringkas (URL otomatis jadi link aktif)
             </label>
             <textarea
               rows={3}
               value={guideContent}
               onChange={(e) => setGuideContent(e.target.value)}
-              placeholder="Catatan pengerjaan, info faucet, batas snapshot, dll."
+              placeholder="Catatan pengerjaan, link faucet alternatif, batas snapshot, dll."
               className="w-full bg-bg-elevated-2 text-text-primary text-body-sm p-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
               disabled={isSaving}
             />
           </div>
 
           {/* Tasks Checklist */}
-          <div>
+          <div className="pt-2 border-t border-border-hairline">
             <label className="block text-body-sm font-medium text-text-secondary mb-1.5">
               Checklist Task Awal ({tasks.length})
             </label>

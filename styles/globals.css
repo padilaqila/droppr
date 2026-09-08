@@ -56,3 +56,20 @@
     animation: sweep 8s linear infinite;
   }
 }
+
+/* Disable native Edge / IE password reveal and clear button to prevent collision with custom eye button */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+}
+
+/* Prevent Chrome / Edge / Brave / Safari autofill from turning background white and hiding icons */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0f1420 inset !important;
+  -webkit-text-fill-color: #F4F6F8 !important;
+  caret-color: #F4F6F8 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}

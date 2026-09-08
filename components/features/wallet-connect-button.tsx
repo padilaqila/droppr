@@ -1,14 +1,13 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
-import { injected } from "wagmi/connectors";
 import { Wallet, LogOut, ChevronDown } from "lucide-react";
 import { ButtonSecondary } from "@/components/ui/button";
 
 export function WalletConnectButton() {
   const { address, isConnected, chain } = useAccount();
-  const { connect, isPending } = useConnect();
+  const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -16,6 +15,9 @@ export function WalletConnectButton() {
   const { data: balanceData } = useBalance({
     address: address,
   });
+
+  // Find injected connector from config (avoids importing wagmi/connectors barrel)
+  const injectedConnector = connectors.find((c) => c.type === "injected");
 
   if (isConnected && address) {
     const truncatedAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -65,8 +67,8 @@ export function WalletConnectButton() {
 
   return (
     <ButtonSecondary
-      onClick={() => connect({ connector: injected() })}
-      disabled={isPending}
+      onClick={() => injectedConnector && connect({ connector: injectedConnector })}
+      disabled={isPending || !injectedConnector}
       className="!py-1.5 !px-3 text-body-sm inline-flex items-center gap-1.5"
     >
       <Wallet className="w-4 h-4 text-accent" />

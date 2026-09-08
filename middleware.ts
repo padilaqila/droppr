@@ -1,8 +1,16 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+  try {
+    return await updateSession(request);
+  } catch (err: any) {
+    console.error("[Droppr Middleware Error]:", err);
+    // If middleware encounters an error, don't crash with 500 — pass request through
+    const response = NextResponse.next({ request });
+    response.headers.set("x-middleware-error", String(err?.message || err));
+    return response;
+  }
 }
 
 export const config = {

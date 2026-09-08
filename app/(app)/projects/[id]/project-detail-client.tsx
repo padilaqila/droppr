@@ -1,38 +1,51 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CardBase } from "@/components/ui/card";
-import { StatusBadge, type ProjectStatus } from "@/components/ui/status-badge";
-import { ButtonSecondary, ButtonPrimary } from "@/components/ui/button";
+import { ButtonSecondary } from "@/components/ui/button";
 import {
   ArrowLeft,
   Plus,
-  Globe,
-  Send,
-  ExternalLink,
-  ShieldAlert,
-  CheckCircle2,
-  Circle,
+  Bell,
+  Clock,
+  Edit2,
+  Trash2,
   Wallet,
   Copy,
   Check,
+  ShieldAlert,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Send,
 } from "lucide-react";
-import { CreateTaskModal } from "@/components/features/create-task-modal";
+import { ProjectStatusPills } from "@/components/features/project-status-pills";
+import { ProjectQuickLinks } from "@/components/features/project-quick-links";
+import { InteractiveTaskList } from "@/components/features/interactive-task-list";
+import { ProjectThreadView } from "@/components/features/project-thread-view";
 import { AttachWalletModal } from "@/components/features/attach-wallet-modal";
+import { SetReminderModal } from "@/components/features/set-reminder-modal";
+import { EditProjectModal } from "@/components/features/edit-project-modal";
+import { TelegramUpdateModal } from "@/components/features/telegram-update-modal";
+import { GuideViewer } from "@/components/features/guide-viewer";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
+import type { ThreadItem } from "@/lib/supabase/thread-updates";
 
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
+type ProjectStatusEnum = Database["public"]["Enums"]["project_status"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
 type AccountRow = Database["public"]["Tables"]["accounts"]["Row"];
 type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
+type ReminderRow = Database["public"]["Tables"]["reminders"]["Row"];
 
 interface ProjectDetail extends ProjectRow {
   tasks?: TaskRow[];
   accounts?: AccountRow[];
   wallets?: WalletRow[];
+  reminders?: ReminderRow[];
 }
 
 interface ProjectDetailClientViewProps {
@@ -41,318 +54,396 @@ interface ProjectDetailClientViewProps {
 
 export function ProjectDetailClientView({ project }: ProjectDetailClientViewProps) {
   const router = useRouter();
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
+  const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<ReminderRow | null>(null);
+
+  const [currentStatus, setCurrentStatus] = useState<ProjectStatusEnum>(project.status);
   const [tasks, setTasks] = useState<TaskRow[]>(project.tasks || []);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [reminders, setReminders] = useState<ReminderRow[]>(project.reminders || []);
+  const [threads, setThreads] = useState<ThreadItem[]>([]);
+  const [threadRefreshTrigger, setThreadRefreshTrigger] = useState(0);
+  const [copiedWalletId, setCopiedWalletId] = useState<string | null>(null);
+  const [isGuideExpanded, setIsGuideExpanded] = useState<boolean>(
+    Boolean(project.guide_content && project.guide_content.trim().length > 0)
+  );
 
-  const badgeStatus = project.status.replace("_", "-") as ProjectStatus;
-  const socialLinks = (project.social_links as Record<string, string>) || {};
-  const wallets = project.wallets || [];
+  // Sync state when server re-renders after router.refresh() (per MEMORY.md)
+  useEffect(() => {
+    setCurrentStatus(project.status);
+  }, [project.status]);
 
-  const handleCopyAddress = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
+  useEffect(() => {
+    setTasks(project.tasks || []);
+  }, [project.tasks]);
 
-  const handleToggleTask = async (taskId: string, currentStatus: string) => {
-    const nextStatus = currentStatus === "done" ? "pending" : "done";
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: nextStatus } : t))
-    );
+  useEffect(() => {
+    setReminders(project.reminders || []);
+  }, [project.reminders]);
+
+  // Seamless 1-Click Status Change (Optimistic UI)
+  const handleStatusChange = async (nextStatus: ProjectStatusEnum) => {
+    if (nextStatus === currentStatus) return;
+    setCurrentStatus(nextStatus);
 
     try {
       const supabase = createClient() as any;
       await supabase
-        .from("tasks")
-        .update({
-          status: nextStatus,
-          completed_at: nextStatus === "done" ? new Date().toISOString() : null,
-        })
-        .eq("id", taskId);
+        .from("projects")
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq("id", project.id);
     } catch (err) {
-      console.error("Failed to update task status:", err);
+      console.error("Failed to update project status:", err);
+      setCurrentStatus(project.status);
     }
   };
 
-  return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Back Link */}
-      <Link
-        href="/projects"
-        prefetch={false}
-        className="inline-flex items-center gap-1.5 text-body-sm text-text-secondary hover:text-text-primary transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Kembali ke daftar project</span>
-      </Link>
+  const handleDeleteReminder = async (id: string) => {
+    if (!confirm("Hapus pengingat ini?")) return;
+    setReminders((prev) => prev.filter((r) => r.id !== id));
 
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border-hairline pb-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-heading-1 font-semibold text-text-primary">
-              {project.name}
-            </h1>
-            <StatusBadge status={badgeStatus} />
-          </div>
-          <p className="text-body-sm text-text-secondary font-mono mt-1">
-            Chain: {project.chain || "Belum ditentukan"}
-          </p>
-        </div>
+    try {
+      const supabase = createClient() as any;
+      await supabase.from("reminders").delete().eq("id", id);
+    } catch (err) {
+      console.error("Delete reminder error:", err);
+    }
+  };
+
+  const handleCopyWallet = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedWalletId(id);
+    setTimeout(() => setCopiedWalletId(null), 2000);
+  };
+
+  const wallets = project.wallets || [];
+  const rawSocial = (project.social_links as Record<string, any>) || {};
+  const telegramPostUrl = rawSocial.telegram_post_url as string | undefined;
+
+  return (
+    <div className="space-y-4 max-w-6xl">
+      {/* Top Navigation & Back Link */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/projects"
+          prefetch={false}
+          className="inline-flex items-center gap-1.5 text-caption font-medium text-text-secondary hover:text-text-primary transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Kembali ke daftar project</span>
+        </Link>
+
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsTelegramModalOpen(true)}
+            className="!py-1 !px-2.5 text-caption rounded-md bg-link-teal/15 border border-link-teal/30 text-link-teal hover:bg-link-teal/25 transition-colors font-medium inline-flex items-center gap-1.5 shadow-sm"
+            title="Cari update proyek ini di Telegram (Airdrop Finder & Duta Crypto)"
+          >
+            <Send className="w-3 h-3" />
+            <span>Cari Update TG</span>
+          </button>
+
           <ButtonSecondary
-            onClick={() => setIsWalletModalOpen(true)}
-            className="inline-flex items-center gap-1.5"
+            onClick={() => setIsEditProjectModalOpen(true)}
+            className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1"
+            title="Edit Detail & Tautan Proyek"
           >
-            <Wallet className="w-4 h-4" />
-            <span>Atur Wallet ({wallets.length})</span>
+            <Edit2 className="w-3.5 h-3.5 text-text-secondary" />
+            <span>Edit Info</span>
           </ButtonSecondary>
-          <ButtonPrimary
-            onClick={() => setIsTaskModalOpen(true)}
-            className="inline-flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Task</span>
-          </ButtonPrimary>
         </div>
       </div>
 
-      {/* Section 1: Wallet Khusus Project Ini (Agar tidak tertukar) */}
-      <CardBase className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-accent" />
-            <h2 className="text-app-section-title font-semibold text-text-primary">
-              Wallet yang Digunakan ({wallets.length})
-            </h2>
+      {/* Header Card: Title, Chain, and 1-Click Status Pills */}
+      <div className="p-4 rounded-lg bg-bg-elevated border border-border-hairline space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h1 className="text-heading-1 font-bold text-text-primary">
+              {project.name}
+            </h1>
+            <p className="text-caption text-text-secondary font-mono mt-0.5">
+              Network/Chain:{" "}
+              <span className="text-text-primary font-semibold">
+                {project.chain || "Belum ditentukan"}
+              </span>
+            </p>
           </div>
-          <ButtonSecondary
-            onClick={() => setIsWalletModalOpen(true)}
-            className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1"
-          >
-            <Plus className="w-3 h-3" />
-            <span>Pasang / Kelola</span>
-          </ButtonSecondary>
+
+          {/* 1-Click Status Pills */}
+          <div className="flex flex-col sm:items-end gap-1">
+            <span className="text-[11px] font-medium text-text-tertiary">
+              Status Proyek (1-Klik):
+            </span>
+            <ProjectStatusPills
+              currentStatus={currentStatus}
+              onStatusChange={handleStatusChange}
+            />
+          </div>
         </div>
 
-        {wallets.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-            {wallets.map((w) => {
-              const isCopied = copiedId === w.id;
-              return (
-                <div
-                  key={w.id}
-                  className="p-3 rounded-md bg-bg-elevated-2 border border-border-hairline flex items-center justify-between"
-                >
-                  <div className="min-w-0 pr-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-body-sm font-semibold text-text-primary truncate">
-                        {w.label || "Wallet Utama"}
-                      </span>
-                      {w.chain && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated border border-border-hairline font-mono text-text-tertiary">
-                          {w.chain}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-caption font-mono text-text-secondary truncate mt-0.5">
-                      {w.address}
-                    </div>
-                  </div>
+        {/* Quick Launch & Resource Action Bar */}
+        <ProjectQuickLinks
+          socialLinks={project.social_links as Record<string, any>}
+          wallets={wallets}
+          onOpenEditModal={() => setIsEditProjectModalOpen(true)}
+          onOpenWalletModal={() => setIsWalletModalOpen(true)}
+        />
+      </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleCopyAddress(w.id, w.address)}
-                    className="p-1.5 rounded hover:bg-bg-elevated text-text-tertiary hover:text-text-primary transition-colors shrink-0"
-                    title="Salin Address"
-                  >
-                    {isCopied ? (
-                      <Check className="w-4 h-4 text-status-completed" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="p-4 rounded-md bg-bg-elevated-2/60 border border-dashed border-border-hairline text-center space-y-1.5">
-            <p className="text-body-sm text-text-secondary">
-              Belum ada wallet yang dipasangkan ke project ini.
-            </p>
-            <p className="text-caption text-text-tertiary">
-              Pasangkan address wallet agar riwayat garapan atau multi-akun tidak tertukar antar airdrop.
-            </p>
-            <ButtonSecondary
-              onClick={() => setIsWalletModalOpen(true)}
-              className="!py-1 !px-3 text-caption mt-1 inline-flex items-center gap-1.5"
+      {/* Dual-Column Workstation Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* LEFT COLUMN: Main Execution Hub (65% width) */}
+        <div className="lg:col-span-8 space-y-4">
+          {/* Section 1: Langkah Garapan Utama (Checklist Pengerjaan Awal) */}
+          <CardBase className="p-4 space-y-3">
+            <InteractiveTaskList
+              projectId={project.id}
+              initialTasks={tasks}
+              onTasksUpdated={() => router.refresh()}
+            />
+          </CardBase>
+
+          {/* Section 2: Modern Thread & Riwayat Garapan (Telegram & Update Lanjutan) */}
+          <CardBase className="p-4 space-y-3">
+            <ProjectThreadView
+              projectId={project.id}
+              projectName={project.name}
+              onOpenTelegramSearch={() => setIsTelegramModalOpen(true)}
+              refreshTrigger={threadRefreshTrigger}
+              onThreadsLoaded={setThreads}
+            />
+          </CardBase>
+
+          {/* Section 2: Panduan & Catatan Garapan (Collapsible Accordion) */}
+          <CardBase className="p-4 space-y-3">
+            <div
+              onClick={() => setIsGuideExpanded(!isGuideExpanded)}
+              className="flex items-center justify-between cursor-pointer select-none"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Pilih Wallet</span>
-            </ButtonSecondary>
-          </div>
-        )}
-      </CardBase>
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-accent" />
+                <h2 className="text-body-sm font-semibold text-text-primary">
+                  Panduan & Catatan Garapan
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="p-1 rounded text-text-tertiary hover:text-text-primary transition-colors"
+              >
+                {isGuideExpanded ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+            </div>
 
-      {/* Section 2: Social Links */}
-      <CardBase className="space-y-3">
-        <h2 className="text-app-section-title font-semibold text-text-primary">
-          Link Sosial & Dokumen
-        </h2>
-        {Object.keys(socialLinks).length > 0 ? (
-          <div className="flex flex-wrap gap-2 text-body-sm">
-            {socialLinks.website && (
-              <a
-                href={socialLinks.website}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> Website
-              </a>
+            {isGuideExpanded && (
+              <div className="pt-2 border-t border-border-hairline">
+                <GuideViewer
+                  projectId={project.id}
+                  initialContent={project.guide_content}
+                  onContentUpdated={() => router.refresh()}
+                />
+              </div>
             )}
-            {socialLinks.twitter && (
-              <a
-                href={socialLinks.twitter}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
-              >
-                <Globe className="w-3.5 h-3.5" /> Twitter / X
-              </a>
-            )}
-            {socialLinks.telegram && (
-              <a
-                href={socialLinks.telegram}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
-              >
-                <Send className="w-3.5 h-3.5" /> Telegram
-              </a>
-            )}
-            {socialLinks.discord && (
-              <a
-                href={socialLinks.discord}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-elevated-2 text-link-teal hover:underline"
-              >
-                <Globe className="w-3.5 h-3.5" /> Discord
-              </a>
-            )}
-          </div>
-        ) : (
-          <p className="text-body-sm text-text-tertiary">
-            Belum ada link sosial yang disimpan.
-          </p>
-        )}
-      </CardBase>
-
-      {/* Section 3: Panduan Kerja (Guide) */}
-      <CardBase className="space-y-3">
-        <h2 className="text-app-section-title font-semibold text-text-primary">
-          Panduan Kerja (Guide)
-        </h2>
-        {project.guide_content ? (
-          <div className="p-4 rounded-md bg-bg-elevated-2 text-body-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
-            {project.guide_content}
-          </div>
-        ) : (
-          <p className="text-body-sm text-text-tertiary">
-            Belum ada catatan atau panduan kerja untuk project ini.
-          </p>
-        )}
-      </CardBase>
-
-      {/* Section 4: Task List */}
-      <CardBase className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-app-section-title font-semibold text-text-primary">
-            Daftar Task ({tasks.filter((t) => t.status === "done").length}/{tasks.length})
-          </h2>
-          <ButtonSecondary
-            onClick={() => setIsTaskModalOpen(true)}
-            className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1"
-          >
-            <Plus className="w-3 h-3" />
-            <span>Task</span>
-          </ButtonSecondary>
+          </CardBase>
         </div>
-        {tasks.length > 0 ? (
-          <div className="space-y-2">
-            {tasks.map((task) => {
-              const isDone = task.status === "done";
-              return (
-                <div
-                  key={task.id}
-                  onClick={() => handleToggleTask(task.id, task.status)}
-                  className={`p-3 rounded-md bg-bg-elevated-2 border border-border-hairline flex items-center justify-between cursor-pointer hover:border-border-hairline-strong transition-colors select-none ${
-                    isDone ? "opacity-60" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {isDone ? (
-                      <CheckCircle2 className="w-4 h-4 text-status-completed" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-text-tertiary" />
-                    )}
-                    <span
-                      className={`text-body-sm text-text-primary ${
-                        isDone ? "line-through text-text-tertiary" : ""
+
+        {/* RIGHT COLUMN: Utility, Reminders, Wallets & Accounts (35% width) */}
+        <div className="lg:col-span-4 space-y-4">
+          {/* Widget 1: Pengingat / Alarm Proyek */}
+          <CardBase className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-accent" />
+                <h3 className="text-body-sm font-semibold text-text-primary">
+                  Pengingat ({reminders.length})
+                </h3>
+              </div>
+              <ButtonSecondary
+                onClick={() => {
+                  setEditingReminder(null);
+                  setIsReminderModalOpen(true);
+                }}
+                className="!py-0.5 !px-2 text-caption inline-flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Pasang</span>
+              </ButtonSecondary>
+            </div>
+
+            {reminders.length > 0 ? (
+              <div className="space-y-2">
+                {reminders.map((rem) => {
+                  const dateStr = rem.next_trigger_at
+                    ? new Date(rem.next_trigger_at).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Belum diatur";
+                  const isPast = rem.next_trigger_at
+                    ? new Date(rem.next_trigger_at).getTime() < Date.now()
+                    : false;
+
+                  return (
+                    <div
+                      key={rem.id}
+                      className={`p-2.5 rounded-md border text-caption flex items-center justify-between gap-2 ${
+                        isPast
+                          ? "bg-status-overdue/10 border-status-overdue/30 text-status-overdue"
+                          : "bg-bg-elevated-2 border-border-hairline text-text-primary"
                       }`}
                     >
-                      {task.title}
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-1.5 font-mono">
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>{dateStr}</span>
+                        </div>
+                        <span className="text-[10px] text-text-tertiary capitalize">
+                          {rem.frequency === "once"
+                            ? "Sekali"
+                            : rem.frequency === "daily"
+                            ? "Harian"
+                            : rem.frequency === "weekly"
+                            ? "Mingguan"
+                            : rem.frequency}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingReminder(rem);
+                            setIsReminderModalOpen(true);
+                          }}
+                          className="p-1 text-text-tertiary hover:text-text-primary rounded"
+                          title="Ubah pengingat"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteReminder(rem.id)}
+                          className="p-1 text-text-tertiary hover:text-status-overdue rounded"
+                          title="Hapus pengingat"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-caption text-text-tertiary">
+                Belum ada pengingat terjadwal untuk proyek ini.
+              </p>
+            )}
+          </CardBase>
+
+          {/* Widget 2: Wallet Terhubung */}
+          <CardBase className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Wallet className="w-4 h-4 text-accent" />
+                <h3 className="text-body-sm font-semibold text-text-primary">
+                  Wallet ({wallets.length})
+                </h3>
+              </div>
+              <ButtonSecondary
+                onClick={() => setIsWalletModalOpen(true)}
+                className="!py-0.5 !px-2 text-caption inline-flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Atur</span>
+              </ButtonSecondary>
+            </div>
+
+            {wallets.length > 0 ? (
+              <div className="space-y-2">
+                {wallets.map((w) => {
+                  const isCopied = copiedWalletId === w.id;
+                  const shortAddr = `${w.address.slice(0, 6)}...${w.address.slice(-4)}`;
+
+                  return (
+                    <div
+                      key={w.id}
+                      className="p-2.5 rounded-md bg-bg-elevated-2 border border-border-hairline flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-caption font-semibold text-text-primary truncate">
+                          {w.label || "Wallet"}
+                        </div>
+                        <div className="text-[11px] font-mono text-text-secondary">
+                          {shortAddr}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyWallet(w.id, w.address)}
+                        className="p-1 rounded text-text-tertiary hover:text-text-primary transition-colors shrink-0"
+                        title="Salin Address"
+                      >
+                        {isCopied ? (
+                          <Check className="w-3.5 h-3.5 text-status-completed" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-caption text-text-tertiary">
+                Belum ada wallet dipasangkan ke proyek ini.
+              </p>
+            )}
+          </CardBase>
+
+          {/* Widget 3: Akun Terkait (Non-sensitif) */}
+          <CardBase className="p-4 space-y-2.5">
+            <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
+              <ShieldAlert className="w-3.5 h-3.5 text-accent shrink-0" />
+              <span className="font-semibold text-text-primary">Akun Terkait</span>
+            </div>
+            {project.accounts && project.accounts.length > 0 ? (
+              <div className="space-y-1.5">
+                {project.accounts.map((acc) => (
+                  <div
+                    key={acc.id}
+                    className="p-2 rounded bg-bg-elevated-2 text-caption flex items-center justify-between font-mono"
+                  >
+                    <span className="text-text-tertiary">{acc.label}:</span>
+                    <span className="text-text-primary truncate max-w-[160px]">
+                      {acc.username_email}
                     </span>
                   </div>
-                  <span className="text-caption font-mono text-text-tertiary uppercase">
-                    {task.type}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-body-sm text-text-tertiary">
-            Belum ada task yang dibuat untuk project ini.
-          </p>
-        )}
-      </CardBase>
-
-      {/* Section 5: Akun Terkait (Non-sensitif) */}
-      <CardBase className="space-y-2">
-        <div className="flex items-center gap-2 text-caption text-text-tertiary">
-          <ShieldAlert className="w-3.5 h-3.5 text-accent" />
-          <span>Akun non-sensitif (Droppr tidak pernah menyimpan password)</span>
-        </div>
-        {project.accounts && project.accounts.length > 0 ? (
-          <div className="space-y-2 pt-1">
-            {project.accounts.map((acc) => (
-              <div
-                key={acc.id}
-                className="p-3 rounded-md bg-bg-elevated-2 text-body-sm flex items-center justify-between"
-              >
-                <span className="text-text-secondary">{acc.label}:</span>
-                <span className="text-text-primary font-mono">{acc.username_email}</span>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-body-sm text-text-tertiary">
-            Belum ada akun terkait yang disimpan.
-          </p>
-        )}
-      </CardBase>
+            ) : (
+              <p className="text-caption text-text-tertiary">
+                Belum ada akun/username tersimpan.
+              </p>
+            )}
+          </CardBase>
+        </div>
+      </div>
 
       {/* Modals */}
-      <CreateTaskModal
-        isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        projectId={project.id}
-        onTaskCreated={() => router.refresh()}
+      <EditProjectModal
+        isOpen={isEditProjectModalOpen}
+        onClose={() => setIsEditProjectModalOpen(false)}
+        project={project}
+        onProjectUpdated={() => router.refresh()}
       />
 
       <AttachWalletModal
@@ -361,6 +452,30 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         projectId={project.id}
         assignedWalletIds={wallets.map((w) => w.id)}
         onWalletsUpdated={() => router.refresh()}
+      />
+
+      <SetReminderModal
+        isOpen={isReminderModalOpen}
+        onClose={() => {
+          setIsReminderModalOpen(false);
+          setEditingReminder(null);
+        }}
+        defaultProjectId={project.id}
+        editingReminder={editingReminder}
+        onReminderSaved={() => router.refresh()}
+      />
+
+      <TelegramUpdateModal
+        isOpen={isTelegramModalOpen}
+        onClose={() => setIsTelegramModalOpen(false)}
+        projectName={project.name}
+        projectId={project.id}
+        telegramPostUrl={telegramPostUrl}
+        existingThreads={threads}
+        onThreadAdded={() => {
+          setThreadRefreshTrigger((prev) => prev + 1);
+          router.refresh();
+        }}
       />
     </div>
   );
