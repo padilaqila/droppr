@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { cleanHtmlEntities } from "./thread-updates";
+import { cleanHtmlEntities, sanitizeSurrogates, sanitizeJsonObject } from "./thread-updates";
 
 export interface WaitlistItem {
   id: string;
@@ -143,16 +143,24 @@ export async function convertWaitlistToProject(waitlist: WaitlistItem): Promise<
     // Initial status: if joined, mark as waiting (waiting for TGE/snapshot); otherwise not_started
     const initialStatus = waitlist.status === "joined" ? "waiting" : "not_started";
 
+    const safeName =
+      sanitizeSurrogates(parsed.name).trim() ||
+      sanitizeSurrogates(waitlist.project_name || waitlist.title).trim() ||
+      "Waitlist Project";
+    const safeChain = sanitizeSurrogates(parsed.chain).trim() || "Multi-chain";
+    const safeGuideContent = sanitizeSurrogates(parsed.guide_content);
+    const safeSocialLinks = sanitizeJsonObject(parsed.social_links || {});
+
     // 2. Insert into projects table
     const { data: projectData, error: projErr } = await supabase
       .from("projects")
       .insert({
         user_id: user.id,
-        name: parsed.name,
-        chain: parsed.chain,
+        name: safeName,
+        chain: safeChain,
         status: initialStatus,
-        social_links: parsed.social_links,
-        guide_content: parsed.guide_content,
+        social_links: safeSocialLinks,
+        guide_content: safeGuideContent,
       })
       .select("id")
       .single();
@@ -165,14 +173,18 @@ export async function convertWaitlistToProject(waitlist: WaitlistItem): Promise<
 
     // 3. Insert tasks with proper type and status
     if (parsed.tasks && parsed.tasks.length > 0) {
-      const taskRows = parsed.tasks.map((taskItem) => ({
-        project_id: projectId,
-        title: taskItem.title,
-        type: taskItem.type,
-        status: waitlist.status === "joined" ? ("done" as const) : ("pending" as const),
-      }));
+      const taskRows = parsed.tasks
+        .map((taskItem) => ({
+          project_id: projectId,
+          title: sanitizeSurrogates(taskItem.title).trim(),
+          type: taskItem.type,
+          status: waitlist.status === "joined" ? ("done" as const) : ("pending" as const),
+        }))
+        .filter((t) => t.title.length > 0);
 
-      await supabase.from("tasks").insert(taskRows);
+      if (taskRows.length > 0) {
+        await supabase.from("tasks").insert(taskRows);
+      }
     }
 
     return projectId;

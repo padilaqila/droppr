@@ -2,6 +2,12 @@
 
 > File ini ditulis oleh agen AI, bukan oleh manusia. Dibaca otomatis di awal sesi (bagian atas file diprioritaskan). Lihat `AGENTS.md` §5 untuk format entri dan aturan pemangkasan.
 
+## [2026-09-08] Bug Status is_imported Terkunci dan Postgres 22P02 Error pada Konversi Feed Airdrop
+- Apa yang salah: Beberapa feed airdrop tidak dapat ditambahkan menjadi proyek (tombol diam tanpa error message), dan proyek yang telah dihapus dari daftar garapan masih tetap berstatus "Sudah Jadi Proyek Garapan" di Feed tanpa opsi untuk membuat ulang.
+- Kenapa terjadi (root cause, bukan cuma gejala): (1) Status `is_imported: true` disimpan statis di tabel `airdrop_feeds` dan tidak pernah di-revert ke `false` saat user menghapus proyek dari tabel `projects`. (2) Pada fungsi `convertFeedToProject`, string nama/konten/JSON links dari scraping Telegram tidak disanitasi dari low/unpaired unicode surrogates, memicu PostgreSQL error 22P02 invalid JSON surrogate yang membatalkan insert secara diam-diam tanpa feedback ke UI.
+- Perbaikan yang dilakukan: Membuat fungsi rekonsiliasi dinamis `syncFeedsWithProjects` yang mencocokkan feed dengan proyek user yang aktif secara real-time dan mereset status feed yang proyeknya sudah dihapus; menambahkan sanitasi `sanitizeSurrogates` dan `sanitizeJsonObject` sebelum insert ke Supabase; menambahkan tombol aksi "Lihat Proyek" dan tombol "Reset" pada kartu feed yang sudah di-import; serta menambahkan revert `is_imported: false` saat menghapus proyek di modal edit proyek dan settings.
+- Aturan ke depan: Status relasional antar tabel (seperti import/link) harus divalidasi dinamis terhadap eksistensi entitas induknya atau disinkronkan saat operasi delete, dan selalu sanitasi karakter unicode surrogate sebelum melakukan insert string/JSONB ke PostgreSQL.
+
 ## [2026-09-08] Layout Shell Hardcoded ml-64 dan Ketiadaan Mobile Drawer Navigasi
 - Apa yang salah: Tampilan aplikasi rusak dan konten terpotong pada layar mobile karena sidebar fixed `w-64` menutupi layar dan area konten utama didorong margin kiri tetap `ml-64` (256px), serta topbar mengalami tabrakan elemen.
 - Kenapa terjadi (root cause, bukan cuma gejala): Layout utama `app/(app)/layout.tsx` menggunakan class desktop statis tanpa breakpoint responsif (`ml-64` alih-alih `ml-0 md:ml-64`), komponen Sidebar tidak memiliki drawer state, backdrop overlay, atau tombol tutup mobile, serta Topbar tidak menyediakan tombol toggle hamburger.

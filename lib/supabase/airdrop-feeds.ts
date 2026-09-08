@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
-import { cleanHtmlEntities } from "./thread-updates";
+import { cleanHtmlEntities, sanitizeSurrogates, sanitizeJsonObject } from "./thread-updates";
+import { parseAirdropProjectData, cleanProjectName } from "./airdrop-parser";
 
 export interface AirdropFeedItem {
   id: string;
@@ -13,12 +14,103 @@ export interface AirdropFeedItem {
   source_url: string;
   raw_text: string;
   is_imported?: boolean;
+  linked_project_id?: string | null;
   created_at: string;
   expires_at?: string;
 }
 
 /**
- * Fetch airdrop feeds from Supabase (TTL active within 90 days)
+ * Synchronize airdrop_feeds is_imported status with actual user projects.
+ * If a project was deleted from the projects table, its corresponding feed is reverted to is_imported = false.
+ */
+export async function syncFeedsWithProjects(
+  feeds: AirdropFeedItem[],
+  userProjects: Array<{ id: string; name: string; social_links?: any }>
+): Promise<AirdropFeedItem[]> {
+  const supabase = createClient() as any;
+
+  // Build lookup structures
+  const projectBySourceUrl = new Map<string, string>();
+  const projectByName = new Map<string, string>();
+
+  for (const p of userProjects) {
+    const s = p.social_links || {};
+    const url = s.telegram_post_url || s.telegram || s.source_url;
+    if (url && typeof url === "string") {
+      projectBySourceUrl.set(url.trim(), p.id);
+    }
+    if (p.name && typeof p.name === "string") {
+      projectByName.set(p.name.trim().toLowerCase(), p.id);
+    }
+  }
+
+  const idsToRevert: string[] = [];
+
+  const syncedFeeds = feeds.map((feed) => {
+    let matchedProjectId: string | undefined = undefined;
+    if (feed.source_url && projectBySourceUrl.has(feed.source_url.trim())) {
+      matchedProjectId = projectBySourceUrl.get(feed.source_url.trim());
+    } else {
+      const cleanTitle = cleanProjectName(feed.title).trim().toLowerCase();
+      if (cleanTitle && projectByName.has(cleanTitle)) {
+        matchedProjectId = projectByName.get(cleanTitle);
+      }
+    }
+
+    const actuallyExists = Boolean(matchedProjectId);
+
+    // If marked imported in feed, but project no longer exists in projects table
+    if (feed.is_imported && !actuallyExists) {
+      idsToRevert.push(feed.id);
+      return {
+        ...feed,
+        is_imported: false,
+        linked_project_id: null,
+      };
+    }
+
+    return {
+      ...feed,
+      is_imported: actuallyExists,
+      linked_project_id: matchedProjectId || null,
+    };
+  });
+
+  // Revert stale feeds in database asynchronously in the background
+  if (idsToRevert.length > 0) {
+    try {
+      await supabase
+        .from("airdrop_feeds")
+        .update({ is_imported: false })
+        .in("id", idsToRevert);
+    } catch (err) {
+      console.warn("Background feed status sync warning:", err);
+    }
+  }
+
+  return syncedFeeds;
+}
+
+/**
+ * Reset feed is_imported status back to false
+ */
+export async function resetFeedImportStatus(feedId: string): Promise<boolean> {
+  const supabase = createClient() as any;
+  try {
+    const { error } = await supabase
+      .from("airdrop_feeds")
+      .update({ is_imported: false })
+      .eq("id", feedId);
+
+    return !error;
+  } catch (err) {
+    console.error("resetFeedImportStatus error:", err);
+    return false;
+  }
+}
+
+/**
+ * Fetch airdrop feeds from Supabase (TTL active within 90 days) and sync with existing projects
  */
 export async function fetchAirdropFeeds(options?: {
   channel?: string;
@@ -43,10 +135,13 @@ export async function fetchAirdropFeeds(options?: {
       query = query.eq("category", options.category);
     }
 
-    const { data, error } = await query;
+    const [feedsRes, projectsRes] = await Promise.all([
+      query,
+      supabase.from("projects").select("id, name, social_links"),
+    ]);
 
-    if (!error && Array.isArray(data)) {
-      return data.map((row: any) => ({
+    if (!feedsRes.error && Array.isArray(feedsRes.data)) {
+      const rawFeeds: AirdropFeedItem[] = feedsRes.data.map((row: any) => ({
         id: String(row.id),
         channel: row.channel,
         channel_name: row.channel_name,
@@ -61,6 +156,12 @@ export async function fetchAirdropFeeds(options?: {
         created_at: row.created_at,
         expires_at: row.expires_at,
       }));
+
+      const userProjects = (!projectsRes.error && Array.isArray(projectsRes.data))
+        ? projectsRes.data
+        : [];
+
+      return await syncFeedsWithProjects(rawFeeds, userProjects);
     }
   } catch (err) {
     console.error("fetchAirdropFeeds error:", err);
@@ -112,18 +213,24 @@ export async function cleanupExpiredFeeds(): Promise<number> {
   return 0;
 }
 
-import { parseAirdropProjectData } from "./airdrop-parser";
+export interface ConvertFeedResult {
+  success: boolean;
+  projectId?: string;
+  error?: string;
+}
 
 /**
  * Convert a curated feed item directly into a new Droppr Project with tasks
  */
-export async function convertFeedToProject(feed: AirdropFeedItem): Promise<string | null> {
+export async function convertFeedToProject(feed: AirdropFeedItem): Promise<ConvertFeedResult> {
   const supabase = createClient() as any;
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    return { success: false, error: "Sesi login tidak valid. Silakan login ulang." };
+  }
 
   try {
     // 1. Comprehensive Zero-Token Link & Content Parsing
@@ -133,39 +240,61 @@ export async function convertFeedToProject(feed: AirdropFeedItem): Promise<strin
       existingTasks: feed.tasks,
     });
 
+    // Clean & sanitize all string fields to prevent Postgres 22P02 unicode errors
+    const safeName =
+      sanitizeSurrogates(parsed.name).trim() ||
+      sanitizeSurrogates(feed.title).trim() ||
+      "Airdrop Project";
+
+    const safeChain = sanitizeSurrogates(parsed.chain).trim() || "Multi-chain";
+    const safeGuideContent = sanitizeSurrogates(parsed.guide_content);
+    const safeSocialLinks = sanitizeJsonObject(parsed.social_links || {});
+
     // Determine initial project status based on feed category
-    const initialStatus = feed.category === "testnet" || feed.category === "retro" ? "in_progress" : "not_started";
+    const initialStatus =
+      feed.category === "testnet" || feed.category === "retro" ? "in_progress" : "not_started";
 
     // 2. Insert into projects table
     const { data: projectData, error: projErr } = await supabase
       .from("projects")
       .insert({
         user_id: user.id,
-        name: parsed.name,
-        chain: parsed.chain,
+        name: safeName,
+        chain: safeChain,
         status: initialStatus,
-        social_links: parsed.social_links,
-        guide_content: parsed.guide_content,
+        social_links: safeSocialLinks,
+        guide_content: safeGuideContent,
       })
       .select("id")
       .single();
 
     if (projErr || !projectData) {
-      throw projErr || new Error("Gagal membuat project dari feed.");
+      console.error("Error inserting project from feed:", projErr);
+      return {
+        success: false,
+        error: projErr?.message || "Gagal menyimpan data project ke database.",
+      };
     }
 
     const projectId = projectData.id;
 
-    // 3. Insert detected and formatted tasks
+    // 3. Insert detected and formatted tasks safely
     if (parsed.tasks && parsed.tasks.length > 0) {
-      const taskRows = parsed.tasks.map((taskItem) => ({
-        project_id: projectId,
-        title: taskItem.title,
-        type: taskItem.type,
-        status: "pending" as const,
-      }));
+      const taskRows = parsed.tasks
+        .map((taskItem) => ({
+          project_id: projectId,
+          title: sanitizeSurrogates(taskItem.title).trim(),
+          type: taskItem.type === "daily" ? ("daily" as const) : ("one_time" as const),
+          status: "pending" as const,
+        }))
+        .filter((t) => t.title.length > 0);
 
-      await supabase.from("tasks").insert(taskRows);
+      if (taskRows.length > 0) {
+        const { error: taskErr } = await supabase.from("tasks").insert(taskRows);
+        if (taskErr) {
+          console.warn("Non-fatal: failed to insert some tasks:", taskErr);
+        }
+      }
     }
 
     // 4. Mark feed item as imported
@@ -174,10 +303,10 @@ export async function convertFeedToProject(feed: AirdropFeedItem): Promise<strin
       .update({ is_imported: true })
       .eq("id", feed.id);
 
-    return projectId;
-  } catch (err) {
+    return { success: true, projectId };
+  } catch (err: any) {
     console.error("convertFeedToProject error:", err);
-    return null;
+    return { success: false, error: err?.message || "Terjadi kesalahan saat memproses data feed." };
   }
 }
 
@@ -186,7 +315,7 @@ export async function convertFeedToProject(feed: AirdropFeedItem): Promise<strin
  * Parses chain, social links (faucet, dapp, twitter, telegram), and tasks categorized by frequency.
  * Automatically falls back to standard convertFeedToProject if AI is unavailable.
  */
-export async function convertFeedToProjectWithAI(feed: AirdropFeedItem): Promise<string | null> {
+export async function convertFeedToProjectWithAI(feed: AirdropFeedItem): Promise<ConvertFeedResult> {
   try {
     const res = await fetch("/api/ai/parse-airdrop", {
       method: "POST",
@@ -211,25 +340,36 @@ export async function convertFeedToProjectWithAI(feed: AirdropFeedItem): Promise
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return null;
+    if (!user) {
+      return { success: false, error: "Sesi login tidak valid. Silakan login ulang." };
+    }
 
     // Merge social links with source_url
-    const socialLinks = {
+    const rawSocialLinks = {
       ...(aiData.social_links || {}),
       telegram: feed.source_url,
       telegram_post_url: feed.source_url,
     };
+    const safeSocialLinks = sanitizeJsonObject(rawSocialLinks);
+
+    const safeName =
+      sanitizeSurrogates(cleanHtmlEntities(aiData.name || feed.title)).trim() ||
+      "Airdrop Project";
+    const safeChain =
+      sanitizeSurrogates(cleanHtmlEntities(aiData.chain || "Multi-chain")).trim();
+    const safeGuideContent =
+      sanitizeSurrogates(cleanHtmlEntities(aiData.guide_content || feed.raw_text));
 
     // Insert into projects
     const { data: projectData, error: projErr } = await supabase
       .from("projects")
       .insert({
         user_id: user.id,
-        name: cleanHtmlEntities(aiData.name || feed.title),
-        chain: cleanHtmlEntities(aiData.chain || "Multi-chain"),
+        name: safeName,
+        chain: safeChain,
         status: aiData.status || "not_started",
-        social_links: socialLinks,
-        guide_content: cleanHtmlEntities(aiData.guide_content || feed.raw_text),
+        social_links: safeSocialLinks,
+        guide_content: safeGuideContent,
       })
       .select("id")
       .single();
@@ -241,27 +381,33 @@ export async function convertFeedToProjectWithAI(feed: AirdropFeedItem): Promise
 
     const projectId = projectData.id;
 
-    // Insert tasks parsed by AI
+    // Insert tasks parsed by AI safely
     const tasksToInsert: any[] = [];
     if (Array.isArray(aiData.tasks) && aiData.tasks.length > 0) {
       for (const t of aiData.tasks) {
         if (t && t.title) {
-          tasksToInsert.push({
-            project_id: projectId,
-            title: cleanHtmlEntities(t.title),
-            type: t.type === "daily" ? "daily" : t.type === "weekly" ? "weekly" : "one_time",
-            status: "pending",
-          });
+          const cleanTitle = sanitizeSurrogates(cleanHtmlEntities(t.title)).trim();
+          if (cleanTitle.length > 0) {
+            tasksToInsert.push({
+              project_id: projectId,
+              title: cleanTitle,
+              type: t.type === "daily" ? "daily" : t.type === "weekly" ? "weekly" : "one_time",
+              status: "pending",
+            });
+          }
         }
       }
     } else if (feed.tasks && feed.tasks.length > 0) {
       for (const t of feed.tasks) {
-        tasksToInsert.push({
-          project_id: projectId,
-          title: cleanHtmlEntities(t),
-          type: t.toLowerCase().includes("daily") ? "daily" : "one_time",
-          status: "pending",
-        });
+        const cleanTitle = sanitizeSurrogates(cleanHtmlEntities(t)).trim();
+        if (cleanTitle.length > 0) {
+          tasksToInsert.push({
+            project_id: projectId,
+            title: cleanTitle,
+            type: t.toLowerCase().includes("daily") ? "daily" : "one_time",
+            status: "pending",
+          });
+        }
       }
     }
 
@@ -269,15 +415,17 @@ export async function convertFeedToProjectWithAI(feed: AirdropFeedItem): Promise
       await supabase.from("tasks").insert(tasksToInsert);
     }
 
-    // Insert accounts if detected
+    // Insert accounts if detected safely
     if (Array.isArray(aiData.accounts) && aiData.accounts.length > 0) {
       const accountsToInsert = aiData.accounts
         .filter((a: any) => a && a.label)
         .map((a: any) => ({
           project_id: projectId,
-          label: cleanHtmlEntities(a.label),
-          username_email: cleanHtmlEntities(a.username_email || ""),
-        }));
+          label: sanitizeSurrogates(cleanHtmlEntities(a.label)).trim(),
+          username_email: sanitizeSurrogates(cleanHtmlEntities(a.username_email || "")).trim(),
+        }))
+        .filter((a: any) => a.label.length > 0);
+
       if (accountsToInsert.length > 0) {
         await supabase.from("project_accounts").insert(accountsToInsert);
       }
@@ -289,8 +437,8 @@ export async function convertFeedToProjectWithAI(feed: AirdropFeedItem): Promise
       .update({ is_imported: true })
       .eq("id", feed.id);
 
-    return projectId;
-  } catch (err) {
+    return { success: true, projectId };
+  } catch (err: any) {
     console.error("convertFeedToProjectWithAI error:", err);
     return convertFeedToProject(feed);
   }

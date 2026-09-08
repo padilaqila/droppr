@@ -287,6 +287,12 @@ export default function SettingsPage() {
       const { error } = await supabase.from("projects").delete().neq("id", "00000000-0000-0000-0000-000000000000");
       if (error) throw error;
 
+      // Revert feed & waitlist imported statuses
+      await Promise.allSettled([
+        supabase.from("airdrop_feeds").update({ is_imported: false }).eq("is_imported", true),
+        supabase.from("waitlists").update({ is_imported: false }).eq("is_imported", true),
+      ]);
+
       setDeleteConfirmText("");
       setDangerMsg({
         type: "success",

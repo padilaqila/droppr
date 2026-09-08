@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CardBase } from "@/components/ui/card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import {
@@ -20,6 +21,9 @@ import {
   Wallet,
   Coins,
   Check,
+  RotateCcw,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import {
   fetchAirdropFeeds,
@@ -27,6 +31,7 @@ import {
   cleanupExpiredFeeds,
   convertFeedToProject,
   convertFeedToProjectWithAI,
+  resetFeedImportStatus,
   type AirdropFeedItem,
 } from "@/lib/supabase/airdrop-feeds";
 
@@ -78,6 +83,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const [feeds, setFeeds] = useState<AirdropFeedItem[]>(initialFeeds);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Filter States: Tipe Garapan (Testnet, Retro/Mainnet) & Biaya/Modal (Gratis, Berbayar)
   const [channelFilter, setChannelFilter] = useState<"all" | "dutacryptoairdrop" | "airdropfind">("all");
@@ -91,30 +97,65 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   // Converting to project loading state
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [convertedSuccessId, setConvertedSuccessId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
 
   // Convert feed item to official Droppr Project (AI or manual)
-  const handleMakeProject = async (feed: AirdropFeedItem, useAI: boolean = true) => {
+  const handleMakeProject = async (feed: AirdropFeedItem, useAI: boolean = false) => {
     if (convertingId) return;
     setConvertingId(feed.id);
+    setErrorMessage(null);
 
     try {
-      const newProjectId = useAI
+      const res = useAI
         ? await convertFeedToProjectWithAI(feed)
         : await convertFeedToProject(feed);
 
-      if (newProjectId) {
+      if (res.success && res.projectId) {
         setConvertedSuccessId(feed.id);
         setFeeds((prev) =>
-          prev.map((f) => (f.id === feed.id ? { ...f, is_imported: true } : f))
+          prev.map((f) =>
+            f.id === feed.id ? { ...f, is_imported: true, linked_project_id: res.projectId } : f
+          )
         );
 
         // Redirect directly to the newly created project workstation
-        router.push(`/projects/${newProjectId}`);
+        router.push(`/projects/${res.projectId}`);
+      } else {
+        setErrorMessage(res.error || "Gagal membuat proyek dari feed ini. Periksa data atau coba lagi.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Convert to project error:", err);
+      setErrorMessage(err?.message || "Terjadi kesalahan saat memproses data proyek.");
     } finally {
       setConvertingId(null);
+    }
+  };
+
+  // Reset feed imported status
+  const handleResetFeedStatus = async (feedId: string) => {
+    if (resettingId) return;
+    setResettingId(feedId);
+    setErrorMessage(null);
+
+    try {
+      const ok = await resetFeedImportStatus(feedId);
+      if (ok) {
+        setFeeds((prev) =>
+          prev.map((f) =>
+            f.id === feedId ? { ...f, is_imported: false, linked_project_id: null } : f
+          )
+        );
+        if (convertedSuccessId === feedId) {
+          setConvertedSuccessId(null);
+        }
+      } else {
+        setErrorMessage("Gagal mereset status garapan.");
+      }
+    } catch (err: any) {
+      console.error("Reset feed status error:", err);
+      setErrorMessage(err?.message || "Gagal mereset status garapan.");
+    } finally {
+      setResettingId(null);
     }
   };
 
@@ -311,6 +352,24 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             className="text-caption hover:underline text-text-tertiary hover:text-text-primary ml-2 shrink-0"
           >
             Tutup
+          </button>
+        </div>
+      )}
+
+      {/* ERROR ALERT BANNER */}
+      {errorMessage && (
+        <div className="p-3.5 rounded-lg bg-status-danger/15 border border-status-danger/30 text-status-danger text-body-sm flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span className="truncate">{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="p-1 rounded hover:bg-status-danger/20 text-status-danger transition-colors shrink-0"
+            title="Tutup pesan"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -624,10 +683,35 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   <div className="flex items-center gap-2">
                     {/* Convert directly into project button */}
                     {isConverted ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-status-completed/15 text-status-completed border border-status-completed/30 text-caption font-semibold">
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Sudah Jadi Proyek Garapan</span>
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-status-completed/15 text-status-completed border border-status-completed/30 text-caption font-semibold">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Sudah Jadi Proyek Garapan</span>
+                        </span>
+
+                        {feed.linked_project_id && (
+                          <Link
+                            href={`/projects/${feed.linked_project_id}`}
+                            prefetch={false}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-bg-elevated hover:bg-bg-elevated-2 text-text-primary border border-border-hairline text-caption font-medium transition-colors"
+                            title="Buka workstation proyek ini"
+                          >
+                            <span>Lihat Proyek</span>
+                            <ExternalLink className="w-3 h-3 text-text-tertiary" />
+                          </Link>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleResetFeedStatus(feed.id)}
+                          disabled={resettingId === feed.id}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-elevated border border-transparent hover:border-border-hairline transition-colors text-caption"
+                          title="Reset status garapan feed ini agar bisa dibuat ulang"
+                        >
+                          <RotateCcw className={`w-3 h-3 ${resettingId === feed.id ? "animate-spin text-accent" : ""}`} />
+                          <span>{resettingId === feed.id ? "Mereset..." : "Reset"}</span>
+                        </button>
+                      </div>
                     ) : (
                       <button
                         type="button"

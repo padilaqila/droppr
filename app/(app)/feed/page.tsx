@@ -1,7 +1,7 @@
 import React from "react";
 import { createClient } from "@/lib/supabase/server";
 import { FeedClientView } from "./feed-client-view";
-import type { AirdropFeedItem } from "@/lib/supabase/airdrop-feeds";
+import { type AirdropFeedItem, syncFeedsWithProjects } from "@/lib/supabase/airdrop-feeds";
 import { cleanHtmlEntities } from "@/lib/supabase/thread-updates";
 
 export const dynamic = "force-dynamic";
@@ -13,14 +13,19 @@ export default async function FeedPage() {
   let initialFeeds: AirdropFeedItem[] = [];
 
   try {
-    const { data, error } = await (supabase as any)
-      .from("airdrop_feeds")
-      .select("*")
-      .gt("expires_at", nowIso)
-      .order("created_at", { ascending: false });
+    const [feedsRes, projectsRes] = await Promise.all([
+      (supabase as any)
+        .from("airdrop_feeds")
+        .select("*")
+        .gt("expires_at", nowIso)
+        .order("created_at", { ascending: false }),
+      (supabase as any)
+        .from("projects")
+        .select("id, name, social_links"),
+    ]);
 
-    if (!error && Array.isArray(data)) {
-      initialFeeds = data.map((row: any) => ({
+    if (!feedsRes.error && Array.isArray(feedsRes.data)) {
+      const rawFeeds: AirdropFeedItem[] = feedsRes.data.map((row: any) => ({
         id: String(row.id),
         channel: row.channel,
         channel_name: row.channel_name,
@@ -35,6 +40,13 @@ export default async function FeedPage() {
         created_at: row.created_at,
         expires_at: row.expires_at,
       }));
+
+      const userProjects =
+        !projectsRes.error && Array.isArray(projectsRes.data)
+          ? projectsRes.data
+          : [];
+
+      initialFeeds = await syncFeedsWithProjects(rawFeeds, userProjects);
     }
   } catch (err) {
     console.error("FeedPage initial fetch error:", err);

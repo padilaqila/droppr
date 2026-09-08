@@ -29,6 +29,38 @@ export function cleanHtmlEntities(str: string): string {
 }
 
 /**
+ * Sanitize strings to avoid PostgreSQL invalid JSON surrogate error (22P02)
+ * Removes unpaired high/low surrogates and null characters.
+ */
+export function sanitizeSurrogates(str?: string | null): string {
+  if (!str) return "";
+  return str
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "")
+    .replace(/\0/g, "");
+}
+
+/**
+ * Recursively sanitize all strings in an object/array to ensure safe JSONB insertion into Postgres
+ */
+export function sanitizeJsonObject(obj: any): any {
+  if (typeof obj === "string") {
+    return sanitizeSurrogates(obj);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeJsonObject);
+  }
+  if (obj !== null && typeof obj === "object") {
+    const res: Record<string, any> = {};
+    for (const key of Object.keys(obj)) {
+      res[key] = sanitizeJsonObject(obj[key]);
+    }
+    return res;
+  }
+  return obj;
+}
+
+/**
  * Fetch thread items for a project (Matching actual public.project_updates table)
  */
 export async function fetchProjectThreads(projectId: string): Promise<ThreadItem[]> {
