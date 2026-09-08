@@ -225,30 +225,30 @@ export function HeroSearchConsole() {
 
       </div>
 
-      {/* Suggestion Chips Below Card: 1 Clean Horizontal Row */}
+      {/* Universal Workspace Capabilities Below Card */}
       <div className="flex flex-wrap items-center justify-center gap-2 mt-3 max-w-2xl mx-auto">
         <Link 
           href="/dashboard"
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-white/25 text-[11px] text-white/85 hover:text-white font-sans transition-all shadow-sm"
         >
-          <Sparkles className="w-3 h-3 text-accent" />
-          <span>Checklist Monad Testnet</span>
+          <CheckCircle2 className="w-3 h-3 text-status-completed" />
+          <span>Pelacakan task & snapshot harian</span>
         </Link>
 
         <Link 
           href="/dashboard"
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-white/25 text-[11px] text-white/85 hover:text-white font-sans transition-all shadow-sm"
         >
-          <Sparkles className="w-3 h-3 text-link-teal" />
-          <span>Klaim reward Berachain V2</span>
+          <ShieldCheck className="w-3 h-3 text-status-in-progress" />
+          <span>Portofolio multi-wallet non-custodial</span>
         </Link>
 
         <Link 
           href="/dashboard"
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-white/25 text-[11px] text-white/85 hover:text-white font-sans transition-all shadow-sm"
         >
-          <Sparkles className="w-3 h-3 text-status-waiting" />
-          <span>Registrasi IP Story Protocol</span>
+          <Clock className="w-3 h-3 text-accent" />
+          <span>Reminder deadline klaim token</span>
         </Link>
       </div>
     </div>
