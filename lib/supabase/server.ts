@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import type { Database } from "./database.types";
 
 const DUMMY_URL = "https://placeholder-project.supabase.co";
 const DUMMY_KEY = "placeholder-anon-key";
@@ -33,7 +34,7 @@ export async function createClient() {
   checkSupabaseConfig();
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<Database>(
     isConfigured && envUrl ? envUrl : DUMMY_URL,
     isConfigured && envKey ? envKey : DUMMY_KEY,
     {

@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
+import type { Database } from "./database.types";
 
 const DUMMY_URL = "https://placeholder-project.supabase.co";
 const DUMMY_KEY = "placeholder-anon-key";
@@ -30,7 +31,7 @@ checkSupabaseConfig();
 
 export function createClient() {
   checkSupabaseConfig();
-  return createBrowserClient(
+  return createBrowserClient<Database>(
     isConfigured && envUrl ? envUrl : DUMMY_URL,
     isConfigured && envKey ? envKey : DUMMY_KEY
   );
