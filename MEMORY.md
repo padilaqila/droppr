@@ -6,7 +6,7 @@
 - Apa yang salah: Next.js build gagal karena Webpack mencari module `@x402/*` dan `@react-native-async-storage/async-storage` yang merupakan peer dependency opsional dari connector Wagmi/Coinbase/MetaMask.
 - Kenapa terjadi (root cause, bukan cuma gejala): Import dari `wagmi/connectors` menarik barrel export yang memuat seluruh provider eksternal.
 - Perbaikan yang dilakukan: Mengonfigurasi `resolve.fallback` di `next.config.mjs` dengan nilai `false` untuk dependensi opsional tersebut.
-- Aturan ke depan: Saat menambah connector web3 baru, selalu verifikasi `next build` untuk memastikan tidak ada resolusi bundler Webpack yang tertahan di dependensi opsional.
+- Aturan ke depan: Saat menambah connector web3 atau upgrade wagmi/@wagmi/connectors, selalu verifikasi `next build` dan cek apakah fallback webpack di `next.config.mjs` masih perlu atau sudah tidak relevan.
 
 ## [2026-09-08] PowerShell execution policy memblokir npm script wrapper
 - Apa yang salah: Menjalankan `npm` dan `npx` di PowerShell menghasilkan security error `PSSecurityException`.
