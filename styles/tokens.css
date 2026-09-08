@@ -100,3 +100,23 @@
   --color-modal-overlay: rgba(20, 24, 31, 0.4);
 }
 
+/* Enforce dark surfaces strictly for marketing showcase */
+.marketing-root {
+  --color-bg-base: #14181F;
+  --color-bg-elevated: #1B212B;
+  --color-bg-elevated-2: #232A36;
+  --color-bg-sidebar: #10141A;
+
+  --color-border-hairline: rgba(255, 255, 255, 0.08);
+  --color-border-hairline-strong: rgba(255, 255, 255, 0.15);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+
+  --color-text-primary: #F4F6F8;
+  --color-text-secondary: #A9B3C1;
+  --color-text-tertiary: #6B7684;
+  --color-text-disabled: #4A5361;
+
+  --color-badge-bg-not-started: #232A36;
+  --color-modal-overlay: rgba(6, 8, 12, 0.7);
+}
+

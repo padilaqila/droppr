@@ -32,7 +32,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('droppr-theme');if(t==='light')document.documentElement.classList.add('light')}catch(e){}})()`,
+            __html: `(function(){try{var p=window.location.pathname;if(p===''||p==='/'||p.startsWith('/login')||p.startsWith('/auth'))return;var t=localStorage.getItem('droppr-theme');if(t==='light')document.documentElement.classList.add('light')}catch(e){}})()`,
           }}
         />
       </head>

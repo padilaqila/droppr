@@ -79,13 +79,35 @@ export default function MarketingPage() {
           Satu workspace personal untuk melacak task harian, jadwal snapshot, status wallet, dan reminder klaim token tanpa spreadsheet yang berantakan.
         </p>
 
-        {/* Centerpiece Search / Preview Card (Layer 2: Glass Panel) */}
-        <div className="w-full max-w-2xl mt-8 relative group">
-          <div className="relative rounded-xl bg-bg-elevated/75 backdrop-blur-md border border-border-hairline p-5 sm:p-6 shadow-elevation-1 text-left space-y-4">
+        {/* Centerpiece Search / Preview Card (Manifest Console Panel) */}
+        <div className="w-full max-w-2xl mt-8 relative">
+          <div className="relative rounded-xl bg-bg-elevated border-t-2 border-accent border-x border-b border-border-hairline p-5 sm:p-6 shadow-[0_0_40px_-6px_rgba(240,169,59,0.10),0_12px_28px_-6px_rgba(0,0,0,0.5)] text-left space-y-4">
             
+            {/* 4 Corner Crosshair Tick Marks (10px, coordinate / radar look) */}
+            <div className="absolute top-2 left-2.5 w-2.5 h-2.5 text-text-tertiary pointer-events-none select-none" aria-hidden="true">
+              <svg viewBox="0 0 10 10" fill="none" className="w-full h-full stroke-current stroke-[1.2]">
+                <path d="M5 0v10M0 5h10" />
+              </svg>
+            </div>
+            <div className="absolute top-2 right-2.5 w-2.5 h-2.5 text-text-tertiary pointer-events-none select-none" aria-hidden="true">
+              <svg viewBox="0 0 10 10" fill="none" className="w-full h-full stroke-current stroke-[1.2]">
+                <path d="M5 0v10M0 5h10" />
+              </svg>
+            </div>
+            <div className="absolute bottom-2 left-2.5 w-2.5 h-2.5 text-text-tertiary pointer-events-none select-none" aria-hidden="true">
+              <svg viewBox="0 0 10 10" fill="none" className="w-full h-full stroke-current stroke-[1.2]">
+                <path d="M5 0v10M0 5h10" />
+              </svg>
+            </div>
+            <div className="absolute bottom-2 right-2.5 w-2.5 h-2.5 text-text-tertiary pointer-events-none select-none" aria-hidden="true">
+              <svg viewBox="0 0 10 10" fill="none" className="w-full h-full stroke-current stroke-[1.2]">
+                <path d="M5 0v10M0 5h10" />
+              </svg>
+            </div>
+
             {/* Search Input Bar Imitation */}
             <Link href="/dashboard" className="block">
-              <div className="flex items-center justify-between p-3 rounded-md bg-bg-elevated-2/70 border border-border-hairline hover:border-border-hairline-strong transition-colors cursor-pointer group/bar">
+              <div className="flex items-center justify-between p-3 rounded-md bg-bg-elevated-2 border border-border-hairline hover:border-border-hairline-strong transition-colors cursor-pointer group/bar">
                 <div className="flex items-center gap-3 text-text-tertiary group-hover/bar:text-text-secondary transition-colors">
                   <Search className="w-4 h-4 text-text-tertiary group-hover/bar:text-text-primary transition-colors" />
                   <span className="text-body-sm font-sans">
@@ -103,7 +125,7 @@ export default function MarketingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
               
               {/* Item 1: Berachain Ready to Claim (Amber HANYA untuk status Siap Klaim) */}
-              <Link href="/dashboard" className="p-3 rounded-md bg-bg-elevated-2/50 border border-border-hairline hover:border-border-hairline-strong transition-colors flex items-center justify-between gap-2">
+              <Link href="/dashboard" className="p-3 rounded-md bg-bg-elevated-2 border border-border-hairline hover:border-border-hairline-strong transition-colors flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-6 h-6 rounded bg-badge-bg-ready-claim text-status-ready-claim flex items-center justify-center shrink-0">
                     <Gift className="w-3.5 h-3.5" />
@@ -117,7 +139,7 @@ export default function MarketingPage() {
               </Link>
 
               {/* Item 2: Monad In Progress */}
-              <Link href="/dashboard" className="p-3 rounded-md bg-bg-elevated-2/50 border border-border-hairline hover:border-border-hairline-strong transition-colors flex items-center justify-between gap-2">
+              <Link href="/dashboard" className="p-3 rounded-md bg-bg-elevated-2 border border-border-hairline hover:border-border-hairline-strong transition-colors flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-6 h-6 rounded bg-badge-bg-in-progress text-status-in-progress flex items-center justify-center shrink-0">
                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -131,7 +153,7 @@ export default function MarketingPage() {
               </Link>
 
               {/* Item 3: Story Protocol Waiting */}
-              <Link href="/dashboard" className="p-3 rounded-md bg-bg-elevated-2/50 border border-border-hairline hover:border-border-hairline-strong transition-colors flex items-center justify-between gap-2">
+              <Link href="/dashboard" className="p-3 rounded-md bg-bg-elevated-2 border border-border-hairline hover:border-border-hairline-strong transition-colors flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-6 h-6 rounded bg-badge-bg-waiting text-status-waiting flex items-center justify-center shrink-0">
                     <Clock className="w-3.5 h-3.5" />
