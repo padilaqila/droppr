@@ -34,6 +34,7 @@ import {
   resetFeedImportStatus,
   type AirdropFeedItem,
 } from "@/lib/supabase/airdrop-feeds";
+import { ProjectReviewModal } from "@/components/features/project-review-modal";
 
 interface FeedClientViewProps {
   initialFeeds: AirdropFeedItem[];
@@ -98,6 +99,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [convertedSuccessId, setConvertedSuccessId] = useState<string | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
+  const [reviewingFeed, setReviewingFeed] = useState<AirdropFeedItem | null>(null);
 
   // Convert feed item to official Droppr Project (AI or manual)
   const handleMakeProject = async (feed: AirdropFeedItem, useAI: boolean = false) => {
@@ -715,17 +717,12 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => handleMakeProject(feed, false)}
-                        disabled={isConverting}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-accent text-on-accent hover:bg-accent-pressed transition-colors text-body-sm font-semibold shadow-xs disabled:opacity-50"
-                        title="Buat proyek langsung secara manual"
+                        onClick={() => setReviewingFeed(feed)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-accent text-on-accent hover:bg-accent-pressed transition-colors text-body-sm font-semibold shadow-xs"
+                        title="Review dan buat proyek Droppr"
                       >
-                        {isConverting ? (
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <FolderPlus className="w-3.5 h-3.5" />
-                        )}
-                        <span>{isConverting ? "Menyimpan..." : "Buat Proyek"}</span>
+                        <FolderPlus className="w-3.5 h-3.5" />
+                        <span>+ Proyek</span>
                       </button>
                     )}
                   </div>
@@ -765,6 +762,29 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
           })
         )}
       </div>
+
+      {/* ======================================================== */}
+      {/* REVIEW & BUAT PROYEK MODAL                               */}
+      {/* ======================================================== */}
+      <ProjectReviewModal
+        isOpen={Boolean(reviewingFeed)}
+        onClose={() => setReviewingFeed(null)}
+        source="feed"
+        feedItem={reviewingFeed}
+        onSuccess={(newProjectId) => {
+          if (reviewingFeed) {
+            setFeeds((prev) =>
+              prev.map((f) =>
+                f.id === reviewingFeed.id
+                  ? { ...f, is_imported: true, linked_project_id: newProjectId }
+                  : f
+              )
+            );
+          }
+          setReviewingFeed(null);
+          router.push(`/projects/${newProjectId}`);
+        }}
+      />
     </div>
   );
 }

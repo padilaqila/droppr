@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { ButtonSecondary } from "@/components/ui/button";
+import { ProjectReviewModal } from "@/components/features/project-review-modal";
 import { createClient } from "@/lib/supabase/client";
 import {
   type WaitlistItem,
@@ -93,6 +94,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   // Detail Modal state (for viewing all hidden steps & full telegram text)
   const [detailModalTarget, setDetailModalTarget] = useState<WaitlistItem | null>(null);
   const [detailCopied, setDetailCopied] = useState(false);
+  const [reviewingWaitlist, setReviewingWaitlist] = useState<WaitlistItem | null>(null);
 
   // Convert waitlist item directly into Droppr project (AI or manual)
   const handleConvertWaitlist = async (waitlist: WaitlistItem, useAI: boolean = true) => {
@@ -691,56 +693,37 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           <span>Update TG</span>
                         </button>
 
-                        {/* BUAT PROYEK MANUAL */}
+                        {/* + PROYEK REVIEW MODAL */}
                         <button
                           type="button"
-                          onClick={() => handleConvertWaitlist(item, false)}
-                          disabled={isConverting && convertingId === item.id}
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-colors shadow-xs disabled:opacity-50"
-                          title="Buat proyek Droppr secara manual"
+                          onClick={() => setReviewingWaitlist(item)}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-colors shadow-xs"
+                          title="Review dan buat proyek Droppr"
                         >
-                          {isConverting && convertingId === item.id ? (
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <FolderPlus className="w-3.5 h-3.5" />
-                          )}
-                          <span>
-                            {isConverting && convertingId === item.id ? "Menyimpan..." : "Buat Proyek"}
-                          </span>
+                          <FolderPlus className="w-3.5 h-3.5" />
+                          <span>+ Proyek</span>
                         </button>
                       </div>
 
                       {/* Baris Tunggal Utilitas yang Rapi & Lega */}
-                      <div className="flex items-center justify-between text-caption pt-0.5 text-text-tertiary">
+                      <div className="flex items-center justify-end gap-2 text-caption pt-0.5 text-text-tertiary">
                         <button
                           type="button"
-                          onClick={() => handleOpenTransferModalFromWaitlistDirect(item)}
-                          className="text-text-secondary hover:text-text-primary hover:underline inline-flex items-center gap-1 text-[11px] font-medium"
-                          title="Pindahkan tugas waitlist ke proyek lain secara manual"
+                          onClick={() => handleRevertToPending(item.id)}
+                          className="text-text-tertiary hover:text-text-secondary text-[11px] transition-colors"
+                          title="Kembalikan ke tab Eksplorasi"
                         >
-                          <Rocket className="w-3 h-3 text-accent" />
-                          <span>Pindah Tugas</span>
+                          Batal Join
                         </button>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleRevertToPending(item.id)}
-                            className="text-text-tertiary hover:text-text-secondary text-[11px]"
-                            title="Kembalikan ke tab Eksplorasi"
-                          >
-                            Batal Join
-                          </button>
-                          <span>•</span>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(item.id)}
-                            className="text-text-tertiary hover:text-status-overdue text-[11px]"
-                            title="Hapus waitlist"
-                          >
-                            Hapus
-                          </button>
-                        </div>
+                        <span>•</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item.id)}
+                          className="text-text-tertiary hover:text-status-overdue text-[11px] transition-colors"
+                          title="Hapus waitlist"
+                        >
+                          Hapus
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -1386,6 +1369,21 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           </div>
         )}
       </Modal>
+
+      {/* ======================================================== */}
+      {/* REVIEW & BUAT PROYEK MODAL                               */}
+      {/* ======================================================== */}
+      <ProjectReviewModal
+        isOpen={Boolean(reviewingWaitlist)}
+        onClose={() => setReviewingWaitlist(null)}
+        source="waitlist"
+        waitlistItem={reviewingWaitlist}
+        onSuccess={(newProjectId) => {
+          setReviewingWaitlist(null);
+          reloadData();
+          router.push(`/projects/${newProjectId}`);
+        }}
+      />
     </div>
   );
 }
