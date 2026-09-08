@@ -20,6 +20,8 @@ import {
   ChevronDown,
   ChevronUp,
   Send,
+  AtSign,
+  X,
 } from "lucide-react";
 import { ProjectStatusPills } from "@/components/features/project-status-pills";
 import { ProjectQuickLinks } from "@/components/features/project-quick-links";
@@ -63,6 +65,16 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
   const [currentStatus, setCurrentStatus] = useState<ProjectStatusEnum>(project.status);
   const [tasks, setTasks] = useState<TaskRow[]>(project.tasks || []);
   const [reminders, setReminders] = useState<ReminderRow[]>(project.reminders || []);
+  const [accounts, setAccounts] = useState<AccountRow[]>(project.accounts || []);
+  const [isAddingAccount, setIsAddingAccount] = useState(false);
+  const [accountPlatform, setAccountPlatform] = useState<string>("Discord");
+  const [customPlatform, setCustomPlatform] = useState<string>("");
+  const [accountValue, setAccountValue] = useState<string>("");
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+  const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
+
   const [threads, setThreads] = useState<ThreadItem[]>([]);
   const [threadRefreshTrigger, setThreadRefreshTrigger] = useState(0);
   const [copiedWalletId, setCopiedWalletId] = useState<string | null>(null);
@@ -82,6 +94,10 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
   useEffect(() => {
     setReminders(project.reminders || []);
   }, [project.reminders]);
+
+  useEffect(() => {
+    setAccounts(project.accounts || []);
+  }, [project.accounts]);
 
   // Seamless 1-Click Status Change (Optimistic UI)
   const handleStatusChange = async (nextStatus: ProjectStatusEnum) => {
@@ -116,6 +132,71 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
     navigator.clipboard.writeText(text);
     setCopiedWalletId(id);
     setTimeout(() => setCopiedWalletId(null), 2000);
+  };
+
+  const handleAddAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalLabel = accountPlatform === "Lainnya" ? customPlatform.trim() : accountPlatform;
+    const finalVal = accountValue.trim();
+
+    if (!finalLabel) {
+      setAccountError("Pilih atau ketik nama platform akun.");
+      return;
+    }
+    if (!finalVal) {
+      setAccountError("Isi username, handle, atau email.");
+      return;
+    }
+
+    setIsSavingAccount(true);
+    setAccountError(null);
+
+    try {
+      const supabase = createClient() as any;
+      const { data, error } = await supabase
+        .from("accounts")
+        .insert({
+          project_id: project.id,
+          label: finalLabel,
+          username_email: finalVal,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setAccounts((prev) => [...prev, data]);
+      }
+      setIsAddingAccount(false);
+      setAccountValue("");
+      setCustomPlatform("");
+    } catch (err: any) {
+      console.error("Failed to add account:", err);
+      setAccountError(err?.message || "Gagal menyimpan akun.");
+    } finally {
+      setIsSavingAccount(false);
+    }
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    setDeletingAccountId(id);
+    try {
+      const supabase = createClient() as any;
+      const { error } = await supabase.from("accounts").delete().eq("id", id);
+      if (error) throw error;
+      setAccounts((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      console.error("Failed to delete account:", err);
+    } finally {
+      setDeletingAccountId(null);
+    }
+  };
+
+  const handleCopyAccount = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedAccountId(id);
+    setTimeout(() => setCopiedAccountId(null), 2000);
   };
 
   const wallets = project.wallets || [];
@@ -410,30 +491,181 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
           </CardBase>
 
           {/* Widget 3: Akun Terkait (Non-sensitif) */}
-          <CardBase className="p-4 space-y-2.5">
-            <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
-              <ShieldAlert className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span className="font-semibold text-text-primary">Akun Terkait</span>
-            </div>
-            {project.accounts && project.accounts.length > 0 ? (
-              <div className="space-y-1.5">
-                {project.accounts.map((acc) => (
-                  <div
-                    key={acc.id}
-                    className="p-2 rounded bg-bg-elevated-2 text-caption flex items-center justify-between font-mono"
-                  >
-                    <span className="text-text-tertiary">{acc.label}:</span>
-                    <span className="text-text-primary truncate max-w-[160px]">
-                      {acc.username_email}
-                    </span>
-                  </div>
-                ))}
+          <CardBase className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
+                <AtSign className="w-3.5 h-3.5 text-accent shrink-0" />
+                <span className="font-semibold text-text-primary">Akun Terkait</span>
               </div>
-            ) : (
-              <p className="text-caption text-text-tertiary">
-                Belum ada akun/username tersimpan.
-              </p>
+
+              {!isAddingAccount ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingAccount(true);
+                    setAccountError(null);
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-caption font-medium bg-bg-elevated hover:bg-bg-elevated-2 text-accent border border-border-hairline transition-colors"
+                  title="Tambah catatan akun yang digunakan untuk airdrop ini"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Tambah</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingAccount(false);
+                    setAccountError(null);
+                  }}
+                  className="p-1 rounded text-text-tertiary hover:text-text-primary transition-colors"
+                  title="Batal"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Inline Add Account Form */}
+            {isAddingAccount && (
+              <form onSubmit={handleAddAccount} className="p-3 rounded-lg bg-bg-elevated-2 border border-border-hairline space-y-2.5">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono text-text-secondary uppercase">Platform / Label</label>
+                  <select
+                    value={accountPlatform}
+                    onChange={(e) => setAccountPlatform(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-md bg-bg-elevated border border-border-hairline text-caption text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    <option value="Discord">Discord</option>
+                    <option value="Twitter / X">Twitter / X</option>
+                    <option value="Telegram">Telegram</option>
+                    <option value="Email">Email</option>
+                    <option value="GitHub">GitHub</option>
+                    <option value="Google">Google</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="Lainnya">Lainnya...</option>
+                  </select>
+                </div>
+
+                {accountPlatform === "Lainnya" && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-text-secondary uppercase">Nama Platform</label>
+                    <input
+                      type="text"
+                      value={customPlatform}
+                      onChange={(e) => setCustomPlatform(e.target.value)}
+                      placeholder="Misal: Reddit, Medium, Galxe"
+                      className="w-full px-2.5 py-1.5 rounded-md bg-bg-elevated border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono text-text-secondary uppercase">Username / Email</label>
+                  <input
+                    type="text"
+                    value={accountValue}
+                    onChange={(e) => setAccountValue(e.target.value)}
+                    placeholder="@handle atau user@email.com"
+                    className="w-full px-2.5 py-1.5 rounded-md bg-bg-elevated border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent font-mono"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-400 leading-tight">
+                  ⚠️ <strong>Non-sensitif:</strong> Hanya simpan username/email. Dilarang memasukkan password atau seed phrase.
+                </div>
+
+                {accountError && (
+                  <p className="text-[11px] text-status-danger">{accountError}</p>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingAccount(false);
+                      setAccountError(null);
+                    }}
+                    className="px-2.5 py-1 rounded text-caption text-text-tertiary hover:text-text-primary transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingAccount}
+                    className="px-3 py-1 rounded bg-accent text-on-accent text-caption font-semibold hover:bg-accent-pressed transition-colors disabled:opacity-50"
+                  >
+                    {isSavingAccount ? "Menyimpan..." : "Simpan Akun"}
+                  </button>
+                </div>
+              </form>
             )}
+
+            {/* List of Accounts */}
+            {accounts.length > 0 ? (
+              <div className="space-y-1.5">
+                {accounts.map((acc) => {
+                  const isCopied = copiedAccountId === acc.id;
+                  const isDeleting = deletingAccountId === acc.id;
+
+                  return (
+                    <div
+                      key={acc.id}
+                      className="p-2 rounded-md bg-bg-elevated-2 border border-border-subtle hover:border-border-hairline text-caption flex items-center justify-between gap-2 transition-colors font-mono"
+                    >
+                      <div className="min-w-0 flex items-center gap-1.5 truncate">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-bg-elevated text-accent border border-border-subtle shrink-0">
+                          {acc.label}
+                        </span>
+                        <span className="text-text-primary truncate font-mono text-[11px]" title={acc.username_email}>
+                          {acc.username_email}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAccount(acc.id, acc.username_email)}
+                          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-elevated transition-colors"
+                          title="Salin username / email"
+                        >
+                          {isCopied ? (
+                            <Check className="w-3.5 h-3.5 text-status-completed" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAccount(acc.id)}
+                          disabled={isDeleting}
+                          className="p-1 rounded text-text-tertiary hover:text-status-danger hover:bg-bg-elevated transition-colors disabled:opacity-40"
+                          title="Hapus akun ini"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : !isAddingAccount ? (
+              <div className="py-2 text-center space-y-1.5">
+                <p className="text-caption text-text-tertiary leading-relaxed">
+                  Belum ada akun tersimpan. Catat username Discord, X, atau email yang Anda gunakan untuk garapan ini agar tidak lupa.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingAccount(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-caption font-medium bg-bg-elevated hover:bg-bg-elevated-2 text-accent border border-border-hairline transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Tambah Akun</span>
+                </button>
+              </div>
+            ) : null}
           </CardBase>
         </div>
       </div>
