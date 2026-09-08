@@ -14,8 +14,7 @@ CREATE TYPE public.project_status AS ENUM (
   'in_progress',    -- Sedang Dikerjakan
   'waiting',        -- Menunggu TGE / Snapshot
   'ready_to_claim', -- Siap Klaim (fase reward)
-  'completed',      -- Selesai / Klaim Selesai
-  'archived'        -- Diarsipkan / Ditinggalkan
+  'completed'       -- Selesai / Klaim Selesai
 );
 
 -- Task frequency types

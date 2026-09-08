@@ -11,8 +11,7 @@ export type ProjectStatus =
   | "in_progress"
   | "waiting"
   | "ready_to_claim"
-  | "completed"
-  | "archived";
+  | "completed";
 
 export type TaskType = "one_time" | "daily" | "weekly" | "custom";
 
