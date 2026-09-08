@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -81,6 +81,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
       {/* Back Link */}
       <Link
         href="/projects"
+        prefetch={false}
         className="inline-flex items-center gap-1.5 text-body-sm text-text-secondary hover:text-text-primary transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
