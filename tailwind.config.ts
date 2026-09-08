@@ -1,0 +1,103 @@
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        "bg-base": "var(--color-bg-base)",
+        "bg-elevated": "var(--color-bg-elevated)",
+        "bg-elevated-2": "var(--color-bg-elevated-2)",
+        "bg-sidebar": "var(--color-bg-sidebar)",
+        "border-hairline": "var(--color-border-hairline)",
+        "border-hairline-strong": "var(--color-border-hairline-strong)",
+        "text-primary": "var(--color-text-primary)",
+        "text-secondary": "var(--color-text-secondary)",
+        "text-tertiary": "var(--color-text-tertiary)",
+        "text-disabled": "var(--color-text-disabled)",
+        accent: {
+          DEFAULT: "var(--color-accent)",
+          pressed: "var(--color-accent-pressed)",
+          deep: "var(--color-accent-deep)",
+        },
+        "on-accent": "var(--color-on-accent)",
+        "link-teal": {
+          DEFAULT: "var(--color-link-teal)",
+          pressed: "var(--color-link-teal-pressed)",
+        },
+        status: {
+          "not-started": "var(--color-status-not-started)",
+          "in-progress": "var(--color-status-in-progress)",
+          waiting: "var(--color-status-waiting)",
+          "ready-claim": "var(--color-status-ready-claim)",
+          completed: "var(--color-status-completed)",
+          overdue: "var(--color-status-overdue)",
+        },
+        "badge-bg": {
+          "not-started": "var(--color-badge-bg-not-started)",
+          "in-progress": "var(--color-badge-bg-in-progress)",
+          waiting: "var(--color-badge-bg-waiting)",
+          "ready-claim": "var(--color-badge-bg-ready-claim)",
+          completed: "var(--color-badge-bg-completed)",
+          overdue: "var(--color-badge-bg-overdue)",
+        },
+        light: {
+          canvas: "var(--color-light-canvas)",
+          surface: "var(--color-light-surface)",
+          hairline: "var(--color-light-hairline)",
+          ink: "var(--color-light-ink)",
+          "ink-secondary": "var(--color-light-ink-secondary)",
+        },
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)"],
+        mono: ["var(--font-mono)"],
+      },
+      fontSize: {
+        "landing-hero": ["64px", { lineHeight: "1.08", letterSpacing: "-1px", fontWeight: "600" }],
+        "display-lg": ["44px", { lineHeight: "1.12", letterSpacing: "-0.5px", fontWeight: "600" }],
+        "heading-1": ["32px", { lineHeight: "1.2", fontWeight: "600" }],
+        "heading-2": ["24px", { lineHeight: "1.25", fontWeight: "600" }],
+        "heading-3": ["18px", { lineHeight: "1.3", fontWeight: "600" }],
+        "app-section-title": ["15px", { lineHeight: "1.3", fontWeight: "600" }],
+        subtitle: ["18px", { lineHeight: "1.5", fontWeight: "400" }],
+        "body-md": ["15px", { lineHeight: "1.5", fontWeight: "400" }],
+        "body-sm": ["13px", { lineHeight: "1.45", fontWeight: "400" }],
+        caption: ["12px", { lineHeight: "1.4", fontWeight: "500" }],
+        "button-md": ["14px", { lineHeight: "1.2", fontWeight: "600" }],
+        "data-mono": ["13px", { lineHeight: "1.4", fontWeight: "400" }],
+        "data-mono-sm": ["12px", { lineHeight: "1.4", fontWeight: "400" }],
+      },
+      borderRadius: {
+        xs: "var(--radius-xs)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        full: "var(--radius-full)",
+      },
+      spacing: {
+        xxs: "var(--space-xxs)",
+        xs: "var(--space-xs)",
+        sm: "var(--space-sm)",
+        md: "var(--space-md)",
+        lg: "var(--space-lg)",
+        xl: "var(--space-xl)",
+        xxl: "var(--space-xxl)",
+        xxxl: "var(--space-xxxl)",
+        section: "var(--space-section)",
+        "section-lg": "var(--space-section-lg)",
+      },
+      boxShadow: {
+        "elevation-1": "var(--shadow-elevation-1)",
+        "elevation-2": "var(--shadow-elevation-2)",
+      },
+    },
+  },
+  plugins: [],
+};
+
+export default config;
