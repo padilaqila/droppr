@@ -35,7 +35,7 @@ export function HeroDotGrid() {
     const BASE_ALPHA = 0.16;
     const MAX_ALPHA = 0.95;
 
-    let mouse = { x: -9999, y: -9999, active: false };
+    const mouse = { x: -9999, y: -9999, active: false };
     let isSettled = false;
 
     const initGrid = () => {

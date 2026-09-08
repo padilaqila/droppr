@@ -6,10 +6,8 @@ import Image from "next/image";
 import { 
   Plus, 
   ArrowUp, 
-  Flame, 
   CheckCircle2, 
   Clock, 
-  Sparkles, 
   ChevronRight, 
   Search, 
   RotateCw, 
@@ -18,7 +16,7 @@ import {
   HeartHandshake
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { CommunityCreditsModal, PARTNERS, InteractivePartnerCards } from "./community-credits-modal";
+import { CommunityCreditsModal, PARTNERS } from "./community-credits-modal";
 
 type CategoryFilter = "all" | "testnet" | "waitlist";
 
@@ -302,7 +300,7 @@ export function HeroSearchConsole() {
 
               {filteredData.length === 0 && (
                 <div className="py-6 text-center text-white/50 text-caption font-sans">
-                  Tidak ada data airdrop Telegram yang cocok dengan "{query}".
+                  Tidak ada data airdrop Telegram yang cocok dengan &quot;{query}&quot;.
                 </div>
               )}
             </>

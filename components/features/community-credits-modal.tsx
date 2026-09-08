@@ -1,15 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Image from "next/image";
 import { 
   X, 
   ExternalLink, 
-  Sparkles, 
   Radio, 
   CheckCircle2, 
-  Users, 
-  Flame, 
   Send,
   HeartHandshake
 } from "lucide-react";
@@ -55,10 +52,6 @@ export const PARTNERS: PartnerInfo[] = [
     stats: "Since 2021",
   },
 ];
-
-interface CommunityCreditsProps {
-  onOpenPartner?: (partner: PartnerInfo) => void;
-}
 
 export function CommunityCreditsTrigger({ onOpenModal }: { onOpenModal: () => void }) {
   return (
