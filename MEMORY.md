@@ -2,6 +2,12 @@
 
 > File ini ditulis oleh agen AI, bukan oleh manusia. Dibaca otomatis di awal sesi (bagian atas file diprioritaskan). Lihat `AGENTS.md` §5 untuk format entri dan aturan pemangkasan.
 
+## [2026-09-08] Utang teknis penulisan manual lib/supabase/database.types.ts
+- Apa yang salah: File `lib/supabase/database.types.ts` dibuat dengan penulisan manual, berisiko mengalami schema drift dari skema database aktual.
+- Kenapa terjadi (root cause, bukan cuma gejala): Instance Supabase belum terhubung dan Docker tidak tersedia di environment ini untuk menjalankan `supabase gen types`.
+- Perbaikan yang dilakukan: Menulis tipe TypeScript secara manual memetakan 1:1 seluruh tabel, kolom, enum, dan RLS references dari migrasi `20260908101500_initial_schema.sql`.
+- Aturan ke depan: Begitu project Supabase asli terhubung atau instance aktif, WAJIB jalankan `npx supabase gen types typescript` untuk meregenerate `database.types.ts` agar tipe selalu sinkron otomatis dengan database.
+
 ## [2026-09-08] Webpack resolver error pada optional dependencies Wagmi/Coinbase
 - Apa yang salah: Next.js build gagal karena Webpack mencari module `@x402/*` dan `@react-native-async-storage/async-storage` yang merupakan peer dependency opsional dari connector Wagmi/Coinbase/MetaMask.
 - Kenapa terjadi (root cause, bukan cuma gejala): Import dari `wagmi/connectors` menarik barrel export yang memuat seluruh provider eksternal.
