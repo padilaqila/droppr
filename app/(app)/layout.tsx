@@ -1,11 +1,15 @@
 import { Sidebar } from "@/components/features/sidebar";
 import { Topbar } from "@/components/features/topbar";
+import { createClient } from "@/lib/supabase/server";
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Initialize and verify Supabase client on server
+  await createClient();
+
   return (
     <div className="min-h-screen bg-bg-base flex">
       {/* Fixed Sidebar */}
