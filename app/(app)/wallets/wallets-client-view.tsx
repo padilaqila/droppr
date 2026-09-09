@@ -5,6 +5,7 @@ import { CardBase } from "@/components/ui/card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { CustomSelect } from "@/components/ui/select";
 import {
   ShieldCheck,
   Wallet,
@@ -22,6 +23,7 @@ import {
   Globe,
   UserCheck,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAccount, useConnect } from "wagmi";
@@ -29,6 +31,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import {
   createUserAccount,
   deleteUserAccount,
+  updateUserAccount,
   type UserAccountItem,
 } from "@/lib/supabase/user-accounts";
 import type { Database } from "@/lib/supabase/database.types";
@@ -43,6 +46,158 @@ interface WalletsClientViewProps {
   initialWallets: WalletWithProjects[];
   initialAccounts?: UserAccountItem[];
   currentUserEmail?: string | null;
+}
+
+interface InlineEditableProps {
+  value: string;
+  onSave: (nextVal: string) => Promise<void> | void;
+  placeholder?: string;
+  emptyText?: string;
+  className?: string;
+  inputClassName?: string;
+  mono?: boolean;
+  required?: boolean;
+  title?: string;
+  multiline?: boolean;
+}
+
+function InlineEditable({
+  value,
+  onSave,
+  placeholder,
+  emptyText,
+  className = "",
+  inputClassName = "",
+  mono = false,
+  required = false,
+  title,
+  multiline = false,
+}: InlineEditableProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempValue, setTempValue] = useState(value);
+  const [isSaved, setIsSaved] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const isSavingRef = React.useRef(false);
+
+  useEffect(() => {
+    setTempValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isEditing]);
+
+  const commitSave = async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    const trimmed = tempValue.trim();
+    setIsEditing(false);
+
+    try {
+      if (required && !trimmed) {
+        setTempValue(value);
+        return;
+      }
+
+      if (trimmed !== (value || "").trim()) {
+        await onSave(trimmed);
+        setIsSaved(true);
+        setTimeout(() => setIsSaved(false), 1800);
+      }
+    } finally {
+      setTimeout(() => {
+        isSavingRef.current = false;
+      }, 100);
+    }
+  };
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    if (e.key === "Enter" && (!multiline || !e.shiftKey)) {
+      e.preventDefault();
+      commitSave();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setTempValue(value);
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="relative inline-flex items-center w-full min-w-[120px]">
+        {multiline ? (
+          <textarea
+            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+            value={tempValue}
+            onChange={(e) => setTempValue(e.target.value)}
+            onBlur={commitSave}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            rows={2}
+            className={`w-full bg-bg-base border border-accent text-text-primary px-2 py-1 rounded-md outline-none ring-1 ring-accent/40 shadow-inner text-body-sm resize-none ${
+              mono ? "font-mono" : "font-sans"
+            } ${inputClassName}`}
+          />
+        ) : (
+          <input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            type="text"
+            value={tempValue}
+            onChange={(e) => setTempValue(e.target.value)}
+            onBlur={commitSave}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            className={`w-full bg-bg-base border border-accent text-text-primary px-2 py-0.5 rounded-md outline-none ring-1 ring-accent/40 shadow-inner text-body-sm ${
+              mono ? "font-mono" : "font-sans"
+            } ${inputClassName}`}
+          />
+        )}
+        <span className="absolute right-2 bottom-1 text-[10px] text-text-tertiary/70 pointer-events-none select-none font-mono">
+          ↵
+        </span>
+      </div>
+    );
+  }
+
+  const isEmpty = !value || value.trim() === "";
+  const displayText = isEmpty ? emptyText || placeholder || "—" : value;
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => setIsEditing(true)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setIsEditing(true);
+        }
+      }}
+      title={title || "Klik untuk mengedit (otomatis tersimpan saat keluar)"}
+      className={`group/inline relative inline-flex items-center gap-1.5 cursor-pointer rounded px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-white/[0.06] hover:ring-1 hover:ring-accent/30 transition-all select-none ${className}`}
+    >
+      <span
+        className={`truncate ${mono ? "font-mono" : ""} ${
+          isEmpty ? "text-text-tertiary italic font-normal" : ""
+        }`}
+      >
+        {displayText}
+      </span>
+      {isSaved ? (
+        <span className="inline-flex items-center gap-1 text-[10px] text-status-completed font-semibold px-1.5 py-0.5 rounded bg-status-completed/10 animate-fade-in shrink-0">
+          <Check className="w-2.5 h-2.5" />
+          <span>Tersimpan</span>
+        </span>
+      ) : (
+        <Pencil className="w-3 h-3 text-text-tertiary opacity-0 group-hover/inline:opacity-70 transition-opacity shrink-0" />
+      )}
+    </div>
+  );
 }
 
 export function WalletsClientView({
@@ -86,6 +241,7 @@ export function WalletsClientView({
   // Account Modal state
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [accountPlatform, setAccountPlatform] = useState<string>("Twitter / X");
+  const [customPlatform, setCustomPlatform] = useState("");
   const [accountHandle, setAccountHandle] = useState("");
   const [accountLabel, setAccountLabel] = useState("");
   const [accountNotes, setAccountNotes] = useState("");
@@ -171,6 +327,30 @@ export function WalletsClientView({
     }
   };
 
+  // Update Wallet Inline (Auto-saved)
+  const handleUpdateWallet = async (
+    id: string,
+    updates: Partial<{ label: string | null; address: string; chain: string | null }>
+  ) => {
+    // Optimistic UI update
+    setWallets((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, ...updates } : w))
+    );
+
+    try {
+      const supabase = createClient() as any;
+      const { error } = await supabase
+        .from("wallets")
+        .update(updates)
+        .eq("id", id);
+      if (error) {
+        console.error("Failed to update wallet in DB:", error);
+      }
+    } catch (err) {
+      console.error("Update wallet inline error:", err);
+    }
+  };
+
   // Create Social Account
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,8 +363,13 @@ export function WalletsClientView({
     setAccountError(null);
 
     try {
+      const finalPlatform =
+        accountPlatform === "Custom"
+          ? customPlatform.trim() || (isEn ? "Custom" : "Kustom")
+          : accountPlatform;
+
       const created = await createUserAccount({
-        platform: accountPlatform,
+        platform: finalPlatform,
         handle: accountHandle.trim(),
         label: accountLabel.trim() || null,
         notes: accountNotes.trim() || null,
@@ -195,6 +380,7 @@ export function WalletsClientView({
         setAccountHandle("");
         setAccountLabel("");
         setAccountNotes("");
+        setCustomPlatform("");
         setIsAccountModalOpen(false);
       }
     } catch (err: any) {
@@ -215,6 +401,26 @@ export function WalletsClientView({
       }
     } catch (err) {
       console.error("Delete account error:", err);
+    }
+  };
+
+  // Update Social Account Inline (Auto-saved)
+  const handleUpdateAccount = async (
+    id: string,
+    updates: Partial<Omit<UserAccountItem, "id" | "created_at" | "user_id">>
+  ) => {
+    // Optimistic UI update
+    setAccounts((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, ...updates } : a))
+    );
+
+    try {
+      const ok = await updateUserAccount(id, updates);
+      if (!ok) {
+        console.warn("Failed to update account inline");
+      }
+    } catch (err) {
+      console.error("Update account inline error:", err);
     }
   };
 
@@ -410,6 +616,22 @@ export function WalletsClientView({
         </div>
       </div>
 
+      {/* Quick Inline Editing Tip */}
+      <div className="p-3 rounded-xl bg-accent/5 border border-accent/20 flex items-center gap-2.5 text-caption text-text-secondary">
+        <Pencil className="w-3.5 h-3.5 text-accent shrink-0" />
+        <span>
+          {isEn ? (
+            <>
+              <strong className="text-text-primary">Inline Editing:</strong> Click directly on any account name, handle, address, or note to edit. Simply type and click outside — changes auto-save immediately without popups.
+            </>
+          ) : (
+            <>
+              <strong className="text-text-primary">Edit Cepat:</strong> Klik langsung pada nama akun, handle, chain, alamat, atau catatan untuk mengedit. Cukup ketik dan ketuk di area luar — otomatis tersimpan tanpa popup.
+            </>
+          )}
+        </span>
+      </div>
+
       {/* ======================================================== */}
       {/* TAB 1: WALLETS LIST                                      */}
       {/* ======================================================== */}
@@ -461,19 +683,38 @@ export function WalletsClientView({
                     className="space-y-3 hover:border-border-hairline-strong transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-body-md font-semibold text-text-primary truncate">
-                            {w.label || (isEn ? "Unlabeled Wallet" : "Wallet Tanpa Label")}
-                          </h3>
-                          {w.chain && (
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-bg-elevated-2 border border-border-hairline font-mono text-text-tertiary uppercase">
-                              {w.chain}
-                            </span>
-                          )}
+                          <InlineEditable
+                            value={w.label || ""}
+                            emptyText={isEn ? "Unlabeled Wallet (click to edit)" : "Wallet Tanpa Label (klik untuk edit)"}
+                            placeholder={isEn ? "Wallet name..." : "Nama / label wallet..."}
+                            title={isEn ? "Click to edit wallet name (auto-saves)" : "Klik untuk edit nama wallet (otomatis tersimpan)"}
+                            onSave={(val) => handleUpdateWallet(w.id, { label: val || null })}
+                            className="text-body-md font-semibold text-text-primary max-w-full"
+                            inputClassName="text-body-md font-semibold"
+                          />
+                          <InlineEditable
+                            value={w.chain || ""}
+                            emptyText={isEn ? "+ Chain" : "+ Chain"}
+                            placeholder="EVM / Solana..."
+                            title={isEn ? "Click to edit chain" : "Klik untuk edit chain"}
+                            onSave={(val) => handleUpdateWallet(w.id, { chain: val || null })}
+                            className="text-[10px] px-2 py-0.5 rounded bg-bg-elevated-2 border border-border-hairline font-mono text-text-tertiary uppercase"
+                            inputClassName="text-[10px] font-mono uppercase w-28"
+                          />
                         </div>
-                        <div className="text-caption font-mono text-text-secondary mt-1 break-all select-all">
-                          {w.address}
+                        <div className="w-full">
+                          <InlineEditable
+                            value={w.address}
+                            required
+                            mono
+                            title={isEn ? "Click to edit address (auto-saves)" : "Klik untuk mengedit alamat wallet (otomatis tersimpan)"}
+                            placeholder={isEn ? "Wallet address..." : "Alamat wallet..."}
+                            onSave={(val) => handleUpdateWallet(w.id, { address: val })}
+                            className="text-caption font-mono text-text-secondary break-all w-full"
+                            inputClassName="text-caption font-mono"
+                          />
                         </div>
                       </div>
 
@@ -575,32 +816,54 @@ export function WalletsClientView({
                     className="space-y-3 hover:border-border-hairline-strong transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <div className="p-1.5 rounded-lg bg-bg-elevated-2 border border-border-hairline shrink-0">
                             {getPlatformIcon(acc.platform)}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <h3 className="text-body-md font-semibold text-text-primary truncate">
-                              {acc.label || acc.platform}
-                            </h3>
-                            <span className="text-[10px] font-mono text-text-tertiary">
+                            <InlineEditable
+                              value={acc.label || ""}
+                              emptyText={acc.platform}
+                              placeholder={isEn ? "Account name/label..." : "Nama / label akun..."}
+                              title={isEn ? "Click to edit account name (auto-saves)" : "Klik untuk edit nama akun (otomatis tersimpan)"}
+                              onSave={(val) => handleUpdateAccount(acc.id, { label: val || null })}
+                              className="text-body-md font-semibold text-text-primary max-w-full"
+                              inputClassName="text-body-md font-semibold"
+                            />
+                            <div className="text-[10px] font-mono text-text-tertiary">
                               {acc.platform}
-                            </span>
+                            </div>
                           </div>
                         </div>
 
                         {/* Handle / Username */}
-                        <div className="text-caption font-mono font-medium text-accent mt-2 break-all select-all bg-white/[0.02] p-2 rounded-lg border border-white/[0.05]">
-                          {acc.handle}
+                        <div className="bg-white/[0.02] p-2 rounded-lg border border-white/[0.05]">
+                          <InlineEditable
+                            value={acc.handle}
+                            required
+                            mono
+                            title={isEn ? "Click to edit handle (auto-saves)" : "Klik untuk edit handle (otomatis tersimpan)"}
+                            placeholder={isEn ? "@handle or email..." : "@handle atau email..."}
+                            onSave={(val) => handleUpdateAccount(acc.id, { handle: val })}
+                            className="text-caption font-mono font-medium text-accent break-all w-full"
+                            inputClassName="text-caption font-mono text-accent"
+                          />
                         </div>
 
-                        {/* Notes if any */}
-                        {acc.notes && (
-                          <p className="text-[11px] text-text-tertiary mt-1 italic line-clamp-2">
-                            {acc.notes}
-                          </p>
-                        )}
+                        {/* Notes */}
+                        <div className="pt-0.5">
+                          <InlineEditable
+                            value={acc.notes || ""}
+                            emptyText={isEn ? "+ Add notes..." : "+ Tambah catatan..."}
+                            placeholder={isEn ? "Notes (e.g. 2FA active, email bound)..." : "Catatan (misal: 2FA aktif, no hp...)..."}
+                            title={isEn ? "Click to edit notes (auto-saves)" : "Klik untuk edit catatan (otomatis tersimpan)"}
+                            onSave={(val) => handleUpdateAccount(acc.id, { notes: val || null })}
+                            className="text-[11px] text-text-tertiary italic w-full"
+                            inputClassName="text-[11px] text-text-secondary"
+                            multiline
+                          />
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
@@ -748,24 +1011,39 @@ export function WalletsClientView({
           )}
 
           <div>
-            <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              {isEn ? "Platform / Category" : "Platform / Kategori"} <span className="text-status-overdue">*</span>
-            </label>
-            <select
+            <CustomSelect
+              label={isEn ? "Platform / Category" : "Platform / Kategori"}
+              required
               value={accountPlatform}
-              onChange={(e) => setAccountPlatform(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-bg-base border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent cursor-pointer"
+              onChange={(val) => setAccountPlatform(val)}
               disabled={accountLoading}
-            >
-              <option value="Twitter / X">Twitter / X</option>
-              <option value="Discord">Discord</option>
-              <option value="Telegram">Telegram</option>
-              <option value="Email">Email</option>
-              <option value="GitHub">GitHub</option>
-              <option value="Google">Google</option>
-              <option value="Custom">{isEn ? "Other / Custom" : "Lainnya / Kustom"}</option>
-            </select>
+              options={[
+                { value: "Twitter / X", label: "Twitter / X", icon: getPlatformIcon("Twitter / X") },
+                { value: "Discord", label: "Discord", icon: getPlatformIcon("Discord") },
+                { value: "Telegram", label: "Telegram", icon: getPlatformIcon("Telegram") },
+                { value: "Email", label: "Email", icon: getPlatformIcon("Email") },
+                { value: "GitHub", label: "GitHub", icon: getPlatformIcon("GitHub") },
+                { value: "Google", label: "Google", icon: getPlatformIcon("Google") },
+                { value: "Custom", label: isEn ? "Other / Custom" : "Lainnya / Kustom", icon: getPlatformIcon("Custom") },
+              ]}
+            />
           </div>
+
+          {accountPlatform === "Custom" && (
+            <div>
+              <label className="block text-body-sm font-medium text-text-secondary mb-1">
+                {isEn ? "Custom Platform Name" : "Nama Platform Kustom"} <span className="text-status-overdue">*</span>
+              </label>
+              <Input
+                value={customPlatform}
+                onChange={(e) => setCustomPlatform(e.target.value)}
+                placeholder={isEn ? "e.g. Medium, Galxe, Zealy, DeBank" : "Contoh: Medium, Galxe, Zealy, DeBank"}
+                required
+                disabled={accountLoading}
+                autoFocus
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-body-sm font-medium text-text-secondary mb-1">

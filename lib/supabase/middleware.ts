@@ -17,7 +17,6 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/projects") ||
     pathname.startsWith("/tasks") ||
     pathname.startsWith("/wallets") ||
-    pathname.startsWith("/reminders") ||
     pathname.startsWith("/settings");
 
   const isAuthRoute =

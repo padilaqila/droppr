@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { CardBase } from "@/components/ui/card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import {
   Rss,
@@ -14,7 +13,6 @@ import {
   ExternalLink,
   Send,
   Trash2,
-  CheckCircle2,
   FolderPlus,
   Clock,
   Zap,
@@ -26,9 +24,7 @@ import {
   X,
   BookOpen,
   Copy,
-  Layers,
   Sparkles,
-  MessageSquare,
   Layers2,
   Languages,
   ArrowUpDown,
@@ -39,8 +35,6 @@ import {
   fetchAirdropFeeds,
   deleteAirdropFeed,
   cleanupExpiredFeeds,
-  convertFeedToProject,
-  convertFeedToProjectWithAI,
   type AirdropFeedItem,
 } from "@/lib/supabase/airdrop-feeds";
 import { ProjectReviewModal } from "@/components/features/project-review-modal";
@@ -230,9 +224,6 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const [timeRange, setTimeRange] = useState<"all" | "24h" | "7d" | "30d">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Converting to project loading state
-  const [convertingId, setConvertingId] = useState<string | null>(null);
-  const [convertedSuccessId, setConvertedSuccessId] = useState<string | null>(null);
   const [reviewingFeed, setReviewingFeed] = useState<AirdropFeedItem | null>(null);
 
   // Telegram original post preview modal state & manual on-demand translation
@@ -306,37 +297,6 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
     }
   };
 
-  // Convert feed item to official Droppr Project (AI or manual)
-  const handleMakeProject = async (feed: AirdropFeedItem, useAI: boolean = false) => {
-    if (convertingId) return;
-    setConvertingId(feed.id);
-    setErrorMessage(null);
-
-    try {
-      const res = useAI
-        ? await convertFeedToProjectWithAI(feed)
-        : await convertFeedToProject(feed);
-
-      if (res.success && res.projectId) {
-        setConvertedSuccessId(feed.id);
-        setFeeds((prev) =>
-          prev.map((f) =>
-            f.id === feed.id ? { ...f, is_imported: true, linked_project_id: res.projectId } : f
-          )
-        );
-
-        // Redirect directly to the newly created project workstation
-        router.push(`/projects/${res.projectId}`);
-      } else {
-        setErrorMessage(res.error || "Gagal membuat proyek dari feed ini. Periksa data atau coba lagi.");
-      }
-    } catch (err: any) {
-      console.error("Convert to project error:", err);
-      setErrorMessage(err?.message || "Terjadi kesalahan saat memproses data proyek.");
-    } finally {
-      setConvertingId(null);
-    }
-  };
 
 
   // Sync feed from Telegram
@@ -849,7 +809,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
         ) : (
           displayedFeeds.map((feed) => {
             const channelInfo = getChannelInfo(feed.channel);
-            const isConverted = feed.is_imported || convertedSuccessId === feed.id;
+            const isConverted = feed.is_imported;
             const projectKey = extractCoreProjectKey(feed.title);
             const mentionCount = projectMentionStats[projectKey]?.count || 1;
             const relativeTime = formatTimeAgo(feed.created_at, locale);

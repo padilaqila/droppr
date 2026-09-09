@@ -4,11 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { CustomSelect } from "@/components/ui/select";
 import {
   Globe,
   Send,
-  MessageSquare,
   Droplets,
   BookOpen,
   Plus,
@@ -16,10 +15,11 @@ import {
   ExternalLink,
   Layers,
   AlertTriangle,
-  Folder,
-  Activity,
   FileText,
   Link as LinkIcon,
+  Star,
+  Lock,
+  ShieldCheck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
@@ -59,10 +59,13 @@ export function EditProjectModal({
   const [chain, setChain] = useState(project.chain || "");
   const [folderId, setFolderId] = useState<string>(project.folder_id || "");
   const [status, setStatus] = useState<ProjectStatus>(project.status);
+  const [taskType, setTaskType] = useState<"daily" | "weekly" | "one_time">("daily");
+  const [claimUrl, setClaimUrl] = useState<string>("");
   const [guideContent, setGuideContent] = useState(project.guide_content || "");
 
   // Structured Links
   const rawSocial = (project.social_links as Record<string, any>) || {};
+  const [isPriority, setIsPriority] = useState<boolean>(Boolean(rawSocial.is_priority));
   const [website, setWebsite] = useState(rawSocial.website || "");
   const [dappUrl, setDappUrl] = useState(rawSocial.dapp_url || "");
   const [faucetUrl, setFaucetUrl] = useState(rawSocial.faucet_url || "");
@@ -96,6 +99,9 @@ export function EditProjectModal({
       setGuideContent(project.guide_content || "");
 
       const s = (project.social_links as Record<string, any>) || {};
+      setIsPriority(Boolean(s.is_priority));
+      setTaskType((s.task_type as any) || "daily");
+      setClaimUrl(s.claim_url || "");
       setWebsite(s.website || "");
       setDappUrl(s.dapp_url || "");
       setFaucetUrl(s.faucet_url || "");
@@ -179,6 +185,19 @@ export function EditProjectModal({
         social_links.custom_links = customLinks;
       } else {
         delete social_links.custom_links;
+      }
+
+      social_links.task_type = taskType;
+      if (claimUrl.trim()) {
+        social_links.claim_url = claimUrl.trim();
+      } else {
+        delete social_links.claim_url;
+      }
+
+      if (isPriority) {
+        social_links.is_priority = true;
+      } else {
+        delete social_links.is_priority;
       }
 
       const { error: updateError } = await supabase
@@ -312,43 +331,113 @@ export function EditProjectModal({
             </div>
 
             <div>
-              <label className="block text-caption font-medium text-text-secondary mb-1.5 flex items-center gap-1.5">
-                <Folder className="w-3.5 h-3.5 text-text-tertiary" />
-                <span>{isEn ? "Category Folder" : "Folder Kategori"}</span>
-              </label>
-              <select
+              <CustomSelect
+                label={isEn ? "Category Folder" : "Folder Kategori"}
                 value={folderId}
-                onChange={(e) => setFolderId(e.target.value)}
+                onChange={(val) => setFolderId(val)}
                 disabled={isSaving || isDeleting}
-                className="w-full h-10 px-3.5 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
-              >
-                <option value="">{isEn ? "(Unorganized)" : "(Tanpa Folder)"}</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
+                placeholder={isEn ? "(Unorganized)" : "(Tanpa Folder)"}
+                options={[
+                  { value: "", label: isEn ? "(Unorganized)" : "(Tanpa Folder)" },
+                  ...folders.map((f) => ({
+                    value: f.id,
+                    label: `📁 ${f.name}`,
+                  })),
+                ]}
+              />
             </div>
 
             <div>
-              <label className="block text-caption font-medium text-text-secondary mb-1.5 flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-text-tertiary" />
-                <span>{isEn ? "Farming Status" : "Status Garapan"}</span>
-              </label>
-              <select
+              <CustomSelect
+                label={isEn ? "Farming Status" : "Status Garapan"}
                 value={status}
-                onChange={(e) => setStatus(e.target.value as ProjectStatus)}
+                onChange={(val) => setStatus(val as ProjectStatus)}
                 disabled={isSaving || isDeleting}
-                className="w-full h-10 px-3.5 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
-              >
-                <option value="not_started">{isEn ? "Not Started" : "Belum Mulai"}</option>
-                <option value="in_progress">{isEn ? "In Progress" : "Sedang Dikerjakan"}</option>
-                <option value="waiting">{isEn ? "Waiting for TGE / Snapshot" : "Menunggu TGE / Snapshot"}</option>
-                <option value="ready_to_claim">{isEn ? "Ready to Claim" : "Siap Klaim"}</option>
-                <option value="completed">{isEn ? "Completed" : "Selesai / Klaim Selesai"}</option>
-              </select>
+                options={[
+                  { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <span className="text-xs">⏸️</span> },
+                  { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <span className="text-xs">⚡</span> },
+                  { value: "waiting", label: isEn ? "Waiting for TGE / Snapshot" : "Menunggu TGE / Snapshot", icon: <span className="text-xs">⏳</span> },
+                  { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <span className="text-xs">🎁</span> },
+                  { value: "completed", label: isEn ? "Completed" : "Selesai / Klaim Selesai", icon: <span className="text-xs">✅</span> },
+                ]}
+              />
             </div>
+
+            <div>
+              <CustomSelect
+                label={isEn ? "Routine Frequency" : "Tipe Rutinitas Pengerjaan"}
+                value={taskType}
+                onChange={(val) => setTaskType(val as any)}
+                disabled={isSaving || isDeleting}
+                options={[
+                  { value: "daily", label: isEn ? "Daily Check-in (07:00 WIB)" : "⚡ Check-in Harian", icon: <span className="text-xs">📅</span> },
+                  { value: "weekly", label: isEn ? "Weekly / Periodic" : "🔄 Mingguan / Berkala", icon: <span className="text-xs">🔄</span> },
+                  { value: "one_time", label: isEn ? "One-Time (Set & Forget)" : "🎯 Sekali Selesai", icon: <span className="text-xs">🎯</span> },
+                ]}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-caption font-medium text-text-secondary mb-1.5 flex items-center justify-between">
+                <span>{isEn ? "Claim / Allocation Portal URL" : "Link Portal Klaim / Checker Alokasi"}</span>
+                {status === "ready_to_claim" && (
+                  <span className="text-[11px] text-amber-400 font-bold">🎁 Siap Klaim</span>
+                )}
+              </label>
+              <input
+                type="url"
+                value={claimUrl}
+                onChange={(e) => setClaimUrl(e.target.value)}
+                placeholder="https://claim.project.xyz atau https://airdrop.project.xyz/check"
+                disabled={isSaving || isDeleting}
+                className="w-full h-10 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
+              />
+            </div>
+          </div>
+
+          {/* Priority Toggle Card */}
+          <div className="pt-3 border-t border-white/[0.05] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                  isPriority
+                    ? "bg-accent/20 text-accent border border-accent/40"
+                    : "bg-white/[0.04] text-text-tertiary border border-white/[0.08]"
+                }`}
+              >
+                <Star className={`w-4 h-4 ${isPriority ? "fill-current" : ""}`} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-body-sm font-semibold text-text-primary flex items-center gap-1.5 flex-wrap">
+                  <span>{isEn ? "Priority Project" : "Proyek Prioritas"}</span>
+                  {isPriority && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent font-mono font-bold border border-accent/30 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" />
+                      {isEn ? "PROTECTED" : "TERLINDUNGI"}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-text-tertiary truncate">
+                  {isEn
+                    ? "Pinned to top and protected from accidental deletion."
+                    : "Disematkan di posisi teratas & dilindungi dari penghapusan tidak sengaja."}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPriority(!isPriority)}
+              disabled={isSaving || isDeleting}
+              className={`px-3 py-1.5 rounded-xl text-caption font-semibold transition-all border shrink-0 ${
+                isPriority
+                  ? "bg-accent text-on-accent border-accent shadow-xs"
+                  : "bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary border-white/[0.1]"
+              }`}
+            >
+              {isPriority
+                ? (isEn ? "⭐ Priority Active" : "⭐ Prioritas Aktif")
+                : (isEn ? "Mark Priority" : "Jadikan Prioritas")}
+            </button>
           </div>
         </div>
 
@@ -621,7 +710,19 @@ export function EditProjectModal({
         {/* FOOTER ACTIONS */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
           <div>
-            {confirmDelete ? (
+            {isPriority ? (
+              <div
+                className="flex items-center gap-2 p-2 rounded-xl bg-accent/10 border border-accent/25 text-caption text-accent font-medium"
+                title={isEn ? "Priority project is locked from deletion" : "Proyek prioritas terlindungi dari penghapusan"}
+              >
+                <Lock className="w-3.5 h-3.5 text-accent shrink-0" />
+                <span>
+                  {isEn
+                    ? "Priority Protected: Turn off priority above to enable deletion."
+                    : "Prioritas Terlindungi: Matikan prioritas di atas jika ingin menghapus."}
+                </span>
+              </div>
+            ) : confirmDelete ? (
               <div className="flex items-center gap-2.5 p-2 rounded-xl bg-status-overdue/10 border border-status-overdue/30">
                 <span className="text-caption text-status-overdue font-semibold flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5" />

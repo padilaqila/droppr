@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { CustomSelect } from "@/components/ui/select";
 import type { Database } from "@/lib/supabase/database.types";
 import { useTranslation } from "@/lib/i18n/context";
 
@@ -473,16 +474,18 @@ export function InteractiveTaskList({
 
         {/* Quick frequency toggle */}
         <div className="flex items-center justify-end gap-1.5 shrink-0 pt-1 sm:pt-0 border-t border-border-subtle sm:border-0">
-          <select
-            value={newType}
-            onChange={(e) => setNewType(e.target.value as TaskType)}
-            className="bg-bg-elevated-2 text-caption text-text-secondary px-2 py-1 rounded border border-border-hairline focus:outline-none cursor-pointer"
-            title={isEn ? "Task frequency" : "Frekuensi tugas"}
-          >
-            <option value="one_time">{isEn ? "Once" : "Sekali"}</option>
-            <option value="daily">{isEn ? "Daily 🔁" : "Harian 🔁"}</option>
-            <option value="weekly">{isEn ? "Weekly" : "Mingguan"}</option>
-          </select>
+          <div className="w-[115px]">
+            <CustomSelect
+              value={newType}
+              onChange={(val) => setNewType(val as TaskType)}
+              size="sm"
+              options={[
+                { value: "one_time", label: isEn ? "Once" : "Sekali" },
+                { value: "daily", label: isEn ? "Daily 🔁" : "Harian 🔁" },
+                { value: "weekly", label: isEn ? "Weekly" : "Mingguan" },
+              ]}
+            />
+          </div>
 
           <button
             type="submit"

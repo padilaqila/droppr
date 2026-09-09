@@ -9,24 +9,15 @@ import {
   ExternalLink,
   Layers,
   Send,
-  Sparkles,
   ArrowRight,
   Edit2,
   Save,
-  Info,
-  Compass,
-  FileText,
   Flame,
   Clock,
-  BookOpen,
   Copy,
   Check,
-  CheckSquare,
-  Globe,
-  Droplet,
   Video,
   Bell,
-  BellOff,
   FastForward,
   RotateCcw,
   CheckCircle2,
@@ -346,7 +337,7 @@ export function TodayTaskGuideModal({
   isOpen,
   onClose,
   project,
-  tasks,
+  tasks: _tasks,
   reminder,
   isSkipped = false,
   onGuideUpdated,
@@ -391,13 +382,16 @@ export function TodayTaskGuideModal({
   const [isDeletingReminder, setIsDeletingReminder] = useState(false);
 
   // Extract raw social links
-  const rawSocial = (project?.social_links as Record<string, any>) || {};
+  const rawSocial = React.useMemo(
+    () => (project?.social_links as Record<string, any>) || {},
+    [project?.social_links]
+  );
 
   // Clean separation of guide and original post
   const { formattedGuide, originalPost } = React.useMemo(() => {
     if (!project) return { formattedGuide: "", originalPost: "" };
     return extractGuideAndOriginalPost(project.guide_content, rawSocial);
-  }, [project?.guide_content, rawSocial]);
+  }, [project, rawSocial]);
 
   // Parse structured synth template if present
   const parsedSynth = React.useMemo(() => {

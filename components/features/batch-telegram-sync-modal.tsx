@@ -4,10 +4,8 @@ import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary } from "@/components/ui/button";
 import {
-  Send,
   ExternalLink,
   CheckCircle2,
-  Calendar,
   RotateCcw,
   Sparkles,
   Check,

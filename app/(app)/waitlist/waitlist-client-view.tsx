@@ -38,6 +38,7 @@ import {
 import { useAccount } from "wagmi";
 import { Modal } from "@/components/ui/modal";
 import { ButtonSecondary } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/select";
 import { ProjectReviewModal } from "@/components/features/project-review-modal";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
@@ -50,8 +51,6 @@ import {
   fetchWaitlists,
   updateWaitlistStatus,
   deleteWaitlist,
-  convertWaitlistToProject,
-  convertWaitlistToProjectWithAI,
   extractTasksFromText,
   transferWaitlistUpdateToTasks,
 } from "@/lib/supabase/waitlists";
@@ -213,9 +212,6 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   const [tgError, setTgError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Convert project state
-  const [convertingId, setConvertingId] = useState<string | null>(null);
-
   // Transfer tasks to project states
   const [existingProjects, setExistingProjects] = useState<{ id: string; name: string }[]>([]);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -239,25 +235,6 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   const [detailModalTarget, setDetailModalTarget] = useState<WaitlistItem | null>(null);
   const [detailCopied, setDetailCopied] = useState(false);
   const [reviewingWaitlist, setReviewingWaitlist] = useState<WaitlistItem | null>(null);
-
-  // Convert waitlist item directly into Droppr project (AI or manual)
-  const handleConvertWaitlist = async (waitlist: WaitlistItem, useAI: boolean = true) => {
-    if (convertingId) return;
-    setConvertingId(waitlist.id);
-    try {
-      const newProjectId = useAI
-        ? await convertWaitlistToProjectWithAI(waitlist)
-        : await convertWaitlistToProject(waitlist);
-
-      if (newProjectId) {
-        router.push(`/projects/${newProjectId}`);
-      }
-    } catch (err) {
-      console.error("Convert waitlist error:", err);
-    } finally {
-      setConvertingId(null);
-    }
-  };
 
   useEffect(() => {
     loadIdentities();
@@ -410,38 +387,19 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     }
   };
 
-  // Unjoin / revert to pending
-  const handleRevertToPending = async (id: string) => {
-    if (!confirm("Pindahkan waitlist ini kembali ke daftar eksplorasi?")) return;
-    const success = await updateWaitlistStatus(id, "pending");
-    if (success) await reloadData();
-  };
-
   // Delete waitlist
-  const handleDelete = async (id: string) => {
-    if (!confirm("Hapus item waitlist ini?")) return;
+  const handleDelete = async (id: string, projectName?: string) => {
+    const confirmMessage = projectName
+      ? (isEn ? `Delete waitlist "${projectName}"?` : `Hapus waitlist "${projectName}"?`)
+      : (isEn ? "Delete this waitlist item?" : "Hapus item waitlist ini?");
+    if (!confirm(confirmMessage)) return;
     const success = await deleteWaitlist(id);
     if (success) {
       setWaitlists((prev) => prev.filter((item) => item.id !== id));
     }
   };
 
-  // Convert to Project Droppr (direct shortcut)
-  const _handleConvertToProject = async (item: WaitlistItem) => {
-    setConvertingId(item.id);
-    try {
-      const newProjectId = await convertWaitlistToProject(item);
-      if (newProjectId) {
-        router.push(`/projects/${newProjectId}`);
-      } else {
-        alert("Gagal mengonversi waitlist menjadi proyek.");
-      }
-    } catch (err) {
-      console.error("Convert to project error:", err);
-    } finally {
-      setConvertingId(null);
-    }
-  };
+
 
   // Open TG Search Updates Modal
   const handleOpenTgSearch = async (item: WaitlistItem) => {
@@ -692,17 +650,30 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           {/* Filters and Search Bar */}
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Channel selector filter */}
-            <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2">
-              <Filter className="w-3.5 h-3.5 text-text-tertiary" />
-              <select
+            <div className="w-[180px]">
+              <CustomSelect
                 value={channelFilter}
-                onChange={(e) => setChannelFilter(e.target.value as any)}
-                className="bg-transparent text-caption text-text-primary focus:outline-none cursor-pointer pr-1"
-              >
-                <option value="all" className="bg-[#0e131b] text-text-primary">{isEn ? "All Channels" : "Semua Channel"}</option>
-                <option value="dutacryptoairdrop" className="bg-[#0e131b] text-text-primary">Duta Crypto</option>
-                <option value="airdropfind" className="bg-[#0e131b] text-text-primary">Airdrop Finder</option>
-              </select>
+                onChange={(val) => setChannelFilter(val as any)}
+                size="sm"
+                variant="subtle"
+                options={[
+                  {
+                    value: "all",
+                    label: isEn ? "All Channels" : "Semua Channel",
+                    icon: <Filter className="w-3.5 h-3.5 text-text-tertiary" />,
+                  },
+                  {
+                    value: "dutacryptoairdrop",
+                    label: "Duta Crypto",
+                    icon: <Send className="w-3.5 h-3.5 text-[#229ED9]" />,
+                  },
+                  {
+                    value: "airdropfind",
+                    label: "Airdrop Finder",
+                    icon: <Send className="w-3.5 h-3.5 text-[#229ED9]" />,
+                  },
+                ]}
+              />
             </div>
 
             {/* Search Box */}
@@ -838,14 +809,218 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             const isJoined = item.status === "joined";
             const channelInfo = getChannelInfo(item.channel);
 
+            /* ========================================================================= */
+            /* 1. COMPACT SLEEK CARD FOR JOINED WAITLISTS (Nama Airdrop, Link, & Akun)   */
+            /* ========================================================================= */
+            if (isJoined) {
+              const effectiveLink = item.ref_link || item.source_url;
+
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-2xl p-4 sm:p-4.5 backdrop-blur-xl border border-status-completed/25 hover:border-status-completed/45 bg-white/[0.03] hover:bg-white/[0.04] transition-all duration-200 shadow-xl shadow-black/20 flex flex-col justify-between group relative space-y-3"
+                >
+                  {/* Card Header & Content */}
+                  <div className="space-y-2.5">
+                    {/* Top Row: Name, Joined Badge, TG update badge, and Utility actions (Cancel/Delete) */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-body-md font-bold text-text-primary tracking-tight truncate max-w-[200px] sm:max-w-[240px]">
+                            {item.project_name}
+                          </h3>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-status-completed/15 text-status-completed border border-status-completed/30 shrink-0">
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            <span>Joined</span>
+                          </span>
+                          {batchDiscoveredMap.has(item.id) && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTgSearch(item)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-link-teal/20 text-link-teal border border-link-teal/40 hover:bg-link-teal/30 transition-all animate-pulse shrink-0 cursor-pointer"
+                              title={isEn ? "Click to view newly discovered Telegram updates" : "Klik untuk melihat update terbaru dari Telegram"}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-link-teal" />
+                              <span>+{batchDiscoveredMap.get(item.id)} {isEn ? "New" : "Baru"}</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Channel & Join Date */}
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-text-tertiary">
+                          <a
+                            href={item.source_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 min-w-0 hover:text-link-teal transition-colors"
+                            title={isEn ? "View original Telegram post" : "Buka postingan Telegram asli"}
+                          >
+                            <div className="w-4 h-4 rounded-full overflow-hidden shrink-0 flex items-center justify-center border border-white/10 bg-white/[0.04]">
+                              {channelInfo.logo ? (
+                                <Image
+                                  src={channelInfo.logo}
+                                  alt={channelInfo.name}
+                                  width={16}
+                                  height={16}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Send className="w-2.5 h-2.5 text-link-teal" />
+                              )}
+                            </div>
+                            <span className="truncate">{channelInfo.name}</span>
+                          </a>
+                          <span>•</span>
+                          <span className="font-mono text-[10px] shrink-0">
+                            {formatDate(item.joined_at || item.created_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Header Top-Right: Delete action */}
+                      <div className="flex items-center shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item.id, item.project_name)}
+                          className="text-text-tertiary hover:text-status-overdue p-1.5 rounded-lg hover:bg-status-overdue/10 transition-colors"
+                          title={isEn ? "Delete waitlist" : "Hapus waitlist"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Middle Info: Akun Terdaftar & Link Airdrop */}
+                    <div className="space-y-1.5 pt-0.5">
+                      {/* Akun Terdaftar Row */}
+                      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-colors">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <UserCheck className="w-3.5 h-3.5 text-status-completed shrink-0" />
+                          <span className="text-[11px] font-semibold text-text-tertiary shrink-0">
+                            {isEn ? "Account:" : "Akun:"}
+                          </span>
+                          <span
+                            className="font-mono text-caption text-text-primary font-medium truncate"
+                            title={item.registered_account || ""}
+                          >
+                            {item.registered_account || (
+                              <span className="text-text-tertiary italic text-[11px]">
+                                {isEn ? "No account noted" : "Belum dicatat"}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {item.registered_account && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyText(`acc-${item.id}`, item.registered_account!)}
+                              className="text-text-tertiary hover:text-text-primary p-1 rounded-lg hover:bg-white/[0.06] transition-colors"
+                              title={isEn ? "Copy account" : "Salin akun"}
+                            >
+                              {copiedId === `acc-${item.id}` ? (
+                                <Check className="w-3 h-3 text-status-completed" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenJoinModal(item)}
+                            className="text-accent hover:text-accent-hover text-[11px] font-semibold inline-flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded-lg hover:bg-accent/10"
+                            title={isEn ? "Edit registered account or link" : "Edit akun atau tautan"}
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Link Airdrop Row */}
+                      <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-colors">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <LinkIcon className="w-3.5 h-3.5 text-link-teal shrink-0" />
+                          <span className="text-[11px] font-semibold text-text-tertiary shrink-0">
+                            Link:
+                          </span>
+                          {effectiveLink ? (
+                            <a
+                              href={effectiveLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono text-caption text-link-teal hover:underline truncate min-w-0 flex items-center gap-1"
+                              title={effectiveLink}
+                            >
+                              <span className="truncate">{effectiveLink}</span>
+                              <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-70" />
+                            </a>
+                          ) : (
+                            <span className="text-text-tertiary italic text-[11px]">
+                              {isEn ? "No link recorded" : "Belum ada link"}
+                            </span>
+                          )}
+                        </div>
+                        {effectiveLink && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(`link-${item.id}`, effectiveLink)}
+                            className="text-text-tertiary hover:text-text-primary p-1 rounded-lg hover:bg-white/[0.06] transition-colors shrink-0"
+                            title={isEn ? "Copy link" : "Salin link"}
+                          >
+                            {copiedId === `link-${item.id}` ? (
+                              <Check className="w-3 h-3 text-status-completed" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Bottom Actions: Update TG & + Proyek */}
+                  <div className="pt-2.5 border-t border-white/[0.06] grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenTgSearch(item)}
+                      className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border text-caption font-semibold transition-all shadow-xs ${
+                        batchDiscoveredMap.has(item.id)
+                          ? "bg-link-teal/20 border-link-teal/50 text-link-teal hover:bg-link-teal/30 shadow-link-teal/10"
+                          : "bg-white/[0.04] border-white/[0.08] hover:border-link-teal/40 text-link-teal hover:bg-link-teal/10"
+                      }`}
+                      title={isEn ? "Search latest Telegram updates for this project" : "Cari update terbaru dari Telegram"}
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                      <span>{isEn ? "Update TG" : "Update TG"}</span>
+                      {batchDiscoveredMap.has(item.id) && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-link-teal text-on-accent font-mono font-bold leading-none shrink-0 shadow-xs">
+                          +{batchDiscoveredMap.get(item.id)}
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setReviewingWaitlist(item)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-md shadow-accent/20"
+                      title={isEn ? "Convert to full Droppr project" : "Jadikan proyek garapan Droppr"}
+                    >
+                      <FolderPlus className="w-3.5 h-3.5" />
+                      <span>{isEn ? "+ Project" : "+ Proyek"}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            /* ========================================================================= */
+            /* 2. EXPLORATION CARD FOR PENDING WAITLISTS (Lengkap Instruksi Pendaftaran)  */
+            /* ========================================================================= */
             return (
               <div
                 key={item.id}
-                className={`rounded-2xl p-5 sm:p-6 backdrop-blur-xl border flex flex-col justify-between transition-all duration-200 shadow-xl shadow-black/20 space-y-4 group relative ${
-                  isJoined
-                    ? "bg-white/[0.03] border-status-completed/30 hover:border-status-completed/50"
-                    : "bg-white/[0.03] border-white/[0.08] hover:border-white/[0.2] hover:bg-white/[0.04]"
-                }`}
+                className="rounded-2xl p-5 sm:p-6 backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.2] bg-white/[0.03] hover:bg-white/[0.04] flex flex-col justify-between transition-all duration-200 shadow-xl shadow-black/20 space-y-4 group relative"
               >
                 {/* Card Top Information */}
                 <div className="space-y-3.5">
@@ -882,61 +1057,24 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       <h3 className="text-body-md font-bold text-text-primary tracking-tight truncate">
                         {item.project_name}
                       </h3>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {batchDiscoveredMap.has(item.id) && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenTgSearch(item)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-link-teal/20 text-link-teal border border-link-teal/40 hover:bg-link-teal/30 transition-all animate-pulse cursor-pointer"
-                            title={isEn ? "Click to view newly discovered Telegram updates" : "Klik untuk melihat kabar terbaru dari Telegram"}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-link-teal" />
-                            <span>+{batchDiscoveredMap.get(item.id)} {isEn ? "New" : "Baru"}</span>
-                          </button>
-                        )}
-                        {isJoined && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-status-completed/15 text-status-completed border border-status-completed/30">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                            <span>Joined</span>
-                          </span>
-                        )}
-                      </div>
+                      {batchDiscoveredMap.has(item.id) && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTgSearch(item)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-link-teal/20 text-link-teal border border-link-teal/40 hover:bg-link-teal/30 transition-all animate-pulse cursor-pointer shrink-0"
+                          title={isEn ? "Click to view newly discovered Telegram updates" : "Klik untuk melihat kabar terbaru dari Telegram"}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-link-teal" />
+                          <span>+{batchDiscoveredMap.get(item.id)} {isEn ? "New" : "Baru"}</span>
+                        </button>
+                      )}
                     </div>
                     <p className="text-caption text-text-secondary line-clamp-2 mt-1 leading-relaxed">
                       {item.title}
                     </p>
                   </div>
 
-                  {/* Registered Account Section for Joined items */}
-                  {isJoined && (
-                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-text-tertiary font-semibold flex items-center gap-1.5">
-                          <UserCheck className="w-3.5 h-3.5 text-status-completed" />
-                          <span>Akun Terdaftar:</span>
-                        </span>
-                        <button
-                          onClick={() => handleOpenJoinModal(item)}
-                          className="text-accent hover:text-accent-hover inline-flex items-center gap-1 font-medium transition-colors"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                          <span>Edit</span>
-                        </button>
-                      </div>
-                      <p className="text-caption font-mono font-medium text-text-primary truncate">
-                        {item.registered_account || (
-                          <span className="text-text-tertiary italic">Belum ada catatan akun</span>
-                        )}
-                      </p>
-                      {item.joined_at && (
-                        <p className="text-[10px] text-text-tertiary font-mono">
-                          Bergabung: {formatDate(item.joined_at)}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Tasks Preview */}
+                  {/* Tasks Preview (Instruksi Pendaftaran) */}
                   {item.tasks && item.tasks.length > 0 && (
                     <div className="space-y-1.5 pt-1">
                       <div className="flex items-center justify-between text-[11px]">
@@ -997,100 +1135,38 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   )}
                 </div>
 
-                {/* Card Bottom Actions */}
+                {/* Card Bottom Actions for Exploration */}
                 <div className="pt-3.5 border-t border-white/[0.06] mt-3 space-y-2">
-                  {isJoined ? (
-                    /* ACTIONS FOR JOINED WAITLIST */
-                    <div className="space-y-2.5">
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* UPDATE TG BUTTON */}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenTgSearch(item)}
-                          className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-caption font-semibold transition-all shadow-xs ${
-                            batchDiscoveredMap.has(item.id)
-                              ? "bg-link-teal/20 border-link-teal/50 text-link-teal hover:bg-link-teal/30 shadow-link-teal/10"
-                              : "bg-white/[0.04] border-white/[0.08] hover:border-link-teal/40 text-link-teal hover:bg-link-teal/10"
-                          }`}
-                          title={isEn ? "Search latest developments on Telegram for this project" : "Cari perkembangan terbaru dari Telegram untuk proyek ini"}
-                        >
-                          <Search className="w-3.5 h-3.5" />
-                          <span>{isEn ? "TG Update" : "Update TG"}</span>
-                          {batchDiscoveredMap.has(item.id) && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-link-teal text-on-accent font-mono font-bold leading-none shrink-0 shadow-xs">
-                              +{batchDiscoveredMap.get(item.id)}
-                            </span>
-                          )}
-                        </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenJoinModal(item)}
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-lg shadow-accent/20"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{isEn ? "Mark as Joined" : "Tandai Sudah Join"}</span>
+                  </button>
 
-                        {/* + PROYEK REVIEW MODAL */}
-                        <button
-                          type="button"
-                          onClick={() => setReviewingWaitlist(item)}
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-lg shadow-accent/20"
-                          title={isEn ? "Review and convert to Droppr project" : "Review dan buat proyek Droppr"}
-                        >
-                          <FolderPlus className="w-3.5 h-3.5" />
-                          <span>{isEn ? "+ Project" : "+ Proyek"}</span>
-                        </button>
-                      </div>
+                  <div className="flex items-center justify-between text-caption pt-1 text-text-tertiary">
+                    <a
+                      href={item.source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-text-secondary hover:text-link-teal hover:underline inline-flex items-center gap-1 text-[11px] transition-colors"
+                    >
+                      <Send className="w-3 h-3 text-link-teal" />
+                      <span>{isEn ? "Open Telegram" : "Buka Telegram"}</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
 
-                      {/* Baris Tunggal Utilitas yang Rapi & Lega */}
-                      <div className="flex items-center justify-end gap-2 text-caption pt-0.5 text-text-tertiary">
-                        <button
-                          type="button"
-                          onClick={() => handleRevertToPending(item.id)}
-                          className="text-text-tertiary hover:text-text-secondary text-[11px] transition-colors"
-                          title={isEn ? "Return to Explore tab" : "Kembalikan ke tab Eksplorasi"}
-                        >
-                          {isEn ? "Cancel Join" : "Batal Join"}
-                        </button>
-                        <span>•</span>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          className="text-text-tertiary hover:text-status-overdue text-[11px] transition-colors"
-                          title={isEn ? "Delete waitlist" : "Hapus waitlist"}
-                        >
-                          {isEn ? "Delete" : "Hapus"}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* ACTIONS FOR PENDING EXPLORATION WAITLIST */
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenJoinModal(item)}
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-lg shadow-accent/20"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>{isEn ? "Mark as Joined" : "Tandai Sudah Join"}</span>
-                      </button>
-
-                      <div className="flex items-center justify-between text-caption pt-1 text-text-tertiary">
-                        <a
-                          href={item.source_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-text-secondary hover:text-link-teal hover:underline inline-flex items-center gap-1 text-[11px] transition-colors"
-                        >
-                          <Send className="w-3 h-3 text-link-teal" />
-                          <span>{isEn ? "Open Telegram" : "Buka Telegram"}</span>
-                          <ExternalLink className="w-2.5 h-2.5" />
-                        </a>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          className="text-text-tertiary hover:text-status-overdue text-[11px] transition-colors"
-                          title="Abaikan dan hapus"
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id, item.project_name)}
+                      className="text-text-tertiary hover:text-status-overdue text-[11px] transition-colors"
+                      title={isEn ? "Ignore and delete" : "Abaikan dan hapus"}
+                    >
+                      {isEn ? "Delete" : "Hapus"}
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -1584,20 +1660,27 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 </div>
               ) : (
                 <div>
-                  <label className="block text-[11px] text-text-tertiary mb-1">
+                  <label className="block text-caption font-medium text-text-secondary mb-1">
                     {isEn ? "Select Receiving Project:" : "Pilih Proyek Penerima Tugas:"}
                   </label>
-                  <select
-                    value={selectedExistingProjectId}
-                    onChange={(e) => setSelectedExistingProjectId(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-md bg-bg-surface border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent"
-                  >
-                    {existingProjects.map((proj) => (
-                      <option key={proj.id} value={proj.id}>
-                        {proj.name}
-                      </option>
-                    ))}
-                  </select>
+                  {existingProjects.length === 0 ? (
+                    <div className="p-3 rounded-xl bg-accent/10 border border-accent/20 text-caption text-text-secondary">
+                      {isEn
+                        ? "You have no projects yet. Please select 'New Project' above to create one."
+                        : "Belum ada proyek tersimpan. Silakan pilih tab 'Proyek Baru' di atas untuk membuat proyek baru."}
+                    </div>
+                  ) : (
+                    <CustomSelect
+                      value={selectedExistingProjectId}
+                      onChange={(val) => setSelectedExistingProjectId(val)}
+                      placeholder={isEn ? "Select receiving project..." : "Pilih proyek penerima tugas..."}
+                      options={existingProjects.map((proj) => ({
+                        value: proj.id,
+                        label: proj.name,
+                        icon: <Rocket className="w-3.5 h-3.5 text-accent" />,
+                      }))}
+                    />
+                  )}
                 </div>
               )}
             </div>

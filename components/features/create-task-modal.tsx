@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CustomSelect } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { useTranslation } from "@/lib/i18n/context";
@@ -91,20 +92,18 @@ export function CreateTaskModal({
         </div>
 
         <div>
-          <label className="block text-body-sm font-medium text-text-secondary mb-1">
-            {isEn ? "Task Frequency" : "Frekuensi Task"}
-          </label>
-          <select
+          <CustomSelect
+            label={isEn ? "Task Frequency" : "Frekuensi Task"}
             value={type}
-            onChange={(e) => setType(e.target.value as TaskType)}
-            className="w-full h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+            onChange={(val) => setType(val as TaskType)}
             disabled={loading}
-          >
-            <option value="one_time">{isEn ? "One-time" : "Sekali Saja (One-time)"}</option>
-            <option value="daily">{isEn ? "Daily" : "Harian (Daily)"}</option>
-            <option value="weekly">{isEn ? "Weekly" : "Mingguan (Weekly)"}</option>
-            <option value="custom">{isEn ? "Custom" : "Kustom (Custom)"}</option>
-          </select>
+            options={[
+              { value: "one_time", label: isEn ? "One-time" : "Sekali Saja (One-time)", icon: <span className="text-xs">🎯</span> },
+              { value: "daily", label: isEn ? "Daily" : "Harian (Daily)", icon: <span className="text-xs">🔁</span> },
+              { value: "weekly", label: isEn ? "Weekly" : "Mingguan (Weekly)", icon: <span className="text-xs">📅</span> },
+              { value: "custom", label: isEn ? "Custom" : "Kustom (Custom)", icon: <span className="text-xs">⚙️</span> },
+            ]}
+          />
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-hairline">

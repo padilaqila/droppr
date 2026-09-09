@@ -8,7 +8,6 @@ import {
   ExternalLink,
   Layers,
   ArrowRight,
-  Filter,
   Send,
   Clock,
   Newspaper,
@@ -19,7 +18,6 @@ import {
   PauseCircle,
   Gift,
   CheckCircle2,
-  Calendar,
   Bell,
   Search,
   Check,
@@ -27,11 +25,13 @@ import {
   Circle,
 } from "lucide-react";
 import { TelegramUpdateModal } from "@/components/features/telegram-update-modal";
+import { CustomSelect } from "@/components/ui/select";
 import { cleanHtmlEntities } from "@/lib/supabase/thread-updates";
 import {
   isProjectDailyDone,
   toggleProjectDailyTask,
   updateProjectTaskType,
+  updateProjectLifecycleStatus,
 } from "@/lib/supabase/daily-tasks-helper";
 import type { Database } from "@/lib/supabase/database.types";
 import { useTranslation } from "@/lib/i18n/context";
@@ -46,7 +46,14 @@ interface TasksClientViewProps {
 }
 
 // Operational task types for filtering & classification
-type OperationalFilter = "all" | "recurring" | "one_time" | "waiting" | "ready_to_claim";
+type OperationalFilter =
+  | "all"
+  | "daily"
+  | "weekly"
+  | "one_time"
+  | "waiting"
+  | "ready_to_claim"
+  | "completed";
 
 function getChannelLogo(channelOrUrl?: string | null) {
   const text = (channelOrUrl || "").toLowerCase();
@@ -95,17 +102,23 @@ function formatTime(isoString?: string | null, isEn = false): string {
 
 /**
  * Determine operational category of a project:
+ * - "completed": Status project is completed
  * - "ready_to_claim": Status project is ready_to_claim
  * - "waiting": Status project is waiting (closed / waiting for snapshot)
  * - "one_time": social_links.task_type === "one_time"
- * - "recurring": Default for active airdrops, or social_links.task_type === "recurring"
+ * - "weekly": social_links.task_type === "weekly"
+ * - "daily": default active check-in routine
  */
-function getProjectOperationalType(project: ProjectRow): "ready_to_claim" | "waiting" | "one_time" | "recurring" {
+function getProjectOperationalType(
+  project: ProjectRow
+): "ready_to_claim" | "waiting" | "completed" | "one_time" | "weekly" | "daily" {
+  if (project.status === "completed") return "completed";
   if (project.status === "ready_to_claim") return "ready_to_claim";
   if (project.status === "waiting") return "waiting";
   const rawSocial = (project.social_links as Record<string, any>) || {};
   if (rawSocial.task_type === "one_time") return "one_time";
-  return "recurring";
+  if (rawSocial.task_type === "weekly") return "weekly";
+  return "daily";
 }
 
 export function TasksClientView({
@@ -124,6 +137,8 @@ export function TasksClientView({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [telegramModalProject, setTelegramModalProject] = useState<string | null>(null);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [editingClaimProjectId, setEditingClaimProjectId] = useState<string | null>(null);
+  const [claimInputUrl, setClaimInputUrl] = useState<string>("");
 
   useEffect(() => {
     setProjects(initialProjects);
@@ -143,25 +158,31 @@ export function TasksClientView({
 
   // Counts for each operational category
   const stats = useMemo(() => {
-    let recurring = 0;
+    let daily = 0;
+    let weekly = 0;
     let oneTime = 0;
     let waiting = 0;
     let readyToClaim = 0;
+    let completed = 0;
 
     projects.forEach((p) => {
       const type = getProjectOperationalType(p);
-      if (type === "recurring") recurring++;
+      if (type === "daily") daily++;
+      else if (type === "weekly") weekly++;
       else if (type === "one_time") oneTime++;
       else if (type === "waiting") waiting++;
       else if (type === "ready_to_claim") readyToClaim++;
+      else if (type === "completed") completed++;
     });
 
     return {
       total: projects.length,
-      recurring,
+      daily,
+      weekly,
       oneTime,
       waiting,
       readyToClaim,
+      completed,
     };
   }, [projects]);
 
@@ -223,8 +244,45 @@ export function TasksClientView({
     }
   };
 
-  // Switch Task Type ("recurring" <-> "one_time")
-  const handleSwitchTaskType = async (project: ProjectRow, newType: "recurring" | "one_time") => {
+  // Change Project Lifecycle Status (Optimistic + Supabase)
+  const handleChangeStatus = async (
+    project: ProjectRow,
+    nextStatus: Database["public"]["Enums"]["project_status"],
+    claimUrlParam?: string
+  ) => {
+    setUpdatingTaskId(project.id);
+
+    // Optimistic UI update
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== project.id) return p;
+        const currentSocial = (p.social_links as Record<string, any>) || {};
+        const updatedSocial = { ...currentSocial };
+        if (claimUrlParam !== undefined) {
+          if (claimUrlParam) updatedSocial.claim_url = claimUrlParam;
+          else delete updatedSocial.claim_url;
+        }
+        return {
+          ...p,
+          status: nextStatus,
+          social_links: updatedSocial,
+        };
+      })
+    );
+
+    const res = await updateProjectLifecycleStatus(project.id, nextStatus, claimUrlParam);
+    setUpdatingTaskId(null);
+
+    if (!res.success) {
+      setProjects(initialProjects);
+    }
+  };
+
+  // Switch Task Routine Type ("daily" | "weekly" | "one_time")
+  const handleSwitchRoutine = async (
+    project: ProjectRow,
+    newType: "daily" | "weekly" | "one_time"
+  ) => {
     setUpdatingTaskId(project.id);
 
     // Optimistic UI update
@@ -248,6 +306,13 @@ export function TasksClientView({
     if (!res.success) {
       setProjects(initialProjects);
     }
+  };
+
+  const handleSaveClaimUrl = async (project: ProjectRow) => {
+    if (!claimInputUrl.trim()) return;
+    await handleChangeStatus(project, "ready_to_claim", claimInputUrl.trim());
+    setEditingClaimProjectId(null);
+    setClaimInputUrl("");
   };
 
   return (
@@ -281,6 +346,7 @@ export function TasksClientView({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-1 border-b border-white/[0.06]">
         {/* Operational Category Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+          {/* Semua */}
           <button
             type="button"
             onClick={() => setActiveTab("all")}
@@ -296,67 +362,105 @@ export function TasksClientView({
             </span>
           </button>
 
+          {/* Check-in Harian */}
           <button
             type="button"
-            onClick={() => setActiveTab("recurring")}
+            onClick={() => setActiveTab("daily")}
             className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
-              activeTab === "recurring"
+              activeTab === "daily"
                 ? "bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-xs"
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <Repeat className="w-3.5 h-3.5 text-amber-400" />
-            <span>{t("tasks.tabs.recurring")}</span>
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span>{t("tasks.tabs.daily")}</span>
             <span className="px-1.5 py-0.5 rounded-full bg-amber-500/15 text-[10px] font-mono leading-none">
-              {stats.recurring}
+              {stats.daily}
             </span>
           </button>
 
+          {/* Mingguan */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("weekly")}
+            className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+              activeTab === "weekly"
+                ? "bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-xs"
+                : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+            }`}
+          >
+            <Repeat className="w-3.5 h-3.5 text-sky-400" />
+            <span>{t("tasks.tabs.weekly")}</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-sky-500/15 text-[10px] font-mono leading-none">
+              {stats.weekly}
+            </span>
+          </button>
+
+          {/* Sekali Selesai */}
           <button
             type="button"
             onClick={() => setActiveTab("one_time")}
             className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
               activeTab === "one_time"
-                ? "bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-xs"
+                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-xs"
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <Zap className="w-3.5 h-3.5 text-sky-400" />
+            <Zap className="w-3.5 h-3.5 text-indigo-300" />
             <span>{t("tasks.tabs.oneTime")}</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-sky-500/15 text-[10px] font-mono leading-none">
+            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-[10px] font-mono leading-none">
               {stats.oneTime}
             </span>
           </button>
 
+          {/* Menunggu Snapshot */}
           <button
             type="button"
             onClick={() => setActiveTab("waiting")}
             className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
               activeTab === "waiting"
-                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-xs"
+                ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-xs"
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <PauseCircle className="w-3.5 h-3.5 text-indigo-300" />
+            <PauseCircle className="w-3.5 h-3.5 text-purple-300" />
             <span>{t("tasks.tabs.waiting")}</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-[10px] font-mono leading-none">
+            <span className="px-1.5 py-0.5 rounded-full bg-purple-500/15 text-[10px] font-mono leading-none">
               {stats.waiting}
             </span>
           </button>
 
+          {/* Siap Klaim */}
           <button
             type="button"
             onClick={() => setActiveTab("ready_to_claim")}
             className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
               activeTab === "ready_to_claim"
+                ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-xs"
+                : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+            }`}
+          >
+            <Gift className="w-3.5 h-3.5 text-amber-300" />
+            <span>{t("tasks.tabs.readyToClaim")}</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-amber-400/15 text-[10px] font-mono leading-none">
+              {stats.readyToClaim}
+            </span>
+          </button>
+
+          {/* Selesai Diklaim */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("completed")}
+            className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+              activeTab === "completed"
                 ? "bg-status-completed/20 text-status-completed border border-status-completed/40 shadow-xs"
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <Gift className="w-3.5 h-3.5 text-status-completed" />
-            <span>{t("tasks.tabs.readyToClaim")}</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-status-completed" />
+            <span>{t("tasks.tabs.completed")}</span>
             <span className="px-1.5 py-0.5 rounded-full bg-status-completed/15 text-[10px] font-mono leading-none">
-              {stats.readyToClaim}
+              {stats.completed}
             </span>
           </button>
         </div>
@@ -403,6 +507,7 @@ export function TasksClientView({
           {filteredProjects.map((project) => {
             const rawSocial = (project.social_links as Record<string, any>) || {};
             const dappUrl = rawSocial.dapp_url || rawSocial.website;
+            const claimUrl = rawSocial.claim_url;
             const badgeStatus = project.status.replace("_", "-") as ProjectStatus;
             const channelSource = getChannelLogo(rawSocial.telegram_post_url || rawSocial.channel);
             const projectUpdates = updates.filter((u) => u.project_id === project.id);
@@ -412,6 +517,7 @@ export function TasksClientView({
             const opType = getProjectOperationalType(project);
             const isDailyDone = isProjectDailyDone(project, projectTasks);
             const isUpdating = updatingTaskId === project.id;
+            const isEditingClaimUrl = editingClaimProjectId === project.id;
 
             // Clean guide snippet
             let cleanSnippet = (project.guide_content || "").trim();
@@ -462,14 +568,29 @@ export function TasksClientView({
                         <StatusBadge status={badgeStatus} />
                       </div>
                       <p className="text-[11px] text-text-tertiary font-mono">
-                        {channelSource.name} • Didaftarkan {formatTime(project.created_at)}
+                        {channelSource.name} • Didaftarkan {formatTime(project.created_at, isEn)}
                       </p>
                     </div>
                   </div>
 
                   {/* Actions Right */}
                   <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
-                    {dappUrl && (
+                    {/* Direct Claim link if ready_to_claim */}
+                    {claimUrl && (
+                      <a
+                        href={claimUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 transition-all text-caption font-bold shadow-sm"
+                        title={isEn ? "Open official claim portal" : "Buka portal klaim token resmi"}
+                      >
+                        <Gift className="w-3.5 h-3.5" />
+                        <span>{t("tasks.card.claimReward")}</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+
+                    {dappUrl && !claimUrl && (
                       <a
                         href={dappUrl}
                         target="_blank"
@@ -503,115 +624,269 @@ export function TasksClientView({
                   </div>
                 </div>
 
-                {/* OPERATIONAL STATUS BANNER & SCHEDULE INFO */}
-                <div className="rounded-xl p-3.5 bg-white/[0.02] border border-white/[0.05] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    {opType === "recurring" && (
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
-                        <Repeat className="w-4 h-4" />
-                      </div>
-                    )}
-                    {opType === "one_time" && (
-                      <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0">
-                        <Zap className="w-4 h-4" />
-                      </div>
-                    )}
-                    {opType === "waiting" && (
-                      <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 flex items-center justify-center shrink-0">
-                        <PauseCircle className="w-4 h-4" />
-                      </div>
-                    )}
-                    {opType === "ready_to_claim" && (
-                      <div className="w-8 h-8 rounded-lg bg-status-completed/15 border border-status-completed/30 text-status-completed flex items-center justify-center shrink-0">
-                        <Gift className="w-4 h-4" />
-                      </div>
-                    )}
+                {/* OPERATIONAL STATUS BANNER & SCHEDULE CONTROLS */}
+                <div className="rounded-xl p-4 bg-white/[0.02] border border-white/[0.05] space-y-3">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      {opType === "daily" && (
+                        <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                          <Clock className="w-4 h-4" />
+                        </div>
+                      )}
+                      {opType === "weekly" && (
+                        <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
+                          <Repeat className="w-4 h-4" />
+                        </div>
+                      )}
+                      {opType === "one_time" && (
+                        <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 flex items-center justify-center shrink-0 mt-0.5">
+                          <Zap className="w-4 h-4" />
+                        </div>
+                      )}
+                      {opType === "waiting" && (
+                        <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
+                          <PauseCircle className="w-4 h-4" />
+                        </div>
+                      )}
+                      {opType === "ready_to_claim" && (
+                        <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-400/40 text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+                          <Gift className="w-4 h-4" />
+                        </div>
+                      )}
+                      {opType === "completed" && (
+                        <div className="w-9 h-9 rounded-xl bg-status-completed/15 border border-status-completed/30 text-status-completed flex items-center justify-center shrink-0 mt-0.5">
+                          <CheckCircle2 className="w-4 h-4" />
+                        </div>
+                      )}
 
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-caption font-bold text-text-primary">
-                          {opType === "recurring" && (isEn ? "Recurring Tasks (Daily/Periodic)" : "Tugas Rutin Berulang (Daily/Periodic)")}
-                          {opType === "one_time" && (isEn ? "One-Time Task (Set & Forget)" : "Tugas Sekali Selesai (Set & Forget)")}
-                          {opType === "waiting" && (isEn ? "Airdrop Ended / Waiting Snapshot" : "Garapan Ditutup / Menunggu Snapshot")}
-                          {opType === "ready_to_claim" && (isEn ? "Ready to Claim Reward" : "Siap Klaim Reward")}
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-body-sm font-bold text-text-primary">
+                            {opType === "daily" && t("tasks.card.dailyTitle")}
+                            {opType === "weekly" && t("tasks.card.weeklyTitle")}
+                            {opType === "one_time" && t("tasks.card.oneTimeTitle")}
+                            {opType === "waiting" && t("tasks.card.waitingTitle")}
+                            {opType === "ready_to_claim" && t("tasks.card.readyToClaimTitle")}
+                            {opType === "completed" && t("tasks.card.completedTitle")}
+                          </span>
+
+                          {/* Routine Toggles for active projects */}
+                          {(opType === "daily" || opType === "weekly" || opType === "one_time") && (
+                            <div className="flex items-center gap-1 bg-white/[0.04] p-0.5 rounded-lg border border-white/[0.08]">
+                              <button
+                                type="button"
+                                disabled={isUpdating}
+                                onClick={() => handleSwitchRoutine(project, "daily")}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                  opType === "daily"
+                                    ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-xs"
+                                    : "text-text-tertiary hover:text-text-primary"
+                                }`}
+                              >
+                                {isEn ? "Daily" : "Harian"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isUpdating}
+                                onClick={() => handleSwitchRoutine(project, "weekly")}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                  opType === "weekly"
+                                    ? "bg-sky-500/25 text-sky-300 border border-sky-500/40 shadow-xs"
+                                    : "text-text-tertiary hover:text-text-primary"
+                                }`}
+                              >
+                                {isEn ? "Weekly" : "Mingguan"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isUpdating}
+                                onClick={() => handleSwitchRoutine(project, "one_time")}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                  opType === "one_time"
+                                    ? "bg-indigo-500/25 text-indigo-200 border border-indigo-500/40 shadow-xs"
+                                    : "text-text-tertiary hover:text-text-primary"
+                                }`}
+                              >
+                                {isEn ? "1x Done" : "1x Selesai"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="text-caption text-text-secondary leading-snug">
+                          {opType === "daily" &&
+                            (isEn
+                              ? "Requires regular streak check-in, daily faucet, or point claiming (Resets 07:00 WIB)."
+                              : "Membutuhkan check-in streak, faucet, atau klaim point harian (Reset jam 07:00 WIB).")}
+                          {opType === "weekly" &&
+                            (isEn
+                              ? "Periodic transactions (swap/bridge 1-2x per week) to maintain active wallet score."
+                              : "Transaksi berkala (swap/bridge 1-2x seminggu) untuk menjaga keaktifan dan volume dompet.")}
+                          {opType === "one_time" &&
+                            (isEn
+                              ? "Completed once (e.g. fill waitlist, bind Discord/Twitter, mint OAT). Set & forget."
+                              : "Cukup dikerjakan 1x (misal isi waitlist, bind Discord/Twitter, mint role). Set & forget.")}
+                          {opType === "waiting" &&
+                            (isEn
+                              ? "⛔ Testnet/farming phase has ended or snapshot taken — no need to spend gas or tx time!"
+                              : "⛔ Fase testnet telah berakhir atau sudah snapshot — STOP buang gas fee atau waktu transaksi!")}
+                          {opType === "ready_to_claim" &&
+                            (isEn
+                              ? "🎉 Token allocation is live! Visit the claim portal below to withdraw your tokens."
+                              : "🎉 Alokasi token telah diumumkan! Kunjungi portal klaim untuk menarik reward airdrop kamu.")}
+                          {opType === "completed" &&
+                            (isEn
+                              ? "✅ Airdrop successfully claimed and rewards landed in your wallet. Great job!"
+                              : "✅ Airdrop telah selesai dan reward sukses diklaim ke dompet Anda.")}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Operational Action Controls on Right */}
+                    <div className="flex items-center gap-2 self-start lg:self-center shrink-0 flex-wrap">
+                      {/* 1-Click Status Dropdown Selector */}
+                      <div className="min-w-[150px]">
+                        <CustomSelect
+                          value={project.status}
+                          disabled={isUpdating}
+                          onChange={(newStat) => handleChangeStatus(project, newStat as any)}
+                          options={[
+                            { value: "in_progress", label: isEn ? "In Progress" : "⚡ Sedang Dikerjakan" },
+                            { value: "waiting", label: isEn ? "Waiting Snapshot" : "⏳ Menunggu Snapshot" },
+                            { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "🎁 Siap Klaim Reward" },
+                            { value: "completed", label: isEn ? "Completed" : "✅ Selesai Diklaim" },
+                            { value: "not_started", label: isEn ? "Not Started" : "⏸️ Belum Mulai" },
+                          ]}
+                        />
+                      </div>
+
+                      {/* Daily Done Button */}
+                      {opType === "daily" && (
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() => handleToggleDaily(project)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-caption font-semibold transition-all border ${
+                            isDailyDone
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
+                              : "bg-white/[0.04] text-text-primary border-white/[0.1] hover:bg-white/[0.08]"
+                          }`}
+                        >
+                          {isDailyDone ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>{t("tasks.card.doneToday")}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Circle className="w-3.5 h-3.5 text-text-tertiary" />
+                              <span>{t("tasks.card.markDoneToday")}</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {/* Ready to Claim: Mark as Claimed Button */}
+                      {opType === "ready_to_claim" && (
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() => handleChangeStatus(project, "completed")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 transition-all text-caption font-semibold"
+                          title={isEn ? "Mark as successfully claimed" : "Tandai reward sudah selesai diklaim"}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>{isEn ? "Mark Claimed" : "Tandai Sudah Diklaim"}</span>
+                        </button>
+                      )}
+
+                      {/* Waiting: Quick Bump to Ready to Claim */}
+                      {opType === "waiting" && (
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() => handleChangeStatus(project, "ready_to_claim")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 border border-amber-400/40 transition-all text-caption font-semibold"
+                        >
+                          <Gift className="w-3.5 h-3.5" />
+                          <span>{isEn ? "Allocation Live 🎁" : "Siap Klaim 🎁"}</span>
+                        </button>
+                      )}
+
+                      {/* Completed: Reopen Button */}
+                      {opType === "completed" && (
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() => handleChangeStatus(project, "in_progress")}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] text-text-tertiary hover:text-text-primary hover:bg-white/[0.08] text-[11px] transition-all font-mono"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>{isEn ? "Reopen" : "Buka Kembali"}</span>
+                        </button>
+                      )}
+
+                      {projectReminders.length > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[11px] text-text-secondary font-mono">
+                          <Bell className="w-3 h-3 text-accent" />
+                          <span>{t("tasks.card.reminderActive")}</span>
                         </span>
-
-                        {/* Switch type button for active projects */}
-                        {(opType === "recurring" || opType === "one_time") && (
-                          <button
-                            type="button"
-                            disabled={isUpdating}
-                            onClick={() =>
-                              handleSwitchTaskType(
-                                project,
-                                opType === "recurring" ? "one_time" : "recurring"
-                              )
-                            }
-                            className="text-[10px] font-mono text-text-tertiary hover:text-accent underline transition-colors"
-                            title={isEn ? "Change operational type for this project" : "Ubah tipe operasional garapan ini"}
-                          >
-                            {opType === "recurring"
-                              ? (isEn ? "Switch to One-Time" : "Ubah ke Sekali Selesai")
-                              : (isEn ? "Switch to Recurring" : "Ubah ke Rutin Berulang")}
-                          </button>
-                        )}
-                      </div>
-
-                      <p className="text-[11px] text-text-secondary">
-                        {opType === "recurring" &&
-                          (isEn
-                            ? "Requires periodic transactions, faucet, or daily check-in (Reset 07:00 WIB)."
-                            : "Membutuhkan transaksi berkala, faucet, atau check-in harian (Reset 07:00 WIB).")}
-                        {opType === "one_time" &&
-                          (isEn
-                            ? "Completed once (e.g. fill waitlist form, claim OAT/Discord role)."
-                            : "Cukup dikerjakan 1x (misal isi form waitlist, klaim OAT/role Discord).")}
-                        {opType === "waiting" &&
-                          (isEn
-                            ? "⛔ Testnet phase has ended — no need to spend further gas or transaction time."
-                            : "⛔ Fase testnet telah berakhir — Anda tidak perlu buang gas/waktu transaksi lagi.")}
-                        {opType === "ready_to_claim" &&
-                          (isEn
-                            ? "🎉 Token allocation announced! Visit the claim portal to withdraw your reward."
-                            : "🎉 Alokasi token telah diumumkan! Kunjungi portal klaim untuk menarik reward Anda.")}
-                      </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Operational Action / Indicator Right */}
-                  <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                    {opType === "recurring" && (
-                      <button
-                        type="button"
-                        disabled={isUpdating}
-                        onClick={() => handleToggleDaily(project)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-caption font-semibold transition-all border ${
-                          isDailyDone
-                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
-                            : "bg-white/[0.04] text-text-primary border-white/[0.1] hover:bg-white/[0.08]"
-                        }`}
-                      >
-                        {isDailyDone ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>{t("tasks.card.doneToday")}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Circle className="w-3.5 h-3.5 text-text-tertiary" />
-                            <span>{t("tasks.card.markDoneToday")}</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-
-                    {projectReminders.length > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[11px] text-text-secondary font-mono">
-                        <Bell className="w-3 h-3 text-accent" />
-                        <span>{t("tasks.card.reminderActive")}</span>
-                      </span>
-                    )}
-                  </div>
+                  {/* Inline Claim URL Form (if ready_to_claim without URL or user clicks to edit) */}
+                  {opType === "ready_to_claim" && (
+                    <div className="pt-2 border-t border-white/[0.05] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-caption">
+                      {isEditingClaimUrl ? (
+                        <div className="flex items-center gap-2 w-full">
+                          <input
+                            type="url"
+                            value={claimInputUrl}
+                            onChange={(e) => setClaimInputUrl(e.target.value)}
+                            placeholder="https://claim.project.xyz atau https://airdrop.project.xyz/check"
+                            className="flex-1 px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.12] text-caption font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveClaimUrl(project)}
+                            className="px-3 py-1.5 rounded-lg bg-accent text-on-accent text-caption font-bold shadow-xs"
+                          >
+                            Simpan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingClaimProjectId(null);
+                              setClaimInputUrl("");
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg text-caption text-text-tertiary hover:text-text-primary"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2 w-full">
+                          <div className="flex items-center gap-2 text-[11px] text-text-tertiary font-mono truncate">
+                            <span className="text-amber-400 font-bold">Portal Klaim:</span>
+                            <span className="truncate text-text-secondary">
+                              {claimUrl || (isEn ? "No claim link attached yet." : "Belum ada link klaim terpasang.")}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingClaimProjectId(project.id);
+                              setClaimInputUrl(claimUrl || "");
+                            }}
+                            className="text-[11px] font-mono text-link-teal hover:underline shrink-0"
+                          >
+                            {claimUrl ? (isEn ? "Edit Link" : "Ubah Link") : (isEn ? "+ Attach Claim Link" : "+ Pasang Link Klaim")}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* POST CONTENT SNIPPET (Clean Natural Text) */}

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/select";
 import {
   FileText,
   Languages,
@@ -11,11 +12,9 @@ import {
   AlertCircle,
   RefreshCw,
   ExternalLink,
-  ChevronDown,
   Globe,
   AtSign,
   Wallet,
-  Plus,
 } from "lucide-react";
 import { parseAirdropProjectData } from "@/lib/supabase/airdrop-parser";
 import { getTranslationAction } from "@/lib/utils/language-prefs";
@@ -56,6 +55,8 @@ export function CreateProjectModal({
   const [chain, setChain] = useState("");
   const [folderId, setFolderId] = useState<string>(initialFolderId || "");
   const [status, setStatus] = useState<ProjectStatus>("in_progress");
+  const [taskType, setTaskType] = useState<"daily" | "weekly" | "one_time">("daily");
+  const [claimUrl, setClaimUrl] = useState("");
 
   // Form Fields - Social & Project Links
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -66,6 +67,7 @@ export function CreateProjectModal({
 
   // Form Fields - Account / Identity Used
   const [accountPlatform, setAccountPlatform] = useState("Email");
+  const [customPlatform, setCustomPlatform] = useState("");
   const [accountValue, setAccountValue] = useState("");
 
   // Form Fields - Wallets
@@ -86,7 +88,6 @@ export function CreateProjectModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [folders, setFolders] = useState<FolderOption[]>([]);
-  const [showSocialSection, setShowSocialSection] = useState(true);
 
   // Load Folders and User Wallets on open
   useEffect(() => {
@@ -132,6 +133,9 @@ export function CreateProjectModal({
     setAccountValue("");
     setSelectedWalletIds([]);
     setChannelSource(null);
+    setStatus("in_progress");
+    setTaskType("daily");
+    setClaimUrl("");
     setIsTranslated(false);
     setErrorMessage(null);
     onClose();
@@ -280,7 +284,10 @@ export function CreateProjectModal({
       }
 
       // Prepare social links
-      const social_links: Record<string, any> = {};
+      const social_links: Record<string, any> = {
+        task_type: taskType,
+      };
+      if (claimUrl.trim()) social_links.claim_url = claimUrl.trim();
       if (websiteUrl.trim()) social_links.website = websiteUrl.trim();
       if (dappUrl.trim()) social_links.dapp_url = dappUrl.trim();
       if (twitterUrl.trim()) social_links.twitter = twitterUrl.trim();
@@ -307,9 +314,13 @@ export function CreateProjectModal({
 
       // 2. Insert Account / Email Used (if provided)
       if (projectData?.id && accountValue.trim()) {
+        const finalPlatform =
+          accountPlatform === "Lainnya"
+            ? customPlatform.trim() || (isEn ? "Other" : "Lainnya")
+            : accountPlatform;
         const { error: accError } = await supabase.from("accounts").insert({
           project_id: projectData.id,
-          label: accountPlatform,
+          label: finalPlatform,
           username_email: accountValue.trim(),
         });
         if (accError) {
@@ -489,52 +500,97 @@ export function CreateProjectModal({
             />
           </div>
 
-          {/* SECTION 1: NAMA PROYEK, FOLDER, DAN JARINGAN */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-1">
-              <label className="block text-caption font-medium text-text-secondary mb-1">
-                {isEn ? "Project Name" : "Nama Proyek"} <span className="text-status-overdue">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={isEn ? "e.g. MINARA, Monad" : "Contoh: MINARA, Monad"}
-                className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50"
-                required
-              />
+          {/* SECTION 1: NAMA PROYEK, STATUS, RUTINITAS, FOLDER, DAN JARINGAN */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-caption font-medium text-text-secondary mb-1">
+                  {isEn ? "Project Name" : "Nama Proyek"} <span className="text-status-overdue">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={isEn ? "e.g. MINARA, Monad" : "Contoh: MINARA, Monad"}
+                  className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm font-semibold text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-caption font-medium text-text-secondary mb-1">
+                  {isEn ? "Network / Chain" : "Jaringan / Chain"}
+                </label>
+                <input
+                  type="text"
+                  value={chain}
+                  onChange={(e) => setChain(e.target.value)}
+                  placeholder={isEn ? "e.g. EVM, Solana, Base" : "Contoh: EVM, Solana, Base"}
+                  className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-caption font-medium text-text-secondary mb-1">
-                {isEn ? "Category Folder" : "Folder Kategori"}
-              </label>
-              <select
-                value={folderId}
-                onChange={(e) => setFolderId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent/50 cursor-pointer"
-              >
-                <option value="">{isEn ? "No Folder (All)" : "Tanpa Folder (Semua)"}</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    📁 {f.name}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <CustomSelect
+                  label={isEn ? "Lifecycle Status" : "Status Garapan"}
+                  value={status}
+                  onChange={(val) => setStatus(val as ProjectStatus)}
+                  options={[
+                    { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <span className="text-xs">⚡</span> },
+                    { value: "waiting", label: isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE", icon: <span className="text-xs">⏳</span> },
+                    { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <span className="text-xs">🎁</span> },
+                    { value: "completed", label: isEn ? "Completed" : "Selesai Diklaim", icon: <span className="text-xs">✅</span> },
+                    { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <span className="text-xs">⏸️</span> },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <CustomSelect
+                  label={isEn ? "Routine Frequency" : "Tipe Rutinitas"}
+                  value={taskType}
+                  onChange={(val) => setTaskType(val as any)}
+                  options={[
+                    { value: "daily", label: isEn ? "Daily Check-in (07:00 WIB)" : "⚡ Check-in Harian", icon: <span className="text-xs">📅</span> },
+                    { value: "weekly", label: isEn ? "Weekly / Periodic" : "🔄 Mingguan / Berkala", icon: <span className="text-xs">🔄</span> },
+                    { value: "one_time", label: isEn ? "One-Time (Set & Forget)" : "🎯 Sekali Selesai", icon: <span className="text-xs">🎯</span> },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <CustomSelect
+                  label={isEn ? "Category Folder" : "Folder Kategori"}
+                  value={folderId}
+                  onChange={(val) => setFolderId(val)}
+                  placeholder={isEn ? "No Folder (All)" : "Tanpa Folder (Semua)"}
+                  options={[
+                    { value: "", label: isEn ? "No Folder (All)" : "Tanpa Folder (Semua)" },
+                    ...folders.map((f) => ({
+                      value: f.id,
+                      label: `📁 ${f.name}`,
+                    })),
+                  ]}
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-caption font-medium text-text-secondary mb-1">
-                {isEn ? "Network / Chain" : "Jaringan / Chain"}
-              </label>
-              <input
-                type="text"
-                value={chain}
-                onChange={(e) => setChain(e.target.value)}
-                placeholder={isEn ? "e.g. EVM, Solana, Base" : "Contoh: EVM, Solana, Base"}
-                className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50"
-              />
-            </div>
+            {status === "ready_to_claim" && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1 animate-fadeIn">
+                <label className="block text-caption font-semibold text-amber-400">
+                  {isEn ? "Claim / Allocation Portal URL" : "Link Portal Klaim / Checker Alokasi"}
+                </label>
+                <input
+                  type="url"
+                  value={claimUrl}
+                  onChange={(e) => setClaimUrl(e.target.value)}
+                  placeholder="https://claim.project.xyz"
+                  className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.1] text-body-sm font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                />
+              </div>
+            )}
           </div>
 
           {/* SECTION 2: SOCIAL MEDIA & TAUTAN GARAPAN */}
@@ -601,34 +657,52 @@ export function CreateProjectModal({
               <span>{isEn ? "Account / Email Used for Farming (Non-sensitive)" : "Akun / Email yang Dipakai Garap (Non-sensitif)"}</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div>
-                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">{isEn ? "Account Type" : "Jenis Akun"}</label>
-                <select
-                  value={accountPlatform}
-                  onChange={(e) => setAccountPlatform(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-bg-base border border-border-hairline text-caption text-text-primary focus:outline-none focus:border-link-teal cursor-pointer"
-                >
-                  <option value="Email">Email</option>
-                  <option value="Twitter / X">Twitter / X</option>
-                  <option value="Discord">Discord</option>
-                  <option value="Telegram">Telegram</option>
-                  <option value="Google">Google</option>
-                  <option value="GitHub">GitHub</option>
-                  <option value="Lainnya">{isEn ? "Other" : "Lainnya"}</option>
-                </select>
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <CustomSelect
+                    label={isEn ? "Account Type" : "Jenis Akun"}
+                    value={accountPlatform}
+                    onChange={(val) => setAccountPlatform(val)}
+                    size="sm"
+                    options={[
+                      { value: "Email", label: "Email" },
+                      { value: "Twitter / X", label: "Twitter / X" },
+                      { value: "Discord", label: "Discord" },
+                      { value: "Telegram", label: "Telegram" },
+                      { value: "Google", label: "Google" },
+                      { value: "GitHub", label: "GitHub" },
+                      { value: "Lainnya", label: isEn ? "Other" : "Lainnya" },
+                    ]}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-mono text-text-secondary mb-0.5">{isEn ? "Username / Email Address" : "Username / Alamat Email"}</label>
+                  <input
+                    type="text"
+                    value={accountValue}
+                    onChange={(e) => setAccountValue(e.target.value)}
+                    placeholder={isEn ? "e.g. user@gmail.com or @handle_airdrop" : "Misal: user@gmail.com atau @handle_airdrop"}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-caption text-text-primary focus:outline-none focus:border-link-teal font-mono"
+                  />
+                </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">{isEn ? "Username / Email Address" : "Username / Alamat Email"}</label>
-                <input
-                  type="text"
-                  value={accountValue}
-                  onChange={(e) => setAccountValue(e.target.value)}
-                  placeholder={isEn ? "e.g. user@gmail.com or @handle_airdrop" : "Misal: user@gmail.com atau @handle_airdrop"}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-caption text-text-primary focus:outline-none focus:border-link-teal font-mono"
-                />
-              </div>
+              {accountPlatform === "Lainnya" && (
+                <div>
+                  <label className="block text-[11px] font-mono text-text-secondary mb-0.5">
+                    {isEn ? "Custom Platform Name" : "Nama Platform Kustom"} <span className="text-status-overdue">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={customPlatform}
+                    onChange={(e) => setCustomPlatform(e.target.value)}
+                    placeholder={isEn ? "e.g. Reddit, Medium, Zealy, Galxe" : "Misal: Reddit, Medium, Zealy, Galxe"}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-caption text-text-primary focus:outline-none focus:border-link-teal"
+                  />
+                </div>
+              )}
             </div>
             <p className="text-[11px] text-text-tertiary">
               {isEn ? "Notes to help you remember the registered identity on this project." : "Catatan untuk mengingat identitas akun yang Anda daftarkan pada proyek ini agar tidak tertukar."}

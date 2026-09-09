@@ -2,14 +2,15 @@
 
 import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
-import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { ButtonSecondary } from "@/components/ui/button";
+import { Trash2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/context";
 
 interface BulkDeleteModalProps {
   isOpen: boolean;
   onClose: () => void;
   count: number;
+  protectedCount?: number;
   onConfirm: () => Promise<void>;
 }
 
@@ -17,6 +18,7 @@ export function BulkDeleteModal({
   isOpen,
   onClose,
   count,
+  protectedCount = 0,
   onConfirm,
 }: BulkDeleteModalProps) {
   const { isEn } = useTranslation();
@@ -68,6 +70,17 @@ export function BulkDeleteModal({
             </p>
           </div>
         </div>
+
+        {protectedCount > 0 && (
+          <div className="p-3.5 rounded-xl bg-accent/10 border border-accent/25 flex items-center gap-2.5 text-accent text-caption font-medium">
+            <ShieldCheck className="w-4 h-4 text-accent shrink-0" />
+            <span>
+              {isEn
+                ? `${protectedCount} selected project(s) are marked as Priority and will be kept safe (not deleted).`
+                : `${protectedCount} proyek terpilih bertanda Prioritas dan akan dilindungi (tidak dihapus).`}
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/[0.08]">
           <ButtonSecondary

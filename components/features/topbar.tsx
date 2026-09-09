@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Search, Plus, Bell, Menu, Flame } from "lucide-react";
+import { Search, Plus, Menu, Flame } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { CreateProjectModal } from "@/components/features/create-project-modal";
 import { useRouter } from "next/navigation";
@@ -19,6 +18,7 @@ const WalletConnectButton = dynamic(
 );
 
 import { LanguageToggle } from "@/components/ui/language-toggle";
+import { NotificationPopover } from "@/components/features/notification-popover";
 import { useTranslation } from "@/lib/i18n/context";
 
 export interface TopbarProps {
@@ -87,17 +87,8 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
           {/* Theme Toggle (Light / Dark Mode) */}
           <ThemeToggle />
 
-          {/* Notifications */}
-          <Link
-            href="/reminders"
-            prefetch={false}
-            aria-label={t("topbar.notificationsTitle")}
-            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 border border-border-hairline transition-colors relative shrink-0"
-            title={t("topbar.notificationsTitle")}
-          >
-            <Bell className="w-4 h-4" />
-            <span className="w-2 h-2 rounded-full bg-accent absolute top-1.5 right-1.5 sm:top-2 sm:right-2 ring-2 ring-bg-base" />
-          </Link>
+          {/* Activity, Daily Tasks & Telegram Notifications Popover */}
+          <NotificationPopover />
 
           {/* Real Web3 Wallet Connect & On-chain Balance */}
           <WalletConnectButton />

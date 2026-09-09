@@ -263,11 +263,12 @@ export function HeroSearchConsole() {
                   <div className="flex items-center gap-2.5 min-w-0">
                     {/* Source Channel Logo Frame */}
                     <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-white/10 border border-white/20 shrink-0 group-hover:scale-105 transition-transform p-1 flex items-center justify-center">
-                      <img
+                      <Image
                         src={project.channelLogo}
                         alt={project.channelName}
+                        width={32}
+                        height={32}
                         className="w-full h-full object-contain rounded-md"
-                        loading="eager"
                       />
                     </div>
 

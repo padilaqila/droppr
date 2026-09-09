@@ -29,6 +29,8 @@ import {
   FileText,
   Wallet,
   ChevronRight,
+  Star,
+  ShieldCheck,
 } from "lucide-react";
 import { SetReminderModal } from "@/components/features/set-reminder-modal";
 import { TodayTaskGuideModal } from "@/components/features/today-task-guide-modal";
@@ -42,6 +44,7 @@ import {
   isProjectDailyDone,
   toggleProjectDailyTask,
 } from "@/lib/supabase/daily-tasks-helper";
+import { isProjectPriority, toggleProjectPriority } from "@/lib/supabase/priority-helper";
 import { useTranslation } from "@/lib/i18n/context";
 
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
@@ -59,7 +62,7 @@ interface DashboardClientViewProps {
   initialReminders: EnrichedReminder[];
 }
 
-export type TaskTabFilter = "ready" | "overdue" | "completed_today" | "upcoming" | "skipped" | "all";
+export type TaskTabFilter = "ready" | "overdue" | "completed_today" | "upcoming" | "priority" | "skipped" | "all";
 
 function cleanTaskTitle(text: string): string {
   return text
@@ -105,7 +108,7 @@ export function DashboardClientView({
     try {
       const todayKey = new Date().toISOString().slice(0, 10);
       localStorage.setItem(`droppr_skipped_tasks_${todayKey}`, JSON.stringify(next));
-    } catch (e) {}
+    } catch {}
   };
 
   const handleRestoreProject = (projectId: string, e?: React.MouseEvent) => {
@@ -115,7 +118,7 @@ export function DashboardClientView({
     try {
       const todayKey = new Date().toISOString().slice(0, 10);
       localStorage.setItem(`droppr_skipped_tasks_${todayKey}`, JSON.stringify(next));
-    } catch (e) {}
+    } catch {}
   };
 
   // Live countdown timer to next daily reset (07:00 WIB / 00:00 UTC)
@@ -173,7 +176,6 @@ export function DashboardClientView({
 
     // Optimistic local state update
     toggleProjectDailyTask(projectId, newStatus);
-    const today = new Date().toISOString().slice(0, 10);
     setTasks((prev) =>
       prev.map((t) =>
         t.project_id === projectId
@@ -296,26 +298,85 @@ export function DashboardClientView({
     return !isToday;
   });
 
-  // 5. Skipped / Postponed today
+  // TOGGLE PRIORITY 1-KLIK
+  const handleTogglePriority = async (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const proj = projects.find((p) => p.id === projectId);
+    if (!proj) return;
+
+    const currentPriority = isProjectPriority(proj);
+    const nextPriority = !currentPriority;
+
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p;
+        const currentSocial = (p.social_links as Record<string, any>) || {};
+        return {
+          ...p,
+          social_links: {
+            ...currentSocial,
+            is_priority: nextPriority,
+          },
+        };
+      })
+    );
+
+    setToastMessage(
+      nextPriority
+        ? (isEn ? `⭐ Marked "${proj.name}" as Priority (Protected from deletion)` : `⭐ "${proj.name}" ditandai sebagai Prioritas (Terlindungi dari hapus)`)
+        : (isEn ? `Unmarked "${proj.name}" from Priority` : `Tanda Prioritas "${proj.name}" dinonaktifkan`)
+    );
+
+    try {
+      await toggleProjectPriority(projectId, currentPriority);
+    } catch (err) {
+      console.error("Failed to toggle priority:", err);
+      setProjects(initialProjects);
+    }
+  };
+
+  // 5. Priority projects
+  const priorityProjects = projects.filter(isProjectPriority);
+
+  // 6. Skipped / Postponed today
   const skippedProjects = projects.filter((p) => skippedProjectIds.includes(p.id));
 
   // Determine which projects to display based on active tab
   const displayedProjects = React.useMemo(() => {
+    let list: ProjectRow[] = [];
     switch (activeProjectFilter) {
       case "ready":
-        return readyProjects;
+        list = readyProjects;
+        break;
       case "overdue":
-        return overdueProjects;
+        list = overdueProjects;
+        break;
       case "completed_today":
-        return completedTodayProjects;
+        list = completedTodayProjects;
+        break;
       case "upcoming":
-        return upcomingProjects;
+        list = upcomingProjects;
+        break;
+      case "priority":
+        list = priorityProjects;
+        break;
       case "skipped":
-        return skippedProjects;
+        list = skippedProjects;
+        break;
       case "all":
       default:
-        return projects;
+        list = projects;
+        break;
     }
+
+    // Pinned priority items to top
+    return [...list].sort((a, b) => {
+      const aPri = isProjectPriority(a);
+      const bPri = isProjectPriority(b);
+      if (aPri && !bPri) return -1;
+      if (!aPri && bPri) return 1;
+      return 0;
+    });
   }, [
     activeProjectFilter,
     readyProjects,
@@ -323,6 +384,7 @@ export function DashboardClientView({
     overdueProjects,
     completedTodayProjects,
     upcomingProjects,
+    priorityProjects,
     skippedProjects,
   ]);
 
@@ -559,7 +621,33 @@ export function DashboardClientView({
                 </span>
               </button>
 
-              {/* 5. Dilewati / Ditunda */}
+              {/* 5. Prioritas */}
+              <button
+                type="button"
+                onClick={() => setActiveProjectFilter("priority")}
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                  activeProjectFilter === "priority"
+                    ? "bg-accent text-on-accent font-semibold shadow-xs"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
+                }`}
+                title={isEn ? "Filter priority projects" : "Saring garapan prioritas"}
+              >
+                <Star className={`w-3.5 h-3.5 ${activeProjectFilter === "priority" ? "fill-current text-on-accent" : "text-accent"}`} />
+                <span>{isEn ? "Priority" : "Prioritas"}</span>
+                <span
+                  className={`ml-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ${
+                    activeProjectFilter === "priority"
+                      ? "bg-black/20 text-on-accent"
+                      : priorityProjects.length > 0
+                      ? "bg-accent/20 text-accent border border-accent/30"
+                      : "bg-bg-elevated-2 text-text-secondary border border-border-hairline"
+                  }`}
+                >
+                  {priorityProjects.length}
+                </span>
+              </button>
+
+              {/* 6. Dilewati / Ditunda */}
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("skipped")}
@@ -609,6 +697,8 @@ export function DashboardClientView({
                   ? (isEn ? "No skipped tasks" : "Tidak ada tugas yang sedang dilewati")
                   : activeProjectFilter === "upcoming"
                   ? (isEn ? "No upcoming task schedules" : "Belum ada jadwal tugas mendatang")
+                  : activeProjectFilter === "priority"
+                  ? (isEn ? "No priority projects marked yet" : "Belum ada proyek yang ditandai prioritas")
                   : activeProjectFilter === "ready"
                   ? (isEn ? "Awesome! All tasks for today are done or skipped 🎉" : "Luar biasa! Semua tugas hari ini sudah selesai atau dilewati 🎉")
                   : (isEn ? "All tasks done or not yet scheduled" : "Semua tugas beres atau belum dijadwalkan")}
@@ -620,6 +710,10 @@ export function DashboardClientView({
                   ? (isEn ? "Mark tasks completed after finishing your daily airdrop tasks." : "Tandai selesai tugas proyek setelah kamu menggarap daily task hari ini.")
                   : activeProjectFilter === "skipped"
                   ? (isEn ? "You can skip daily tasks for specific projects and restore them from this tab." : "Kamu bisa melewati tugas harian proyek tertentu dan memunculkannya kembali di tab ini.")
+                  : activeProjectFilter === "upcoming"
+                  ? (isEn ? "No upcoming task schedules" : "Belum ada jadwal tugas mendatang.")
+                  : activeProjectFilter === "priority"
+                  ? (isEn ? "Click the ⭐ star on any project card to mark it as Priority and protect it from deletion." : "Klik ikon bintang ⭐ pada kartu proyek untuk menandai sebagai Prioritas & melindunginya dari penghapusan.")
                   : activeProjectFilter === "ready"
                   ? (isEn ? "There are no pending tasks ready to work on right now. Check back at 07:00 WIB for the next daily reset." : "Tidak ada tugas yang perlu dikerjakan saat ini. Garapan harian akan di-reset otomatis besok pukul 07:00 WIB.")
                   : (isEn ? "You can configure periodic reminders or view all projects." : "Kamu bisa mengatur pengingat berkala atau melihat seluruh daftar garapan proyek.")}
@@ -653,6 +747,7 @@ export function DashboardClientView({
 
                 const isSkipped = skippedProjectIds.includes(proj.id);
                 const isDailyDone = isProjectDailyDone(proj, pTasks);
+                const isPriority = isProjectPriority(proj);
 
                 // Count available links
                 let linkCount = 0;
@@ -679,6 +774,24 @@ export function DashboardClientView({
                             {proj.name.slice(0, 2).toUpperCase()}
                           </div>
 
+                          {/* Priority Star Toggle (1-Klik) */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleTogglePriority(proj.id, e)}
+                            className={`p-1 rounded-md transition-all shrink-0 ${
+                              isPriority
+                                ? "text-accent bg-accent/15 hover:bg-accent/25 ring-1 ring-accent/30 shadow-xs"
+                                : "text-text-disabled hover:text-accent hover:bg-bg-elevated-2 opacity-40 group-hover:opacity-100"
+                            }`}
+                            title={
+                              isPriority
+                                ? (isEn ? "⭐ Priority Active (Protected from delete) - Click to unmark" : "⭐ Prioritas Aktif (Terlindungi dari hapus) - Klik untuk lepas")
+                                : (isEn ? "Mark as Priority (Protect & Pin)" : "Tandai Prioritas (Lindungi & Sematkan)")
+                            }
+                          >
+                            <Star className={`w-3.5 h-3.5 ${isPriority ? "fill-current text-accent" : ""}`} />
+                          </button>
+
                           <span className="text-body-sm sm:text-base font-bold text-text-primary group-hover:text-accent transition-colors tracking-tight truncate">
                             {proj.name}
                           </span>
@@ -692,6 +805,14 @@ export function DashboardClientView({
                           <StatusBadge
                             status={proj.status.replace("_", "-") as ProjectStatus}
                           />
+
+                          {/* Dynamic Priority Pill */}
+                          {isPriority && (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 text-accent font-semibold border border-accent/30 flex items-center gap-1 shadow-xs">
+                              <ShieldCheck className="w-3 h-3 text-accent" />
+                              <span>{isEn ? "Priority" : "Prioritas"}</span>
+                            </span>
+                          )}
 
                           {/* Dynamic Daily Status Pill */}
                           {isDailyDone ? (
@@ -890,14 +1011,18 @@ export function DashboardClientView({
                   {t("dashboard.remindersWidget.title")} ({reminders.length})
                 </h3>
               </div>
-              <Link
-                href="/reminders"
-                prefetch={false}
-                className="text-caption text-link-teal hover:underline inline-flex items-center gap-0.5"
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedReminderProjectId("");
+                  setEditingReminder(null);
+                  setIsReminderModalOpen(true);
+                }}
+                className="text-caption text-link-teal hover:underline inline-flex items-center gap-1 font-medium"
               >
-                <span>{t("dashboard.remindersWidget.manage")}</span>
-                <ArrowRight className="w-3 h-3" />
-              </Link>
+                <Plus className="w-3 h-3" />
+                <span>{isEn ? "Add Reminder" : "Tambah"}</span>
+              </button>
             </div>
 
             <p className="text-[12px] text-text-secondary leading-relaxed">

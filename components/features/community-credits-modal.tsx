@@ -145,7 +145,7 @@ export function InteractivePartnerCards({ onSelectPartner }: { onSelectPartner: 
 export function CommunityCreditsModal({
   isOpen,
   onClose,
-  initialPartner,
+  initialPartner: _initialPartner,
 }: {
   isOpen: boolean;
   onClose: () => void;

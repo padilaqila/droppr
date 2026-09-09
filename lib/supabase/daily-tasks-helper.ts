@@ -138,12 +138,12 @@ export async function toggleProjectDailyTask(
 }
 
 /**
- * Update project task type ("recurring" vs "one_time").
+ * Update project task routine type ("daily" | "weekly" | "one_time" | "recurring").
  */
 export async function updateProjectTaskType(
   projectId: string,
-  taskType: "recurring" | "one_time"
-): Promise<{ success: boolean; taskType: "recurring" | "one_time"; error?: any }> {
+  taskType: "daily" | "weekly" | "one_time" | "recurring"
+): Promise<{ success: boolean; taskType: "daily" | "weekly" | "one_time" | "recurring"; error?: any }> {
   try {
     const supabase = createClient() as any;
     const { data: projData, error: fetchErr } = await supabase
@@ -174,6 +174,52 @@ export async function updateProjectTaskType(
   } catch (err: any) {
     console.error("updateProjectTaskType error:", err);
     return { success: false, taskType, error: err };
+  }
+}
+
+/**
+ * Update project lifecycle status and optional claim portal URL.
+ */
+export async function updateProjectLifecycleStatus(
+  projectId: string,
+  status: "not_started" | "in_progress" | "waiting" | "ready_to_claim" | "completed",
+  claimUrl?: string | null
+): Promise<{ success: boolean; status: string; error?: any }> {
+  try {
+    const supabase = createClient() as any;
+    const updatePayload: Record<string, any> = {
+      status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (claimUrl !== undefined) {
+      const { data: projData } = await supabase
+        .from("projects")
+        .select("social_links")
+        .eq("id", projectId)
+        .single();
+
+      const currentSocial = (projData?.social_links as Record<string, any>) || {};
+      const updatedSocial = { ...currentSocial };
+      if (claimUrl && claimUrl.trim()) {
+        updatedSocial.claim_url = claimUrl.trim();
+      } else if (claimUrl === null || claimUrl === "") {
+        delete updatedSocial.claim_url;
+      }
+      updatePayload.social_links = updatedSocial;
+    }
+
+    const { error: updateErr } = await supabase
+      .from("projects")
+      .update(updatePayload)
+      .eq("id", projectId);
+
+    if (updateErr) throw updateErr;
+
+    return { success: true, status };
+  } catch (err: any) {
+    console.error("updateProjectLifecycleStatus error:", err);
+    return { success: false, status, error: err };
   }
 }
 

@@ -11,7 +11,6 @@ import {
   Copy,
   Check,
   LogOut,
-  Sparkles,
   FileJson,
   FileSpreadsheet,
   Clock,
@@ -19,14 +18,12 @@ import {
   Trash2,
   Languages,
   Globe,
-  RotateCcw,
-  CheckCheck,
-  ShieldCheck,
   FolderGit2,
   Wallet,
   Compass,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { CustomSelect } from "@/components/ui/select";
 import { useTranslation } from "@/lib/i18n/context";
 import {
   getLanguagePreference,
@@ -941,34 +938,26 @@ export default function SettingsPage() {
                 <label className="block text-caption font-semibold text-text-secondary mb-1">
                   {isEn ? "Default Daily Routine Reminder Time" : "Jam Pengingat Rutin Harian Default"}
                 </label>
-                <div className="flex items-center gap-2 max-w-xs">
-                  <Clock className="w-4 h-4 text-text-tertiary" />
-                  <select
-                    value={notificationPrefs.defaultTime}
-                    onChange={(e) =>
-                      setNotificationPrefs({
-                        ...notificationPrefs,
-                        defaultTime: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent font-mono"
-                  >
-                    <option value="07:00" className="bg-[#0e131b] text-text-primary">
-                      {isEn ? "07:00 WIB (Early Morning - Reset Time)" : "07:00 WIB (Pagi Awal - Saat Reset)"}
-                    </option>
-                    <option value="09:00" className="bg-[#0e131b] text-text-primary">
-                      {isEn ? "09:00 WIB (Morning - Standard)" : "09:00 WIB (Pagi Hari - Standar)"}
-                    </option>
-                    <option value="12:00" className="bg-[#0e131b] text-text-primary">
-                      {isEn ? "12:00 WIB (Noon)" : "12:00 WIB (Siang)"}
-                    </option>
-                    <option value="18:00" className="bg-[#0e131b] text-text-primary">
-                      {isEn ? "18:00 WIB (Evening)" : "18:00 WIB (Sore)"}
-                    </option>
-                    <option value="21:00" className="bg-[#0e131b] text-text-primary">
-                      {isEn ? "21:00 WIB (Night)" : "21:00 WIB (Malam Hari)"}
-                    </option>
-                  </select>
+                <div className="flex items-center gap-2 max-w-sm">
+                  <Clock className="w-4 h-4 text-text-tertiary shrink-0" />
+                  <div className="flex-1">
+                    <CustomSelect
+                      value={notificationPrefs.defaultTime}
+                      onChange={(val) =>
+                        setNotificationPrefs({
+                          ...notificationPrefs,
+                          defaultTime: val,
+                        })
+                      }
+                      options={[
+                        { value: "07:00", label: isEn ? "07:00 WIB (Early Morning - Reset Time)" : "07:00 WIB (Pagi Awal - Saat Reset)" },
+                        { value: "09:00", label: isEn ? "09:00 WIB (Morning - Standard)" : "09:00 WIB (Pagi Hari - Standar)" },
+                        { value: "12:00", label: isEn ? "12:00 WIB (Noon)" : "12:00 WIB (Siang)" },
+                        { value: "18:00", label: isEn ? "18:00 WIB (Evening)" : "18:00 WIB (Sore)" },
+                        { value: "21:00", label: isEn ? "21:00 WIB (Night)" : "21:00 WIB (Malam Hari)" },
+                      ]}
+                    />
+                  </div>
                 </div>
               </div>
 

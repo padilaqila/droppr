@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/select";
 import { Clock, Calendar, Repeat, Bell, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
@@ -233,25 +234,23 @@ export function SetReminderModal({
 
         {/* 1. Project Selector */}
         <div>
-          <label className="block text-body-sm font-medium text-text-secondary mb-1">
-            {isEn ? "Select Airdrop Project" : "Pilih Proyek Airdrop"} <span className="text-status-overdue">*</span>
-          </label>
-          <select
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
+          <CustomSelect
+            label={isEn ? "Select Airdrop Project" : "Pilih Proyek Airdrop"}
             required
+            value={selectedProjectId}
+            onChange={(val) => setSelectedProjectId(val)}
             disabled={loading}
-            className="w-full h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent transition-colors"
-          >
-            <option value="">
-              {isEn ? "-- Select Project to Set Reminder --" : "-- Pilih Proyek yang Ingin Diingatkan --"}
-            </option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} {p.chain ? `(${p.chain})` : ""}
-              </option>
-            ))}
-          </select>
+            placeholder={isEn ? "-- Select Project to Set Reminder --" : "-- Pilih Proyek yang Ingin Diingatkan --"}
+            options={projects.map((p) => ({
+              value: p.id,
+              label: p.name,
+              badge: p.chain ? (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-bg-elevated-2 border border-border-hairline text-text-tertiary uppercase">
+                  {p.chain}
+                </span>
+              ) : undefined,
+            }))}
+          />
         </div>
 
         {/* 2. Schedule Pattern Selector */}

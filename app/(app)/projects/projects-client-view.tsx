@@ -16,7 +16,6 @@ import {
   Square,
   Trash2,
   Archive,
-  FolderInput,
   GripVertical,
   X,
   ExternalLink,
@@ -28,8 +27,11 @@ import {
   RotateCcw,
   RefreshCw,
   Send,
+  Star,
+  ShieldCheck,
 } from "lucide-react";
 import { StatusBadge, type ProjectStatus as BadgeProjectStatus } from "@/components/ui/status-badge";
+import { CustomSelect } from "@/components/ui/select";
 import { CreateFolderModal } from "@/components/features/create-folder-modal";
 import { CreateProjectModal } from "@/components/features/create-project-modal";
 import { BulkDeleteModal } from "@/components/features/bulk-delete-modal";
@@ -39,6 +41,7 @@ import {
   type BatchTelegramItem,
   type ProjectScanTarget,
 } from "@/lib/supabase/telegram-batch-scanner";
+import { isProjectPriority, toggleProjectPriority } from "@/lib/supabase/priority-helper";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { useTranslation } from "@/lib/i18n/context";
@@ -236,8 +239,10 @@ export function ProjectsClientView({
           if (p.folder_id !== selectedFolderFilter) return false;
         }
 
-        // Status filter
-        if (selectedStatusFilter !== "all" && p.status !== selectedStatusFilter) {
+        // Status filter (including priority)
+        if (selectedStatusFilter === "priority") {
+          if (!isProjectPriority(p)) return false;
+        } else if (selectedStatusFilter !== "all" && p.status !== selectedStatusFilter) {
           return false;
         }
 
@@ -257,6 +262,12 @@ export function ProjectsClientView({
         return true;
       })
       .sort((a, b) => {
+        // Pinned Priority to Top
+        const aPri = isProjectPriority(a);
+        const bPri = isProjectPriority(b);
+        if (aPri && !bPri) return -1;
+        if (!aPri && bPri) return 1;
+
         if (sortBy === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         if (sortBy === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         if (sortBy === "name_asc") return a.name.localeCompare(b.name);
@@ -440,19 +451,46 @@ export function ProjectsClientView({
     }
   };
 
-  // BULK DELETE
+  // BULK DELETE WITH PRIORITY SAFEGUARD
   const handleBulkDeleteConfirm = async () => {
     if (selectedProjectIds.length === 0) return;
-    const count = selectedProjectIds.length;
-    const idsToDelete = [...selectedProjectIds];
 
+    const priorityProjects = projects.filter(
+      (p) => selectedProjectIds.includes(p.id) && isProjectPriority(p)
+    );
+    const protectedCount = priorityProjects.length;
+    const idsToDelete = selectedProjectIds.filter(
+      (id) => !priorityProjects.some((p) => p.id === id)
+    );
+
+    if (idsToDelete.length === 0) {
+      setSelectedProjectIds([]);
+      showToast(
+        isEn
+          ? `${protectedCount} selected project(s) are marked as Priority and protected from deletion.`
+          : `${protectedCount} proyek terpilih bertanda Prioritas dan dilindungi dari penghapusan.`,
+        "info"
+      );
+      return;
+    }
+
+    const count = idsToDelete.length;
     setProjects((prev) => prev.filter((p) => !idsToDelete.includes(p.id)));
     setSelectedProjectIds([]);
-    showToast(
-      isEn
-        ? `${count} project(s) deleted successfully.`
-        : `${count} proyek berhasil dihapus.`
-    );
+
+    if (protectedCount > 0) {
+      showToast(
+        isEn
+          ? `${count} project(s) deleted. ${protectedCount} priority project(s) kept safe.`
+          : `${count} proyek dihapus. ${protectedCount} proyek prioritas tetap aman terlindungi.`
+      );
+    } else {
+      showToast(
+        isEn
+          ? `${count} project(s) deleted successfully.`
+          : `${count} proyek berhasil dihapus.`
+      );
+    }
 
     try {
       const supabase = createClient();
@@ -469,6 +507,49 @@ export function ProjectsClientView({
         isEn
           ? "Failed to delete projects from database."
           : "Gagal menghapus proyek dari database.",
+        "info"
+      );
+      setProjects(initialProjects);
+    }
+  };
+
+  // TOGGLE PRIORITY 1-KLIK
+  const handleTogglePriority = async (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const proj = projects.find((p) => p.id === projectId);
+    if (!proj) return;
+
+    const currentPriority = isProjectPriority(proj);
+    const nextPriority = !currentPriority;
+
+    // Optimistic UI update
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p;
+        const currentSocial = (p.social_links as Record<string, any>) || {};
+        return {
+          ...p,
+          social_links: {
+            ...currentSocial,
+            is_priority: nextPriority,
+          },
+        };
+      })
+    );
+
+    showToast(
+      nextPriority
+        ? (isEn ? `⭐ Marked "${proj.name}" as Priority (Protected from deletion)` : `⭐ "${proj.name}" ditandai sebagai Prioritas (Terlindungi dari hapus)`)
+        : (isEn ? `Unmarked "${proj.name}" from Priority` : `Tanda Prioritas "${proj.name}" dinonaktifkan`),
+      "success"
+    );
+
+    try {
+      await toggleProjectPriority(projectId, currentPriority);
+    } catch (err) {
+      console.error("Toggle priority error:", err);
+      showToast(
+        isEn ? "Failed to update priority in database" : "Gagal memperbarui prioritas di database",
         "info"
       );
       setProjects(initialProjects);
@@ -736,56 +817,88 @@ export function ProjectsClientView({
 
         {/* Right: Filters & Controls */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Priority Filter Toggle */}
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedStatusFilter(selectedStatusFilter === "priority" ? "all" : "priority")
+            }
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-caption font-semibold transition-all border ${
+              selectedStatusFilter === "priority"
+                ? "bg-accent text-on-accent border-accent shadow-xs"
+                : "bg-white/[0.03] hover:bg-white/[0.06] text-text-secondary hover:text-text-primary border-white/[0.08]"
+            }`}
+            title={isEn ? "Filter only priority projects" : "Saring hanya proyek prioritas"}
+          >
+            <Star className={`w-3.5 h-3.5 ${selectedStatusFilter === "priority" ? "fill-current text-on-accent" : "text-accent"}`} />
+            <span>{isEn ? "Priority" : "Prioritas"}</span>
+            {projects.filter(isProjectPriority).length > 0 && (
+              <span
+                className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
+                  selectedStatusFilter === "priority"
+                    ? "bg-on-accent/20 text-on-accent"
+                    : "bg-accent/20 text-accent"
+                }`}
+              >
+                {projects.filter(isProjectPriority).length}
+              </span>
+            )}
+          </button>
+
           {/* Status Filter */}
-          <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.15] rounded-xl px-2.5 py-1.5 transition-colors">
-            <Filter className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
-            <select
+          <div className="w-[175px]">
+            <CustomSelect
               value={selectedStatusFilter}
-              onChange={(e) => setSelectedStatusFilter(e.target.value)}
-              className="bg-transparent text-caption text-text-primary font-medium focus:outline-none cursor-pointer pr-1"
-            >
-              <option value="all" className="bg-[#14181F] text-text-primary">{isEn ? "All Status" : "Semua Status"}</option>
-              <option value="in_progress" className="bg-[#14181F] text-text-primary">⚡ {isEn ? "In Progress" : "Sedang Dikerjakan"}</option>
-              <option value="waiting" className="bg-[#14181F] text-text-primary">⏳ {isEn ? "Waiting Snapshot" : "Menunggu Snapshot"}</option>
-              <option value="ready_to_claim" className="bg-[#14181F] text-text-primary">🎁 {isEn ? "Ready to Claim" : "Siap Klaim"}</option>
-              <option value="completed" className="bg-[#14181F] text-text-primary">✅ {isEn ? "Completed" : "Selesai"}</option>
-              <option value="not_started" className="bg-[#14181F] text-text-primary">⏸️ {isEn ? "Not Started" : "Belum Mulai"}</option>
-            </select>
+              onChange={(val) => setSelectedStatusFilter(val)}
+              size="sm"
+              variant="subtle"
+              options={[
+                { value: "all", label: isEn ? "All Status" : "Semua Status", icon: <Filter className="w-3.5 h-3.5 text-text-tertiary" /> },
+                { value: "priority", label: isEn ? "Priority" : "Prioritas", icon: <Star className="w-3.5 h-3.5 text-accent fill-accent" /> },
+                { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <span className="text-xs">⚡</span> },
+                { value: "waiting", label: isEn ? "Waiting Snapshot" : "Menunggu Snapshot", icon: <span className="text-xs">⏳</span> },
+                { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim", icon: <span className="text-xs">🎁</span> },
+                { value: "completed", label: isEn ? "Completed" : "Selesai", icon: <span className="text-xs">✅</span> },
+                { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <span className="text-xs">⏸️</span> },
+              ]}
+            />
           </div>
 
           {/* Chain Filter */}
           {availableChains.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.15] rounded-xl px-2.5 py-1.5 transition-colors">
-              <Layers className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
-              <select
+            <div className="w-[155px]">
+              <CustomSelect
                 value={selectedChainFilter}
-                onChange={(e) => setSelectedChainFilter(e.target.value)}
-                className="bg-transparent text-caption text-text-primary font-medium focus:outline-none cursor-pointer pr-1"
-              >
-                <option value="all" className="bg-[#14181F] text-text-primary">{isEn ? "All Chains" : "Semua Jaringan"}</option>
-                {availableChains.map((c) => (
-                  <option key={c} value={c} className="bg-[#14181F] text-text-primary">
-                    {c}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedChainFilter(val)}
+                size="sm"
+                variant="subtle"
+                options={[
+                  { value: "all", label: isEn ? "All Chains" : "Semua Jaringan", icon: <Layers className="w-3.5 h-3.5 text-text-tertiary" /> },
+                  ...availableChains.map((c) => ({
+                    value: c,
+                    label: c,
+                    icon: <Layers className="w-3.5 h-3.5 text-link-teal" />,
+                  })),
+                ]}
+              />
             </div>
           )}
 
           {/* Sort By */}
-          <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.15] rounded-xl px-2.5 py-1.5 transition-colors">
-            <ArrowUpDown className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
-            <select
+          <div className="w-[145px]">
+            <CustomSelect
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-transparent text-caption text-text-primary font-medium focus:outline-none cursor-pointer pr-1"
-            >
-              <option value="newest" className="bg-[#14181F] text-text-primary">{isEn ? "Newest" : "Terbaru"}</option>
-              <option value="oldest" className="bg-[#14181F] text-text-primary">{isEn ? "Oldest" : "Terlama"}</option>
-              <option value="name_asc" className="bg-[#14181F] text-text-primary">A &rarr; Z</option>
-              <option value="name_desc" className="bg-[#14181F] text-text-primary">Z &rarr; A</option>
-              <option value="status" className="bg-[#14181F] text-text-primary">{isEn ? "Status" : "Status"}</option>
-            </select>
+              onChange={(val) => setSortBy(val as any)}
+              size="sm"
+              variant="subtle"
+              options={[
+                { value: "newest", label: isEn ? "Newest" : "Terbaru", icon: <ArrowUpDown className="w-3.5 h-3.5 text-text-tertiary" /> },
+                { value: "oldest", label: isEn ? "Oldest" : "Terlama", icon: <ArrowUpDown className="w-3.5 h-3.5 text-text-tertiary" /> },
+                { value: "name_asc", label: "A → Z", icon: <ArrowUpDown className="w-3.5 h-3.5 text-text-tertiary" /> },
+                { value: "name_desc", label: "Z → A", icon: <ArrowUpDown className="w-3.5 h-3.5 text-text-tertiary" /> },
+                { value: "status", label: isEn ? "Status" : "Status", icon: <ArrowUpDown className="w-3.5 h-3.5 text-text-tertiary" /> },
+              ]}
+            />
           </div>
 
           {/* Clear Filters Button */}
@@ -905,6 +1018,7 @@ export function ProjectsClientView({
           {filteredProjects.map((proj) => {
             const isSelected = selectedProjectIds.includes(proj.id);
             const isDragging = draggingProjectIds.includes(proj.id);
+            const isPriority = isProjectPriority(proj);
             const badgeStatus = proj.status.replace("_", "-") as BadgeProjectStatus;
             const folder = folders.find((f) => f.id === proj.folder_id);
             const social = (proj.social_links as Record<string, any>) || {};
@@ -919,13 +1033,15 @@ export function ProjectsClientView({
                 className={`group relative rounded-xl p-4 transition-all duration-150 cursor-pointer select-none border flex flex-col justify-between ${
                   isSelected
                     ? "bg-accent/[0.06] border-accent/60 ring-1 ring-accent/50 shadow-md shadow-accent/5"
+                    : isPriority
+                    ? "bg-accent/[0.02] hover:bg-accent/[0.04] border-accent/30 hover:border-accent/50"
                     : "bg-white/[0.02] hover:bg-white/[0.04] border-white/[0.08] hover:border-white/[0.18]"
                 } ${isDragging ? "opacity-30 border-dashed border-accent" : ""}`}
               >
                 <div>
-                  {/* Card Header: Avatar, Name, Checkbox, Drag Handle */}
+                  {/* Card Header: Avatar, Name, Checkbox, Star, Drag Handle */}
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                       {/* Checkbox */}
                       <button
                         type="button"
@@ -940,6 +1056,24 @@ export function ProjectsClientView({
                         ) : (
                           <Square className="w-4 h-4 text-text-tertiary hover:text-text-primary" />
                         )}
+                      </button>
+
+                      {/* Priority Star Toggle (1-Klik) */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleTogglePriority(proj.id, e)}
+                        className={`p-1 rounded-md transition-all shrink-0 ${
+                          isPriority
+                            ? "text-accent bg-accent/15 hover:bg-accent/25 ring-1 ring-accent/30 shadow-xs"
+                            : "text-text-disabled hover:text-accent hover:bg-white/[0.04] opacity-40 group-hover:opacity-100"
+                        }`}
+                        title={
+                          isPriority
+                            ? (isEn ? "⭐ Priority Active (Protected from delete) - Click to unmark" : "⭐ Prioritas Aktif (Terlindungi dari hapus) - Klik untuk lepas")
+                            : (isEn ? "Mark as Priority (Pin & Protect)" : "Tandai Prioritas (Sematkan & Lindungi)")
+                        }
+                      >
+                        <Star className={`w-3.5 h-3.5 ${isPriority ? "fill-current text-accent" : ""}`} />
                       </button>
 
                       {/* Project Logo/Avatar */}
@@ -992,8 +1126,15 @@ export function ProjectsClientView({
                     </div>
                   </div>
 
-                  {/* Pills row: Chain & Folder */}
+                  {/* Pills row: Chain & Folder & Priority */}
                   <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                    {isPriority && (
+                      <span className="text-[10px] font-semibold font-mono px-2 py-0.5 rounded bg-accent/15 border border-accent/30 text-accent flex items-center gap-1 shrink-0 shadow-xs">
+                        <ShieldCheck className="w-2.5 h-2.5" />
+                        <span>PRIORITY</span>
+                      </span>
+                    )}
+
                     {proj.chain ? (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-text-secondary truncate max-w-[120px]">
                         {proj.chain}
@@ -1062,6 +1203,7 @@ export function ProjectsClientView({
             {filteredProjects.map((proj) => {
               const isSelected = selectedProjectIds.includes(proj.id);
               const isDragging = draggingProjectIds.includes(proj.id);
+              const isPriority = isProjectPriority(proj);
               const badgeStatus = proj.status.replace("_", "-") as BadgeProjectStatus;
               const folder = folders.find((f) => f.id === proj.folder_id);
               const social = (proj.social_links as Record<string, any>) || {};
@@ -1076,11 +1218,13 @@ export function ProjectsClientView({
                   className={`group flex flex-col md:grid md:grid-cols-12 gap-2 md:gap-4 px-4 py-3 transition-all duration-100 cursor-pointer select-none items-center ${
                     isSelected
                       ? "bg-accent/[0.06] border-l-2 border-l-accent"
+                      : isPriority
+                      ? "bg-accent/[0.02] hover:bg-accent/[0.04] border-l-2 border-l-accent/50"
                       : "hover:bg-white/[0.03]"
                   } ${isDragging ? "opacity-30 border-dashed border-accent" : ""}`}
                 >
-                  {/* Col 1-5: Drag, Checkbox, Avatar, Name */}
-                  <div className="col-span-5 w-full flex items-center gap-2.5 min-w-0">
+                  {/* Col 1-5: Drag, Checkbox, Star, Avatar, Name */}
+                  <div className="col-span-5 w-full flex items-center gap-2 min-w-0">
                     <div
                       onClick={(e) => e.stopPropagation()}
                       className="cursor-grab active:cursor-grabbing shrink-0 p-0.5 text-text-disabled group-hover:text-text-secondary transition-colors"
@@ -1102,6 +1246,24 @@ export function ProjectsClientView({
                       ) : (
                         <Square className="w-4 h-4 text-text-tertiary hover:text-text-primary" />
                       )}
+                    </button>
+
+                    {/* Star Priority Toggle */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleTogglePriority(proj.id, e)}
+                      className={`p-1 rounded-md transition-all shrink-0 ${
+                        isPriority
+                          ? "text-accent bg-accent/15 hover:bg-accent/25"
+                          : "text-text-disabled hover:text-accent hover:bg-white/[0.04] opacity-40 group-hover:opacity-100"
+                      }`}
+                      title={
+                        isPriority
+                          ? (isEn ? "⭐ Priority Active (Protected) - Click to unmark" : "⭐ Prioritas Aktif (Terlindungi) - Klik untuk lepas")
+                          : (isEn ? "Mark as Priority" : "Tandai Prioritas")
+                      }
+                    >
+                      <Star className={`w-3.5 h-3.5 ${isPriority ? "fill-current text-accent" : ""}`} />
                     </button>
 
                     {/* Avatar */}
@@ -1142,9 +1304,15 @@ export function ProjectsClientView({
                     </div>
                   </div>
 
-                  {/* Col 6-7: Status */}
-                  <div className="col-span-2 w-full md:w-auto flex items-center justify-between md:justify-start">
+                  {/* Col 6-7: Status & Priority */}
+                  <div className="col-span-2 w-full md:w-auto flex items-center justify-between md:justify-start gap-1.5 flex-wrap">
                     <StatusBadge status={badgeStatus} />
+                    {isPriority && (
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/30 flex items-center gap-1 shadow-xs">
+                        <ShieldCheck className="w-2.5 h-2.5" />
+                        <span>PRIORITY</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Col 8-9: Chain */}
@@ -1201,33 +1369,27 @@ export function ProjectsClientView({
             {/* Right: Actions */}
             <div className="flex items-center gap-2 flex-wrap">
               {/* Move to folder */}
-              <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.1] rounded-lg px-2 py-1">
-                <FolderInput className="w-3.5 h-3.5 text-accent" />
-                <select
-                  defaultValue=""
-                  onChange={(e) => {
-                    const val = e.target.value;
+              <div className="w-[185px]">
+                <CustomSelect
+                  value=""
+                  placeholder={t("projects.bulk.moveToFolder")}
+                  onChange={(val) => {
                     if (val === "root") {
                       moveProjectsToFolder(selectedProjectIds, null);
                     } else if (val) {
                       moveProjectsToFolder(selectedProjectIds, val);
                     }
-                    e.target.value = "";
                   }}
-                  className="bg-transparent text-caption text-text-primary focus:outline-none cursor-pointer"
-                >
-                  <option value="" disabled className="bg-[#14181F] text-text-primary">
-                    {t("projects.bulk.moveToFolder")}
-                  </option>
-                  <option value="root" className="bg-[#14181F] text-text-primary">
-                    📂 {t("projects.unorganized")}
-                  </option>
-                  {folders.map((f) => (
-                    <option key={f.id} value={f.id} className="bg-[#14181F] text-text-primary">
-                      📁 {f.name}
-                    </option>
-                  ))}
-                </select>
+                  size="sm"
+                  variant="subtle"
+                  options={[
+                    { value: "root", label: `📂 ${t("projects.unorganized")}` },
+                    ...folders.map((f) => ({
+                      value: f.id,
+                      label: `📁 ${f.name}`,
+                    })),
+                  ]}
+                />
               </div>
 
               {/* Archive */}
@@ -1288,7 +1450,18 @@ export function ProjectsClientView({
       <BulkDeleteModal
         isOpen={isBulkDeleteOpen}
         onClose={() => setIsBulkDeleteOpen(false)}
-        count={selectedProjectIds.length}
+        count={
+          selectedProjectIds.filter((id) => {
+            const p = projects.find((proj) => proj.id === id);
+            return p && !isProjectPriority(p);
+          }).length
+        }
+        protectedCount={
+          selectedProjectIds.filter((id) => {
+            const p = projects.find((proj) => proj.id === id);
+            return p && isProjectPriority(p);
+          }).length
+        }
         onConfirm={handleBulkDeleteConfirm}
       />
 

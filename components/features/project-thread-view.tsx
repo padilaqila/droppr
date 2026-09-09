@@ -281,7 +281,7 @@ function extractOriginalTelegramText(
 export function ProjectThreadView({
   projectId,
   projectName,
-  projectChain,
+  projectChain: _projectChain,
   guideContent,
   socialLinks,
   projectCreatedAt,
@@ -293,7 +293,6 @@ export function ProjectThreadView({
   const { locale, isEn } = useTranslation();
   const [threads, setThreads] = useState<ThreadItem[]>([]);
   const [filter, setFilter] = useState<"all" | "news">("all");
-  const [isLoading, setIsLoading] = useState(true);
 
   // Bottom Input States
   const [inputTitle, setInputTitle] = useState("");
@@ -310,7 +309,6 @@ export function ProjectThreadView({
 
   // Load project thread updates
   const loadThreads = useCallback(async () => {
-    setIsLoading(true);
     try {
       const data = await fetchProjectThreads(projectId);
       setThreads(data);
@@ -318,8 +316,6 @@ export function ProjectThreadView({
       if (onThreadsChange) onThreadsChange(data);
     } catch (err) {
       console.error("Failed to load project threads:", err);
-    } finally {
-      setIsLoading(false);
     }
   }, [projectId, onThreadsLoaded, onThreadsChange]);
 

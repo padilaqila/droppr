@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CustomSelect } from "@/components/ui/select";
 import {
   Globe,
   Send,
@@ -22,6 +23,11 @@ import {
   Calendar,
   Clock,
   CheckCircle2,
+  Gift,
+  Copy,
+  ChevronDown,
+  ChevronUp,
+  Repeat,
 } from "lucide-react";
 import { parseAirdropProjectData } from "@/lib/supabase/airdrop-parser";
 import { sanitizeSurrogates, sanitizeJsonObject } from "@/lib/supabase/thread-updates";
@@ -38,6 +44,7 @@ import type { WaitlistItem } from "@/lib/supabase/waitlists";
 import { useTranslation } from "@/lib/i18n/context";
 
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
+type RoutineType = "daily" | "weekly" | "one_time";
 type QuickReminderOption = "daily" | "once" | "weekly" | "none";
 
 interface FolderOption {
@@ -73,6 +80,8 @@ export function ProjectReviewModal({
   const [name, setName] = useState("");
   const [chain, setChain] = useState("");
   const [status, setStatus] = useState<ProjectStatus>("in_progress");
+  const [taskType, setTaskType] = useState<RoutineType>("daily");
+  const [claimUrl, setClaimUrl] = useState("");
   const [folderId, setFolderId] = useState<string>("");
   const [folders, setFolders] = useState<FolderOption[]>([]);
 
@@ -100,8 +109,10 @@ export function ProjectReviewModal({
   });
   const [reminderDays, setReminderDays] = useState<string[]>(["mon"]);
 
-  // Guide / Notes (Pure original text)
+  // Guide / Notes & Collapsible state
   const [guideContent, setGuideContent] = useState("");
+  const [isGuideExpanded, setIsGuideExpanded] = useState(false);
+  const [isCopiedGuide, setIsCopiedGuide] = useState(false);
 
   // Load folders once
   useEffect(() => {
@@ -144,15 +155,17 @@ export function ProjectReviewModal({
     setName(parsed.name || "Airdrop Project");
     setChain(parsed.chain || "Multi-chain");
 
-    // Determine initial status
+    setIsGuideExpanded(false);
+    setIsCopiedGuide(false);
+
+    // Determine initial status & routine type
     if (source === "waitlist") {
       setStatus(waitlistItem?.status === "joined" ? "waiting" : "not_started");
+      setTaskType("one_time");
     } else {
-      setStatus(
-        feedItem?.category === "testnet" || feedItem?.category === "retro"
-          ? "in_progress"
-          : "not_started"
-      );
+      const isTestnetOrRetro = feedItem?.category === "testnet" || feedItem?.category === "retro";
+      setStatus(isTestnetOrRetro ? "in_progress" : "not_started");
+      setTaskType(feedItem?.category === "testnet" ? "daily" : "one_time");
     }
 
     // Links
@@ -166,6 +179,7 @@ export function ProjectReviewModal({
     setTelegramPostUrl(sl.telegram_post_url || sourceUrl || "");
     setDiscord(sl.discord || "");
     setRefLink(sl.ref_link || ref || "");
+    setClaimUrl(sl.claim_url || "");
 
     // Account note
     if (accountNote) {
@@ -196,10 +210,17 @@ export function ProjectReviewModal({
     );
   };
 
+  const handleCopyGuide = () => {
+    if (!guideContent) return;
+    navigator.clipboard.writeText(guideContent);
+    setIsCopiedGuide(true);
+    setTimeout(() => setIsCopiedGuide(false), 2000);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setErrorMessage("Nama project wajib diisi.");
+      setErrorMessage(isEn ? "Project name is required." : "Nama project wajib diisi.");
       return;
     }
 
@@ -213,11 +234,14 @@ export function ProjectReviewModal({
       } = await supabase.auth.getUser();
 
       if (!user) {
-        throw new Error("Sesi login tidak valid. Silakan login ulang.");
+        throw new Error(isEn ? "Session expired. Please log in again." : "Sesi login tidak valid. Silakan login ulang.");
       }
 
-      // 1. Build and sanitize social links
-      const rawSocialLinks: Record<string, any> = {};
+      // 1. Build and sanitize social links with routine type & claim url
+      const rawSocialLinks: Record<string, any> = {
+        task_type: taskType,
+      };
+      if (claimUrl.trim()) rawSocialLinks.claim_url = claimUrl.trim();
       if (website.trim()) rawSocialLinks.website = website.trim();
       if (dappUrl.trim()) rawSocialLinks.dapp_url = dappUrl.trim();
       if (faucetUrl.trim()) rawSocialLinks.faucet_url = faucetUrl.trim();
@@ -330,22 +354,22 @@ export function ProjectReviewModal({
       isOpen={isOpen}
       onClose={onClose}
       title={isEn ? "Review & Refine Project Data" : "Review & Rapikan Data Proyek"}
-      description={isEn ? "Check and adjust farming data before adding to your Droppr workstation." : "Periksa dan sesuaikan data garapan sebelum resmi ditambahkan ke workstation Droppr Anda."}
-      maxWidth="4xl"
+      description={isEn ? "Check and adjust farming routine & lifecycle data before adding to Droppr." : "Periksa dan sesuaikan rutinitas & siklus garapan sebelum resmi ditambahkan ke Droppr."}
+      maxWidth="5xl"
     >
       <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-        {/* Modal Body - Scrollable */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 max-h-[calc(90vh-140px)]">
+        {/* Modal Body - Scrollable with comfortable breathing room */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 max-h-[calc(90vh-130px)] font-sans">
           {/* Top Info Banner */}
-          <div className="p-3 rounded-lg bg-accent/10 border border-accent/20 flex items-start gap-2.5 text-body-sm text-text-secondary">
+          <div className="p-3.5 rounded-xl bg-accent/10 border border-accent/25 flex items-start gap-3 text-body-sm text-text-secondary">
             <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
             <div className="leading-snug">
               <span className="font-semibold text-text-primary">
                 {isEn ? "Automatic Extraction Complete: " : "Ekstraksi Otomatis Selesai: "}
               </span>
               {isEn
-                ? "Important links, blockchain, task checklist, and account info have been formatted automatically. You can change the name, add links, or filter required tasks below."
-                : "Tautan penting, blockchain, checklist tugas, dan info akun sudah dirapikan otomatis. Anda bisa mengubah nama, menambah link, atau menyaring tugas yang diperlukan di bawah ini."}
+                ? "Important links, routine type, blockchain, and account details have been organized. Customize the status and reminder options below."
+                : "Tautan penting, tipe rutinitas, blockchain, dan akun sudah dirapikan otomatis. Sesuaikan status garapan dan opsi pengingat di bawah ini."}
             </div>
           </div>
 
@@ -355,470 +379,545 @@ export function ProjectReviewModal({
             </div>
           )}
 
-          {/* 2-Column Responsive Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* LEFT COLUMN: Project Details & Links (7 Cols) */}
-            <div className="lg:col-span-7 space-y-5">
-              <div className="space-y-3.5 pb-5 border-b border-border-hairline">
-                <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-accent" />
-                  <span>{isEn ? "Project Identity" : "Identitas Proyek"}</span>
-                </h4>
+          {/* SECTION 1: Identitas Proyek & Siklus Garapan */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-4">
+            <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-2">
+              <Layers className="w-4 h-4 text-accent" />
+              <span>{isEn ? "Project Identity & Farming Type" : "Identitas Proyek & Karakter Garapan"}</span>
+            </h4>
 
-                <div className="space-y-1">
-                  <label className="text-caption font-medium text-text-secondary">
-                    {isEn ? "Project Name" : "Nama Proyek"} <span className="text-status-danger">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={isEn ? "Airdrop / Project Name" : "Nama Airdrop / Proyek"}
-                    required
-                    className="font-semibold text-body-md"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary">
-                      {isEn ? "Initial Status" : "Status Awal"}
-                    </label>
-                    <select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-                      className="w-full px-3 py-2 rounded-lg bg-bg-elevated-2 border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent"
-                    >
-                      <option value="in_progress">{isEn ? "In Progress" : "Sedang Dikerjakan"}</option>
-                      <option value="waiting">{isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE"}</option>
-                      <option value="not_started">{isEn ? "Not Started" : "Belum Mulai"}</option>
-                      <option value="ready_to_claim">{isEn ? "Ready to Claim" : "Siap Klaim"}</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary">Chain / Network</label>
-                    <Input
-                      type="text"
-                      value={chain}
-                      onChange={(e) => setChain(e.target.value)}
-                      placeholder={isEn ? "Multi-chain, EVM, Solana" : "Multi-chain, EVM, Solana"}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary">
-                      {isEn ? "Folder (Optional)" : "Folder (Opsional)"}
-                    </label>
-                    <select
-                      value={folderId}
-                      onChange={(e) => setFolderId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-bg-elevated-2 border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent"
-                    >
-                      <option value="">{isEn ? "No Folder" : "Tanpa Folder"}</option>
-                      {folders.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Resource Links Section */}
-              <div className="space-y-3.5 pb-5 border-b border-border-hairline">
-                <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
-                  <Globe className="w-4 h-4 text-accent" />
-                  <span>{isEn ? "Important Links (Resource Links)" : "Tautan Penting (Resource Links)"}</span>
-                </h4>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
-                      <Zap className="w-3.5 h-3.5 text-accent" />
-                      <span>{isEn ? "DApp / Testnet Link" : "DApp / Link Testnet"}</span>
-                    </label>
-                    <Input
-                      type="url"
-                      value={dappUrl}
-                      onChange={(e) => setDappUrl(e.target.value)}
-                      placeholder="https://testnet.project.xyz"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
-                      <Globe className="w-3.5 h-3.5 text-text-tertiary" />
-                      <span>{isEn ? "Official Website" : "Website Resmi"}</span>
-                    </label>
-                    <Input
-                      type="url"
-                      value={website}
-                      onChange={(e) => setWebsite(e.target.value)}
-                      placeholder="https://project.xyz"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
-                      <Droplets className="w-3.5 h-3.5 text-link-teal" />
-                      <span>{isEn ? "Token Faucet" : "Faucet Token"}</span>
-                    </label>
-                    <Input
-                      type="url"
-                      value={faucetUrl}
-                      onChange={(e) => setFaucetUrl(e.target.value)}
-                      placeholder="https://faucet.project.xyz"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
-                      <BookOpen className="w-3.5 h-3.5 text-text-tertiary" />
-                      <span>{isEn ? "Documentation / Docs" : "Dokumentasi / Docs"}</span>
-                    </label>
-                    <Input
-                      type="url"
-                      value={docsUrl}
-                      onChange={(e) => setDocsUrl(e.target.value)}
-                      placeholder="https://docs.project.xyz"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
-                      <Share2 className="w-3.5 h-3.5 text-text-tertiary" />
-                      <span>X (Twitter) URL</span>
-                    </label>
-                    <Input
-                      type="url"
-                      value={twitter}
-                      onChange={(e) => setTwitter(e.target.value)}
-                      placeholder="https://x.com/project"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
-                      <MessageSquare className="w-3.5 h-3.5 text-text-tertiary" />
-                      <span>Discord Server</span>
-                    </label>
-                    <Input
-                      type="url"
-                      value={discord}
-                      onChange={(e) => setDiscord(e.target.value)}
-                      placeholder="https://discord.gg/..."
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
-                      <Send className="w-3.5 h-3.5 text-text-tertiary" />
-                      <span>Telegram Link</span>
-                    </label>
-                    <Input
-                      type="url"
-                      value={telegram}
-                      onChange={(e) => setTelegram(e.target.value)}
-                      placeholder="https://t.me/..."
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
-                      <Share2 className="w-3.5 h-3.5 text-accent" />
-                      <span>{isEn ? "Referral Link" : "Link Referral"}</span>
-                    </label>
-                    <Input
-                      type="url"
-                      value={refLink}
-                      onChange={(e) => setRefLink(e.target.value)}
-                      placeholder="https://...?ref=..."
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Account Section */}
-              <div className="space-y-3">
-                <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
-                  <AtSign className="w-4 h-4 text-accent" />
-                  <span>{isEn ? "Linked Account (Non-Sensitive)" : "Akun Terkait (Non-Sensitif)"}</span>
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary">Platform</label>
-                    <select
-                      value={accountLabel}
-                      onChange={(e) => setAccountLabel(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-bg-elevated-2 border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent"
-                    >
-                      <option value="Email">Email</option>
-                      <option value="Twitter / X">Twitter / X</option>
-                      <option value="Discord">Discord</option>
-                      <option value="Telegram">Telegram</option>
-                      <option value="Wallet Address">Wallet Address</option>
-                      <option value="Akun Pendaftar">{isEn ? "Registered Account" : "Akun Pendaftar"}</option>
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-caption font-medium text-text-secondary">
-                      {isEn ? "Username / Address / Email" : "Username / Alamat / Email"}
-                    </label>
-                    <Input
-                      type="text"
-                      value={accountValue}
-                      onChange={(e) => setAccountValue(e.target.value)}
-                      placeholder={isEn ? "e.g. @padilaqila or email@gmail.com" : "Misal: @padilaqila atau email@gmail.com"}
-                    />
-                  </div>
-                </div>
-              </div>
+            <div className="space-y-1">
+              <label className="text-caption font-medium text-text-secondary">
+                {isEn ? "Project Name" : "Nama Proyek"} <span className="text-status-danger">*</span>
+              </label>
+              <Input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={isEn ? "Airdrop / Project Name" : "Nama Airdrop / Proyek"}
+                required
+                className="font-bold text-body-md"
+              />
             </div>
 
-            {/* RIGHT COLUMN: Quick Reminder & Raw Telegram Post (5 Cols) */}
-            <div className="lg:col-span-5 space-y-5">
-              {/* Quick Reminder Settings */}
-              <div className="space-y-3 p-4 rounded-xl bg-bg-elevated-2/70 border border-border-hairline flex flex-col">
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
-                    <Bell className="w-4 h-4 text-accent" />
-                    <span>{isEn ? "Quick Reminder" : "Atur Pengingat Cepat"}</span>
-                  </h4>
-                  {reminderOption !== "none" && (
-                    <span className="text-[11px] font-mono text-accent font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      {reminderOption === "daily"
-                        ? isEn ? "Everyday" : "Setiap Hari"
-                        : reminderOption === "once"
-                        ? isEn ? "Single Alert" : "Hanya Sekali"
-                        : isEn ? "Weekly" : "Mingguan"}
-                    </span>
-                  )}
-                </div>
-
-                {/* Quick frequency buttons */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReminderOption("daily")}
-                    className={`px-3 py-2 rounded-lg border text-caption font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
-                      reminderOption === "daily"
-                        ? "bg-accent/15 border-accent text-accent font-bold"
-                        : "bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-hairline"
-                    }`}
-                  >
-                    <Clock className="w-4 h-4" />
-                    <span>{isEn ? "Daily" : "Setiap Hari"}</span>
-                    <span className="text-[10px] font-mono opacity-80">07:00 WIB</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setReminderOption("once")}
-                    className={`px-3 py-2 rounded-lg border text-caption font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
-                      reminderOption === "once"
-                        ? "bg-accent/15 border-accent text-accent font-bold"
-                        : "bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-hairline"
-                    }`}
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>{isEn ? "Once" : "Hanya Sekali"}</span>
-                    <span className="text-[10px] font-mono opacity-80">{isEn ? "Custom Date" : "Pilih Tgl"}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setReminderOption("weekly")}
-                    className={`px-3 py-2 rounded-lg border text-caption font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
-                      reminderOption === "weekly"
-                        ? "bg-accent/15 border-accent text-accent font-bold"
-                        : "bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-hairline"
-                    }`}
-                  >
-                    <Layers className="w-4 h-4" />
-                    <span>{isEn ? "Weekly" : "Mingguan"}</span>
-                    <span className="text-[10px] font-mono opacity-80">{isEn ? "Select Days" : "Pilih Hari"}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setReminderOption("none")}
-                    className={`px-3 py-2 rounded-lg border text-caption font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
-                      reminderOption === "none"
-                        ? "bg-bg-elevated-2 border-border-hairline text-text-primary font-bold"
-                        : "bg-bg-elevated border-border-subtle text-text-tertiary hover:text-text-secondary hover:border-border-hairline"
-                    }`}
-                  >
-                    <Zap className="w-4 h-4" />
-                    <span>{isEn ? "No Reminder" : "Tanpa Alarm"}</span>
-                    <span className="text-[10px] font-mono opacity-80">{isEn ? "Off" : "Mati"}</span>
-                  </button>
-                </div>
-
-                {/* Conditional detail form for reminder */}
-                {reminderOption === "daily" && (
-                  <div className="p-3 rounded-lg bg-bg-elevated border border-border-subtle space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <label className="text-caption font-medium text-text-secondary flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-accent" />
-                        <span>{isEn ? "Alert Time (WIB / Local)" : "Waktu Pengingat (WIB)"}</span>
-                      </label>
-                      <input
-                        type="time"
-                        value={reminderTime}
-                        onChange={(e) => setReminderTime(e.target.value)}
-                        className="px-2.5 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-caption font-mono text-text-primary focus:outline-none focus:border-accent"
-                      />
-                    </div>
-                    <p className="text-[11px] text-text-tertiary">
-                      {isEn
-                        ? `Droppr will send an in-app reminder every day at ${reminderTime}.`
-                        : `Droppr akan membunyikan pengingat harian setiap pukul ${reminderTime} WIB.`}
-                    </p>
-                  </div>
-                )}
-
-                {reminderOption === "once" && (
-                  <div className="p-3 rounded-lg bg-bg-elevated border border-border-subtle space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-medium text-text-secondary flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-accent" />
-                          <span>{isEn ? "Date" : "Tanggal"}</span>
-                        </label>
-                        <input
-                          type="date"
-                          value={reminderDate}
-                          onChange={(e) => setReminderDate(e.target.value)}
-                          className="w-full px-2.5 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-caption font-mono text-text-primary focus:outline-none focus:border-accent"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-medium text-text-secondary flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-accent" />
-                          <span>{isEn ? "Time" : "Waktu"}</span>
-                        </label>
-                        <input
-                          type="time"
-                          value={reminderTime}
-                          onChange={(e) => setReminderTime(e.target.value)}
-                          className="w-full px-2.5 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-caption font-mono text-text-primary focus:outline-none focus:border-accent"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-text-tertiary">
-                      {isEn
-                        ? `One-time alert scheduled for ${reminderDate} at ${reminderTime}.`
-                        : `Pengingat satu kali dijadwalkan pada ${reminderDate} pukul ${reminderTime} WIB.`}
-                    </p>
-                  </div>
-                )}
-
-                {reminderOption === "weekly" && (
-                  <div className="p-3 rounded-lg bg-bg-elevated border border-border-subtle space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-medium text-text-secondary">
-                        {isEn ? "Select Days" : "Pilih Hari Pengingat"}
-                      </label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {DAYS_OF_WEEK.map((d) => {
-                          const isSelected = reminderDays.includes(d.id);
-                          return (
-                            <button
-                              key={d.id}
-                              type="button"
-                              onClick={() => toggleReminderDay(d.id)}
-                              className={`px-2.5 py-1 rounded text-caption font-mono transition-colors ${
-                                isSelected
-                                  ? "bg-accent text-on-accent font-bold"
-                                  : "bg-bg-elevated-2 text-text-secondary border border-border-subtle hover:border-border-hairline"
-                              }`}
-                            >
-                              {d.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 pt-1 border-t border-border-subtle">
-                      <label className="text-caption font-medium text-text-secondary flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-accent" />
-                        <span>{isEn ? "Time" : "Waktu"}</span>
-                      </label>
-                      <input
-                        type="time"
-                        value={reminderTime}
-                        onChange={(e) => setReminderTime(e.target.value)}
-                        className="px-2.5 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-caption font-mono text-text-primary focus:outline-none focus:border-accent"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {reminderOption === "none" && (
-                  <div className="p-2.5 rounded-lg bg-bg-elevated border border-border-subtle text-caption text-text-tertiary text-center">
-                    {isEn
-                      ? "No reminder scheduled. You can still set it anytime later."
-                      : "Tanpa pengingat otomatis. Anda tetap dapat memasangnya kapan saja nanti di menu Pengingat."}
-                  </div>
-                )}
+            {/* 4-column responsive grid for Status, Routine Type, Chain, and Folder */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <CustomSelect
+                  label={isEn ? "Lifecycle Status" : "Status Garapan"}
+                  value={status}
+                  onChange={(val) => setStatus(val as ProjectStatus)}
+                  options={[
+                    { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <span className="text-xs">⚡</span> },
+                    { value: "waiting", label: isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE", icon: <span className="text-xs">⏳</span> },
+                    { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <span className="text-xs">🎁</span> },
+                    { value: "completed", label: isEn ? "Completed" : "Selesai Diklaim", icon: <span className="text-xs">✅</span> },
+                    { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <span className="text-xs">⏸️</span> },
+                  ]}
+                />
               </div>
 
-              {/* Guide / Pure original telegram post preview */}
-              <div className="space-y-2">
-                <label className="text-caption font-medium text-text-secondary flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-accent" />
-                    <span>{isEn ? "Original Telegram Post / Guide" : "Postingan Asli Telegram / Panduan"}</span>
-                  </span>
-                  <span className="text-[11px] text-text-tertiary">
-                    {isEn ? "Pure post saved to project" : "Tersimpan murni ke proyek"}
-                  </span>
-                </label>
-                <textarea
-                  rows={8}
-                  value={guideContent}
-                  onChange={(e) => setGuideContent(e.target.value)}
-                  placeholder={isEn ? "Raw Telegram post content..." : "Isi postingan asli Telegram..."}
-                  className="w-full px-3 py-2.5 rounded-lg bg-bg-elevated-2 border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent font-mono resize-y leading-relaxed"
+              <div>
+                <CustomSelect
+                  label={isEn ? "Routine Frequency" : "Tipe Rutinitas Pengerjaan"}
+                  value={taskType}
+                  onChange={(val) => setTaskType(val as RoutineType)}
+                  options={[
+                    { value: "daily", label: isEn ? "Daily Check-in (07:00 WIB)" : "⚡ Check-in Harian", icon: <Clock className="w-3.5 h-3.5 text-amber-400" /> },
+                    { value: "weekly", label: isEn ? "Weekly / Periodic" : "🔄 Mingguan / Berkala", icon: <Repeat className="w-3.5 h-3.5 text-sky-400" /> },
+                    { value: "one_time", label: isEn ? "One-Time (Set & Forget)" : "🎯 Sekali Selesai", icon: <Zap className="w-3.5 h-3.5 text-indigo-300" /> },
+                  ]}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-caption font-medium text-text-secondary">Chain / Network</label>
+                <Input
+                  type="text"
+                  value={chain}
+                  onChange={(e) => setChain(e.target.value)}
+                  placeholder={isEn ? "Multi-chain, EVM, Solana" : "Multi-chain, EVM, Solana"}
+                />
+              </div>
+
+              <div>
+                <CustomSelect
+                  label={isEn ? "Folder (Optional)" : "Folder (Opsional)"}
+                  value={folderId}
+                  onChange={(val) => setFolderId(val)}
+                  placeholder={isEn ? "No Folder" : "Tanpa Folder"}
+                  options={[
+                    { value: "", label: isEn ? "No Folder" : "Tanpa Folder" },
+                    ...folders.map((f) => ({
+                      value: f.id,
+                      label: `📁 ${f.name}`,
+                    })),
+                  ]}
                 />
               </div>
             </div>
+
+            {/* If ready_to_claim is selected, provide an input for the Claim / Checker portal link */}
+            {status === "ready_to_claim" && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5 animate-fadeIn">
+                <label className="text-caption font-bold text-amber-400 flex items-center gap-1.5">
+                  <Gift className="w-4 h-4" />
+                  <span>{isEn ? "Claim / Allocation Checker Link" : "Link Portal Klaim / Checker Alokasi Airdrop"}</span>
+                </label>
+                <Input
+                  type="url"
+                  value={claimUrl}
+                  onChange={(e) => setClaimUrl(e.target.value)}
+                  placeholder="https://claim.project.xyz atau https://airdrop.project.xyz/check"
+                  className="font-mono text-body-sm"
+                />
+                <p className="text-[11px] text-text-tertiary">
+                  {isEn
+                    ? "Droppr will show a direct claim button in your task hub and project dashboard."
+                    : "Droppr akan menampilkan tombol langsung untuk klaim reward di status garapan & detail proyek."}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 2: Tautan Penting (Resource Links) & Akun */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-4">
+            <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-2">
+              <Globe className="w-4 h-4 text-accent" />
+              <span>{isEn ? "Resource Links & Linked Account" : "Tautan Penting & Akun Terkait"}</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
+                  <Zap className="w-3.5 h-3.5 text-accent" />
+                  <span>{isEn ? "DApp / Testnet Link" : "DApp / Link Testnet"}</span>
+                </label>
+                <Input
+                  type="url"
+                  value={dappUrl}
+                  onChange={(e) => setDappUrl(e.target.value)}
+                  placeholder="https://testnet.project.xyz"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
+                  <Globe className="w-3.5 h-3.5 text-text-tertiary" />
+                  <span>{isEn ? "Official Website" : "Website Resmi"}</span>
+                </label>
+                <Input
+                  type="url"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://project.xyz"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
+                  <Droplets className="w-3.5 h-3.5 text-link-teal" />
+                  <span>{isEn ? "Token Faucet" : "Faucet Token"}</span>
+                </label>
+                <Input
+                  type="url"
+                  value={faucetUrl}
+                  onChange={(e) => setFaucetUrl(e.target.value)}
+                  placeholder="https://faucet.project.xyz"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
+                  <BookOpen className="w-3.5 h-3.5 text-text-tertiary" />
+                  <span>{isEn ? "Docs" : "Dokumentasi / Docs"}</span>
+                </label>
+                <Input
+                  type="url"
+                  value={docsUrl}
+                  onChange={(e) => setDocsUrl(e.target.value)}
+                  placeholder="https://docs.project.xyz"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
+                  <Share2 className="w-3.5 h-3.5 text-text-tertiary" />
+                  <span>X (Twitter) URL</span>
+                </label>
+                <Input
+                  type="url"
+                  value={twitter}
+                  onChange={(e) => setTwitter(e.target.value)}
+                  placeholder="https://x.com/project"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
+                  <MessageSquare className="w-3.5 h-3.5 text-text-tertiary" />
+                  <span>Discord Server</span>
+                </label>
+                <Input
+                  type="url"
+                  value={discord}
+                  onChange={(e) => setDiscord(e.target.value)}
+                  placeholder="https://discord.gg/..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
+                  <Send className="w-3.5 h-3.5 text-text-tertiary" />
+                  <span>Telegram Link</span>
+                </label>
+                <Input
+                  type="url"
+                  value={telegram}
+                  onChange={(e) => setTelegram(e.target.value)}
+                  placeholder="https://t.me/..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
+                  <Share2 className="w-3.5 h-3.5 text-accent" />
+                  <span>{isEn ? "Referral Link" : "Link Referral"}</span>
+                </label>
+                <Input
+                  type="url"
+                  value={refLink}
+                  onChange={(e) => setRefLink(e.target.value)}
+                  placeholder="https://...?ref=..."
+                />
+              </div>
+            </div>
+
+            {/* Linked Account Sub-section */}
+            <div className="pt-3 border-t border-white/[0.05]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <CustomSelect
+                    label={isEn ? "Account Platform" : "Platform Akun"}
+                    value={accountLabel}
+                    onChange={(val) => setAccountLabel(val)}
+                    options={[
+                      { value: "Email", label: "Email" },
+                      { value: "Twitter / X", label: "Twitter / X" },
+                      { value: "Discord", label: "Discord" },
+                      { value: "Telegram", label: "Telegram" },
+                      { value: "Wallet Address", label: "Wallet Address" },
+                      { value: "Akun Pendaftar", label: isEn ? "Registered Account" : "Akun Pendaftar" },
+                    ]}
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
+                    <AtSign className="w-3.5 h-3.5 text-accent" />
+                    <span>{isEn ? "Username / Address / Email (Non-Sensitive)" : "Username / Alamat / Email (Non-Sensitif)"}</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={accountValue}
+                    onChange={(e) => setAccountValue(e.target.value)}
+                    placeholder={isEn ? "e.g. @padilaqila or hunter@gmail.com" : "Misal: @padilaqila atau hunter@gmail.com"}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3: ATUR PENGINGAT CEPAT (SPACIOUS & UNCOMPRESSED) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-2">
+                <Bell className="w-4 h-4 text-accent" />
+                <span>{isEn ? "Quick Reminder Setup" : "Atur Pengingat Cepat"}</span>
+              </h4>
+              {reminderOption !== "none" && (
+                <span className="text-[11px] font-mono text-accent font-semibold flex items-center gap-1 self-start sm:self-auto">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>
+                    {reminderOption === "daily"
+                      ? isEn ? `Daily alert active (${reminderTime} WIB)` : `Pengingat harian aktif (${reminderTime} WIB)`
+                      : reminderOption === "once"
+                      ? isEn ? `One-time alert (${reminderDate})` : `Pengingat sekali (${reminderDate})`
+                      : isEn ? "Weekly alert active" : "Pengingat mingguan aktif"}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {/* 4 Spacious, Uncompressed Cards across the grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <button
+                type="button"
+                onClick={() => setReminderOption("daily")}
+                className={`p-3.5 rounded-xl border text-left flex flex-col justify-between gap-2 transition-all ${
+                  reminderOption === "daily"
+                    ? "bg-accent/15 border-accent text-accent shadow-sm"
+                    : "bg-white/[0.03] border-white/[0.08] text-text-secondary hover:text-text-primary hover:bg-white/[0.05]"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <Clock className="w-5 h-5" />
+                  <span className="text-[11px] font-mono opacity-80">07:00 WIB</span>
+                </div>
+                <div>
+                  <div className="font-bold text-body-sm text-text-primary">
+                    {isEn ? "Everyday" : "Setiap Hari"}
+                  </div>
+                  <div className="text-[11px] text-text-tertiary">
+                    {isEn ? "Daily check-in alert" : "Reset jam 07:00 WIB"}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReminderOption("once")}
+                className={`p-3.5 rounded-xl border text-left flex flex-col justify-between gap-2 transition-all ${
+                  reminderOption === "once"
+                    ? "bg-accent/15 border-accent text-accent shadow-sm"
+                    : "bg-white/[0.03] border-white/[0.08] text-text-secondary hover:text-text-primary hover:bg-white/[0.05]"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <Calendar className="w-5 h-5" />
+                  <span className="text-[11px] font-mono opacity-80">{isEn ? "Custom" : "Pilih Tgl"}</span>
+                </div>
+                <div>
+                  <div className="font-bold text-body-sm text-text-primary">
+                    {isEn ? "Once" : "Hanya Sekali"}
+                  </div>
+                  <div className="text-[11px] text-text-tertiary">
+                    {isEn ? "Deadline / Snapshot" : "Alarm deadline/snapshot"}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReminderOption("weekly")}
+                className={`p-3.5 rounded-xl border text-left flex flex-col justify-between gap-2 transition-all ${
+                  reminderOption === "weekly"
+                    ? "bg-accent/15 border-accent text-accent shadow-sm"
+                    : "bg-white/[0.03] border-white/[0.08] text-text-secondary hover:text-text-primary hover:bg-white/[0.05]"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <Repeat className="w-5 h-5" />
+                  <span className="text-[11px] font-mono opacity-80">{isEn ? "Days" : "Pilih Hari"}</span>
+                </div>
+                <div>
+                  <div className="font-bold text-body-sm text-text-primary">
+                    {isEn ? "Weekly" : "Mingguan"}
+                  </div>
+                  <div className="text-[11px] text-text-tertiary">
+                    {isEn ? "Periodic tx reminder" : "Alarm transaksi mingguan"}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReminderOption("none")}
+                className={`p-3.5 rounded-xl border text-left flex flex-col justify-between gap-2 transition-all ${
+                  reminderOption === "none"
+                    ? "bg-white/[0.08] border-white/[0.2] text-text-primary shadow-sm"
+                    : "bg-white/[0.02] border-white/[0.06] text-text-tertiary hover:text-text-secondary hover:bg-white/[0.04]"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <Zap className="w-5 h-5 opacity-60" />
+                  <span className="text-[11px] font-mono opacity-60">{isEn ? "Off" : "Mati"}</span>
+                </div>
+                <div>
+                  <div className="font-bold text-body-sm text-text-primary">
+                    {isEn ? "No Reminder" : "Tanpa Alarm"}
+                  </div>
+                  <div className="text-[11px] text-text-tertiary">
+                    {isEn ? "Skip alarm for now" : "Pasang nanti saja"}
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Expanded details for selected reminder option */}
+            {reminderOption === "daily" && (
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <label className="text-caption font-medium text-text-secondary flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-accent" />
+                    <span>{isEn ? "Daily Reminder Time (WIB / Local):" : "Waktu Pengingat Harian (WIB):"}</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.12] text-body-sm font-mono text-text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <p className="text-[11px] text-text-tertiary">
+                  {isEn
+                    ? `Droppr will send an in-app reminder every day at ${reminderTime}.`
+                    : `Droppr akan membunyikan pengingat harian di aplikasi setiap pukul ${reminderTime} WIB.`}
+                </p>
+              </div>
+            )}
+
+            {reminderOption === "once" && (
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-accent" />
+                      <span>{isEn ? "Alert Date" : "Tanggal Pengingat"}</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={reminderDate}
+                      onChange={(e) => setReminderDate(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.12] text-body-sm font-mono text-text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-caption font-medium text-text-secondary flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-accent" />
+                      <span>{isEn ? "Alert Time" : "Waktu"}</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => setReminderTime(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.12] text-body-sm font-mono text-text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-text-tertiary">
+                  {isEn
+                    ? `One-time notification scheduled for ${reminderDate} at ${reminderTime}.`
+                    : `Pengingat satu kali dijadwalkan pada ${reminderDate} pukul ${reminderTime} WIB.`}
+                </p>
+              </div>
+            )}
+
+            {reminderOption === "weekly" && (
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] space-y-3">
+                <div className="space-y-2">
+                  <label className="text-caption font-medium text-text-secondary">
+                    {isEn ? "Select Days to Remind" : "Pilih Hari Pengingat"}
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {DAYS_OF_WEEK.map((d) => {
+                      const isSelected = reminderDays.includes(d.id);
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => toggleReminderDay(d.id)}
+                          className={`px-3 py-1.5 rounded-lg text-caption font-mono font-medium transition-all ${
+                            isSelected
+                              ? "bg-accent text-on-accent font-bold shadow-xs"
+                              : "bg-white/[0.04] text-text-secondary border border-white/[0.08] hover:border-white/[0.15]"
+                          }`}
+                        >
+                          {d.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-white/[0.06]">
+                  <label className="text-caption font-medium text-text-secondary flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-accent" />
+                    <span>{isEn ? "Time (WIB / Local)" : "Waktu Pengingat"}</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.12] text-body-sm font-mono text-text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 4: POSTINGAN ASLI TELEGRAM / PANDUAN (CLEAN & COLLAPSIBLE) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setIsGuideExpanded(!isGuideExpanded)}
+                className="flex items-center gap-2 text-body-sm font-semibold text-text-primary hover:text-accent transition-colors"
+              >
+                <BookOpen className="w-4 h-4 text-accent" />
+                <span>{isEn ? "Original Telegram Post / Guide" : "Postingan Asli Telegram / Panduan Sumber"}</span>
+                {isGuideExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-text-tertiary" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-text-tertiary" />
+                )}
+              </button>
+
+              <div className="flex items-center gap-2">
+                {guideContent && (
+                  <button
+                    type="button"
+                    onClick={handleCopyGuide}
+                    className="inline-flex items-center gap-1 text-caption text-text-tertiary hover:text-text-primary px-2 py-1 rounded bg-white/[0.04] transition-colors"
+                  >
+                    {isCopiedGuide ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{isCopiedGuide ? (isEn ? "Copied" : "Tersalin") : (isEn ? "Copy" : "Salin")}</span>
+                  </button>
+                )}
+                <span className="text-[11px] font-mono text-text-tertiary">
+                  {guideContent ? `${guideContent.length} chars` : (isEn ? "Empty" : "Kosong")}
+                </span>
+              </div>
+            </div>
+
+            {isGuideExpanded && (
+              <textarea
+                rows={7}
+                value={guideContent}
+                onChange={(e) => setGuideContent(e.target.value)}
+                placeholder={isEn ? "Original raw Telegram post content..." : "Isi postingan asli Telegram..."}
+                className="w-full px-3.5 py-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent font-mono resize-y leading-relaxed animate-fadeIn"
+              />
+            )}
           </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-t border-border-hairline bg-bg-elevated">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-t border-white/[0.08] bg-white/[0.02]">
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="px-4 py-2 rounded-lg text-body-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 transition-colors disabled:opacity-50"
+            className="px-4 py-2 rounded-xl text-body-sm font-medium text-text-secondary hover:text-text-primary hover:bg-white/[0.06] transition-colors disabled:opacity-50"
           >
             {isEn ? "Cancel" : "Batal"}
           </button>
 
-          <div className="flex items-center gap-2">
-            <ButtonPrimary
-              type="submit"
-              disabled={isSaving}
-              className="!py-2 !px-5 text-body-sm font-semibold inline-flex items-center gap-2 shadow-sm"
-            >
-              {isSaving ? (
-                <>
-                  <RotateCcw className="w-4 h-4 animate-spin" />
-                  <span>{isEn ? "Saving Project..." : "Menyimpan Proyek..."}</span>
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>{isEn ? "Save & Open Project" : "Simpan & Buka Proyek"}</span>
-                </>
-              )}
-            </ButtonPrimary>
-          </div>
+          <ButtonPrimary
+            type="submit"
+            disabled={isSaving}
+            className="!py-2.5 !px-6 text-body-sm font-semibold inline-flex items-center gap-2 shadow-lg shadow-accent/20"
+          >
+            {isSaving ? (
+              <>
+                <RotateCcw className="w-4 h-4 animate-spin" />
+                <span>{isEn ? "Saving Project..." : "Menyimpan Proyek..."}</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                <span>{isEn ? "Save & Open Project" : "Simpan & Buka Proyek"}</span>
+              </>
+            )}
+          </ButtonPrimary>
         </div>
       </form>
     </Modal>

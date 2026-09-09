@@ -130,6 +130,63 @@ export async function createUserAccount(
 }
 
 /**
+ * Update an existing user social/identity account by ID.
+ * Synchronizes both public.user_accounts table and auth.user_metadata.
+ */
+export async function updateUserAccount(
+  id: string,
+  updates: Partial<Omit<UserAccountItem, "id" | "created_at" | "user_id">>
+): Promise<boolean> {
+  const supabase = createClient() as any;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return false;
+
+  let success = false;
+
+  // 1. Try update public.user_accounts table
+  try {
+    const payload: Record<string, any> = {};
+    if (updates.label !== undefined) payload.label = updates.label ? updates.label.trim() : null;
+    if (updates.handle !== undefined) payload.handle = updates.handle.trim();
+    if (updates.platform !== undefined) payload.platform = updates.platform;
+    if (updates.notes !== undefined) payload.notes = updates.notes ? updates.notes.trim() : null;
+
+    const { error } = await supabase
+      .from("user_accounts")
+      .update(payload)
+      .eq("id", id);
+
+    if (!error) success = true;
+  } catch (err) {
+    console.warn("Table update to user_accounts failed, using metadata fallback:", err);
+  }
+
+  // 2. Sync to auth.user_metadata
+  try {
+    const currentMeta = Array.isArray(user.user_metadata?.social_accounts)
+      ? user.user_metadata.social_accounts
+      : [];
+    const updatedMeta = currentMeta.map((a: any) =>
+      String(a.id) === String(id) ? { ...a, ...updates } : a
+    );
+    await supabase.auth.updateUser({
+      data: {
+        ...user.user_metadata,
+        social_accounts: updatedMeta,
+      },
+    });
+    success = true;
+  } catch (metaErr) {
+    console.warn("user_metadata sync failed:", metaErr);
+  }
+
+  return success;
+}
+
+/**
  * Delete a user account by ID.
  */
 export async function deleteUserAccount(id: string): Promise<boolean> {
