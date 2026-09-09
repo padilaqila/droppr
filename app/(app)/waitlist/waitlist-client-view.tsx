@@ -43,6 +43,11 @@ import {
   transferWaitlistUpdateToTasks,
 } from "@/lib/supabase/waitlists";
 import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
+import {
+  scanProjectsTelegramBatch,
+  type BatchTelegramItem,
+  type ProjectScanTarget,
+} from "@/lib/supabase/telegram-batch-scanner";
 
 interface WaitlistClientViewProps {
   initialWaitlists: WaitlistItem[];
@@ -81,6 +86,78 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  // Batch Telegram Scanner State for Waitlists
+  const [isScanningTg, setIsScanningTg] = useState(false);
+  const [scanProgress, setScanProgress] = useState<{ current: number; total: number; name: string } | null>(null);
+  const [discoveredBatchItems, setDiscoveredBatchItems] = useState<BatchTelegramItem[]>([]);
+  const [batchNotice, setBatchNotice] = useState<string | null>(null);
+
+  const batchDiscoveredMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of discoveredBatchItems) {
+      map.set(item.projectId, (map.get(item.projectId) || 0) + 1);
+    }
+    return map;
+  }, [discoveredBatchItems]);
+
+  const handleStartBatchScan = async () => {
+    if (isScanningTg) return;
+
+    // Prioritize joined waitlists; fallback to all waitlists if none joined yet
+    const targets = waitlists.filter((w) => w.status === "joined");
+    const scanPool = targets.length > 0 ? targets : waitlists;
+
+    if (scanPool.length === 0) {
+      alert(isEn ? "No waitlist items to scan." : "Belum ada waitlist untuk dipindai.");
+      return;
+    }
+
+    setIsScanningTg(true);
+    setScanProgress(null);
+    setBatchNotice(null);
+
+    try {
+      const scanTargets: ProjectScanTarget[] = scanPool.map((w) => ({
+        id: w.id,
+        name: w.project_name,
+        chain: "Waitlist",
+        status: w.status,
+        social_links: {
+          telegram_channel: w.channel === "airdropfind" ? "airdropfind" : "dutacryptoairdrop",
+        },
+      }));
+
+      const results = await scanProjectsTelegramBatch(scanTargets, (current, total, name) => {
+        setScanProgress({ current, total, name });
+      });
+
+      setDiscoveredBatchItems(results);
+
+      if (results.length > 0) {
+        const uniqueWaitlistsCount = new Set(results.map((r) => r.projectId)).size;
+        setBatchNotice(
+          isEn
+            ? `Discovered ${results.length} new Telegram update(s) for ${uniqueWaitlistsCount} waitlist(s)! Look for the blue "New" badge on cards.`
+            : `Ditemukan ${results.length} kabar baru dari Telegram untuk ${uniqueWaitlistsCount} waitlist! Periksa badge biru "Baru" di kartu.`
+        );
+      } else {
+        setBatchNotice(
+          isEn
+            ? "All scanned waitlists are currently up to date."
+            : "Semua waitlist yang dipindai sudah yang terbaru."
+        );
+      }
+    } catch (err: any) {
+      console.error("Batch scan waitlists error:", err);
+      setBatchNotice(
+        isEn ? "Failed to scan Telegram updates." : "Gagal memindai update Telegram."
+      );
+    } finally {
+      setIsScanningTg(false);
+      setScanProgress(null);
+    }
+  };
 
   // Join / Edit Account Modal state
   const [targetItemForJoin, setTargetItemForJoin] = useState<WaitlistItem | null>(null);
@@ -439,11 +516,27 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <button
+            onClick={handleStartBatchScan}
+            disabled={isScanningTg || isSyncing}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-link-teal/15 hover:bg-link-teal/25 text-link-teal border border-link-teal/30 font-semibold text-caption sm:text-body-sm disabled:opacity-50 transition-all shadow-lg shadow-link-teal/10"
+            title={isEn ? "Batch check Telegram updates for your waitlists" : "Periksa pembaruan Telegram massal untuk waitlist kamu"}
+          >
+            <RefreshCw className={`w-4 h-4 ${isScanningTg ? "animate-spin" : ""}`} />
+            <span>
+              {isScanningTg && scanProgress
+                ? `${isEn ? "Scanning" : "Memindai"} ${scanProgress.name}... (${scanProgress.current}/${scanProgress.total})`
+                : isEn
+                ? "Check TG Updates"
+                : "Periksa Update TG"}
+            </span>
+          </button>
+
           <button
             onClick={handleSyncTelegram}
-            disabled={isSyncing}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-on-accent font-semibold text-caption sm:text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-all shadow-lg shadow-accent/20"
+            disabled={isSyncing || isScanningTg}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent font-semibold text-caption sm:text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-all shadow-lg shadow-accent/20"
             title={isEn ? "Scan waitlist posts from Telegram in the last 3 months" : "Pindai postingan waitlist dari Telegram 3 bulan terakhir"}
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
@@ -451,6 +544,22 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           </button>
         </div>
       </div>
+
+      {/* Telegram Batch Notice Banner */}
+      {batchNotice && (
+        <div className="p-3.5 rounded-xl bg-link-teal/10 backdrop-blur-md border border-link-teal/25 text-link-teal text-body-sm flex items-center justify-between shadow-lg shadow-link-teal/5">
+          <div className="flex items-center gap-2">
+            <Send className="w-4 h-4 text-link-teal shrink-0 animate-pulse" />
+            <span>{batchNotice}</span>
+          </div>
+          <button
+            onClick={() => setBatchNotice(null)}
+            className="text-text-tertiary hover:text-text-primary text-xs ml-2 font-mono"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Sync Status Banner */}
       {syncMessage && (
@@ -628,12 +737,25 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       <h3 className="text-body-md font-bold text-text-primary tracking-tight truncate">
                         {item.project_name}
                       </h3>
-                      {isJoined && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-status-completed/15 text-status-completed border border-status-completed/30 shrink-0">
-                          <Check className="w-3 h-3 stroke-[3]" />
-                          <span>Joined</span>
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {batchDiscoveredMap.has(item.id) && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenTgSearch(item)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-link-teal/20 text-link-teal border border-link-teal/40 hover:bg-link-teal/30 transition-all animate-pulse cursor-pointer"
+                            title={isEn ? "Click to view newly discovered Telegram updates" : "Klik untuk melihat kabar terbaru dari Telegram"}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-link-teal" />
+                            <span>{batchDiscoveredMap.get(item.id)} {isEn ? "New" : "Baru"}</span>
+                          </button>
+                        )}
+                        {isJoined && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-status-completed/15 text-status-completed border border-status-completed/30">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                            <span>Joined</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-caption text-text-secondary line-clamp-2 mt-1 leading-relaxed">
                       {item.title}
@@ -740,11 +862,20 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                         <button
                           type="button"
                           onClick={() => handleOpenTgSearch(item)}
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-link-teal/40 text-link-teal hover:bg-link-teal/10 text-caption font-semibold transition-all shadow-xs"
+                          className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-caption font-semibold transition-all shadow-xs ${
+                            batchDiscoveredMap.has(item.id)
+                              ? "bg-link-teal/20 border-link-teal/50 text-link-teal hover:bg-link-teal/30 shadow-link-teal/10"
+                              : "bg-white/[0.04] border-white/[0.08] hover:border-link-teal/40 text-link-teal hover:bg-link-teal/10"
+                          }`}
                           title={isEn ? "Search latest developments on Telegram for this project" : "Cari perkembangan terbaru dari Telegram untuk proyek ini"}
                         >
                           <Search className="w-3.5 h-3.5" />
                           <span>{isEn ? "TG Update" : "Update TG"}</span>
+                          {batchDiscoveredMap.has(item.id) && (
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-link-teal text-text-inverse font-mono font-bold">
+                              {batchDiscoveredMap.get(item.id)}
+                            </span>
+                          )}
                         </button>
 
                         {/* + PROYEK REVIEW MODAL */}

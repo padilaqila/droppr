@@ -26,11 +26,19 @@ import {
   Filter,
   ArrowUpDown,
   RotateCcw,
+  RefreshCw,
+  Send,
 } from "lucide-react";
 import { StatusBadge, type ProjectStatus as BadgeProjectStatus } from "@/components/ui/status-badge";
 import { CreateFolderModal } from "@/components/features/create-folder-modal";
 import { CreateProjectModal } from "@/components/features/create-project-modal";
 import { BulkDeleteModal } from "@/components/features/bulk-delete-modal";
+import { BatchTelegramSyncModal } from "@/components/features/batch-telegram-sync-modal";
+import {
+  scanProjectsTelegramBatch,
+  type BatchTelegramItem,
+  type ProjectScanTarget,
+} from "@/lib/supabase/telegram-batch-scanner";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { useTranslation } from "@/lib/i18n/context";
@@ -89,6 +97,75 @@ export function ProjectsClientView({
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+
+  // Batch Telegram Scanner State
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState<{ current: number; total: number; name: string } | null>(null);
+  const [discoveredBatchItems, setDiscoveredBatchItems] = useState<BatchTelegramItem[]>([]);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+
+  const batchDiscoveredMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of discoveredBatchItems) {
+      map.set(item.projectId, (map.get(item.projectId) || 0) + 1);
+    }
+    return map;
+  }, [discoveredBatchItems]);
+
+  const handleStartBatchScan = async () => {
+    if (isScanning) return;
+    setIsScanning(true);
+    setScanProgress(null);
+
+    try {
+      const activeTargets: ProjectScanTarget[] = projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        chain: p.chain,
+        status: p.status,
+        social_links: p.social_links as any,
+      }));
+
+      const results = await scanProjectsTelegramBatch(activeTargets, (current, total, name) => {
+        setScanProgress({ current, total, name });
+      });
+
+      setDiscoveredBatchItems(results);
+      if (results.length > 0) {
+        setIsSyncModalOpen(true);
+        showToast(
+          isEn
+            ? `Found ${results.length} new update(s)! Review and sync.`
+            : `Ditemukan ${results.length} kabar baru! Tinjau dan simpan.`,
+          "success"
+        );
+      } else {
+        showToast(
+          isEn
+            ? "All active projects are already up to date."
+            : "Semua proyek aktif sudah yang terbaru.",
+          "info"
+        );
+      }
+    } catch (err: any) {
+      console.error("Batch scan error:", err);
+      showToast(isEn ? "Failed to scan Telegram updates." : "Gagal memindai update Telegram.", "info");
+    } finally {
+      setIsScanning(false);
+      setScanProgress(null);
+    }
+  };
+
+  const handleSyncComplete = (savedCount: number) => {
+    // Clear items that were saved
+    setDiscoveredBatchItems([]);
+    showToast(
+      isEn
+        ? `Successfully saved ${savedCount} update(s) to project threads!`
+        : `Berhasil menyimpan ${savedCount} kabar baru ke linimasa proyek!`,
+      "success"
+    );
+  };
 
   // Explorer State
   // selectedFolderFilter: null = Semua Proyek, "root" = Tanpa Folder, string (UUID) = Folder ID
@@ -474,7 +551,30 @@ export function ProjectsClientView({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* Batch Telegram Update Scanner */}
+          <button
+            type="button"
+            onClick={handleStartBatchScan}
+            disabled={isScanning}
+            className="px-3.5 py-2 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-caption font-semibold transition-all inline-flex items-center gap-2 shadow-xs disabled:opacity-50"
+            title={isEn ? "Scan Telegram updates for active projects" : "Pindai kabar Telegram untuk proyek aktif"}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isScanning ? "animate-spin text-sky-400" : "text-sky-400"}`} />
+            <span>
+              {isScanning
+                ? scanProgress
+                  ? `${scanProgress.current}/${scanProgress.total} ${scanProgress.name.slice(0, 10)}...`
+                  : (isEn ? "Scanning TG..." : "Memindai TG...")
+                : (isEn ? "Check TG Updates" : "Periksa Update TG")}
+            </span>
+            {discoveredBatchItems.length > 0 && !isScanning && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-sky-500 text-black">
+                {discoveredBatchItems.length}
+              </span>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={() => setIsFolderModalOpen(true)}
@@ -844,10 +944,23 @@ export function ProjectsClientView({
 
                       {/* Project Name & Website */}
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-body-sm font-semibold text-text-primary group-hover:text-accent transition-colors truncate">
                             {proj.name}
                           </span>
+                          {(batchDiscoveredMap.get(proj.id) || 0) > 0 && (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsSyncModalOpen(true);
+                              }}
+                              className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 inline-flex items-center gap-1 shrink-0 animate-pulse hover:bg-sky-500/25"
+                              title={isEn ? "New update available - click to review" : "Update baru tersedia - klik untuk tinjau"}
+                            >
+                              <Send className="w-2.5 h-2.5" />
+                              <span>{batchDiscoveredMap.get(proj.id)} Baru</span>
+                            </span>
+                          )}
                           {social.website && (
                             <a
                               href={social.website}
@@ -992,10 +1105,23 @@ export function ProjectsClientView({
                     </div>
 
                     {/* Name & Quick Link */}
-                    <div className="min-w-0 flex-1 flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
                       <span className="text-body-sm font-semibold text-text-primary group-hover:text-accent transition-colors truncate">
                         {proj.name}
                       </span>
+                      {(batchDiscoveredMap.get(proj.id) || 0) > 0 && (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsSyncModalOpen(true);
+                          }}
+                          className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 inline-flex items-center gap-1 shrink-0 animate-pulse hover:bg-sky-500/25"
+                          title={isEn ? "New update available - click to review" : "Update baru tersedia - klik untuk tinjau"}
+                        >
+                          <Send className="w-2.5 h-2.5" />
+                          <span>{batchDiscoveredMap.get(proj.id)} Baru</span>
+                        </span>
+                      )}
                       {social.website && (
                         <a
                           href={social.website}
@@ -1159,6 +1285,13 @@ export function ProjectsClientView({
         onClose={() => setIsBulkDeleteOpen(false)}
         count={selectedProjectIds.length}
         onConfirm={handleBulkDeleteConfirm}
+      />
+
+      <BatchTelegramSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        discoveredItems={discoveredBatchItems}
+        onSyncComplete={handleSyncComplete}
       />
     </div>
   );
