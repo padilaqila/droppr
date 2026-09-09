@@ -1,5 +1,24 @@
 # MEMORY_ARCHIVE.md — Arsip Pembelajaran Lama Droppr
 
+## [2026-09-08] Teks bertumpuk 3 baris di kartu waitlist akibat penumpukan aksi dan teks sekunder
+- Apa yang salah: Footer kartu Waitlist yang sudah bergabung menampilkan teks yang terpotong dan ter-wrap menjadi 3 baris rapat yang tidak terbaca pada container kartu grid (~300px).
+- Kenapa terjadi (root cause, bukan cuma gejala): Terlalu banyak item aksi yang diletakkan dalam satu baris flex horizontal tunggal (`Opsi AI • Pindah Tugas` di kiri, serta `Batal Join • Hapus` di kanan), sehingga saat lebar kolom mengecil, browser terpaksa memecah teks menjadi 3 baris yang saling bertumpuk. Ditambah keberadaan tombol opsi AI yang memakan ruang dan jarang dipakai.
+- Perbaikan yang dilakukan: Menghapus opsi AI dari kartu, membagi footer menjadi 2 baris terstruktur rapi: Baris 1 berupa grid 2 tombol aksi utama (`Update TG` & `Buat Proyek`), dan Baris 2 berupa flex satu baris lega yang memuat `Pindah Tugas` di kiri serta `Batal Join • Hapus` di kanan.
+- Aturan ke depan: Pada kartu grid dengan lebar dinamis/sempit (<320px), jangan menumpuk lebih dari 2 aksi teks di sisi kanan/kiri flex; pisahkan aksi tombol primer ke baris tersendiri dan jaga baris utilitas tetap maksimal 2-3 teks pendek.
+
+## [2026-09-08] Redundansi icon SVG dengan emoji unicode dan pemaksaan action AI boros token
+- Apa yang salah: Komponen tombol memunculkan icon Lucide SVG sekaligus emoji unicode secara ganda (misal `<Sparkles /> ✨ Buat Proyek`), serta tombol konversi AI dijadikan aksi utama default yang memboroskan kuota token pengguna.
+- Kenapa terjadi (root cause, bukan cuma gejala): Terjadi inkonsistensi penulisan label teks tombol saat menambahkan fitur AI, di mana emoji hiasan dimasukkan ke dalam teks string padahal icon SVG Lucide sudah dirender, serta tidak memisahkan tombol konversi manual ($0 token) sebagai aksi default.
+- Perbaikan yang dilakukan: Menghapus seluruh emoji ganda dari label tombol dan modal, menetapkan tombol manual ("Buat Proyek") sebagai aksi utama default yang instan dan hemat token, serta menempatkan AI ("Gunakan AI" / "Ekstrak via AI") sebagai opsi tambahan opsional on-demand.
+- Aturan ke depan: JANGAN pernah menggabungkan icon Lucide dengan emoji unicode pada label tombol/heading, dan selalu jadikan aksi manual sebagai default hemat token sebelum menawarkan opsi AI.
+
+## [2026-09-08] Fallback border-color putih (#e5e7eb) akibat slash opacity pada CSS variable HEX di Tailwind v3
+- Apa yang salah: Tampilan dark mode di feed dan antarmuka Droppr memunculkan garis-garis border putih terang yang tajam dan memaksakan pada sidebar, topbar, filter, dan kotak-kotak checklist task.
+- Kenapa terjadi (root cause, bukan cuma gejala): Token border didefinisikan dalam format HEX (`--color-border-hairline: #222A35`). Di berbagai komponen digunakan class slash opacity seperti `border-border-hairline/50` atau `/40`. Di Tailwind CSS v3, variabel HEX tanpa format raw RGB tidak mendukung sintaks slash opacity, sehingga Tailwind mengabaikan class warna tersebut dan browser jatuh ke preflight default `borderColor.DEFAULT` (`#e5e7eb` abu-abu terang / putih).
+- Perbaikan yang dilakukan: Mengonfigurasi `borderColor.DEFAULT: "var(--color-border-hairline)"` di `tailwind.config.ts`, menambahkan preflight `*, ::before, ::after { border-color: var(--color-border-hairline); }` di `styles/globals.css`, menambahkan token `--color-border-subtle` dengan nilai `rgba(255,255,255,0.04)` dan `--color-border-hairline: rgba(255,255,255,0.08)` yang menyatu alami dengan background dark mode, mendesain ulang daftar langkah task di feed agar tidak menggunakan kotak kaku bergaris putih, serta mengganti seluruh class `border-border-hairline/xx` yang rusak dengan token styling yang valid.
+- Aturan ke depan: JANGAN pernah gunakan sintaks slash opacity (`/50`, `/40`) pada class warna custom yang memetakan ke CSS variable HEX, dan selalu pastikan `borderColor.DEFAULT` disetel ke token border hairline agar tidak jatuh ke warna putih.
+
+
 ## [2026-09-08] Navigasi antar tab berat akibat remote auth di middleware pada request RSC
 - Apa yang salah: Berpindah halaman atau tab (seperti klik notifikasi/reminders) terasa sangat berat, dan muncul 404/500 MODULE_NOT_FOUND akibat cache Webpack dev bentrok dengan sisa `next build`.
 - Kenapa terjadi (root cause, bukan cuma gejala): Setiap kali berpindah tab di Next.js App Router (RSC request), `middleware.ts` memanggil `await supabase.auth.getUser()`, memaksa browser menunggu roundtrip HTTP remote ke Supabase cloud sebelum merender tab baru. Selain itu, menjalankan `next dev` langsung setelah `next build` tanpa membersihkan direktori `.next` menyebabkan hash chunk lama di-request oleh browser dan menghasilkan 404.
