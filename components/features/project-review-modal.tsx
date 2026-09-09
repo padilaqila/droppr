@@ -13,16 +13,24 @@ import {
   Layers,
   BookOpen,
   Share2,
-  Trash2,
-  Plus,
   RotateCcw,
   Sparkles,
   Zap,
   AtSign,
   Check,
+  Bell,
+  Calendar,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 import { parseAirdropProjectData } from "@/lib/supabase/airdrop-parser";
 import { sanitizeSurrogates, sanitizeJsonObject } from "@/lib/supabase/thread-updates";
+import {
+  calculateNextTrigger,
+  encodeFrequency,
+  DAYS_OF_WEEK,
+  type ReminderScheduleType,
+} from "@/lib/supabase/reminders-helper";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import type { AirdropFeedItem } from "@/lib/supabase/airdrop-feeds";
@@ -30,16 +38,11 @@ import type { WaitlistItem } from "@/lib/supabase/waitlists";
 import { useTranslation } from "@/lib/i18n/context";
 
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
+type QuickReminderOption = "daily" | "once" | "weekly" | "none";
 
 interface FolderOption {
   id: string;
   name: string;
-}
-
-interface ReviewTask {
-  id: string;
-  title: string;
-  type: "one_time" | "daily" | "weekly";
 }
 
 interface ProjectReviewModalProps {
@@ -88,12 +91,16 @@ export function ProjectReviewModal({
   const [accountLabel, setAccountLabel] = useState("Email");
   const [accountValue, setAccountValue] = useState("");
 
-  // Tasks
-  const [tasks, setTasks] = useState<ReviewTask[]>([]);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskType, setNewTaskType] = useState<"one_time" | "daily" | "weekly">("one_time");
+  // Quick Reminder Settings
+  const [reminderOption, setReminderOption] = useState<QuickReminderOption>("daily");
+  const [reminderTime, setReminderTime] = useState("07:00");
+  const [reminderDate, setReminderDate] = useState(() => {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    return tomorrow.toISOString().split("T")[0];
+  });
+  const [reminderDays, setReminderDays] = useState<string[]>(["mon"]);
 
-  // Guide / Notes
+  // Guide / Notes (Pure original text)
   const [guideContent, setGuideContent] = useState("");
 
   // Load folders once
@@ -177,43 +184,15 @@ export function ProjectReviewModal({
       setAccountValue("");
     }
 
-    // Tasks
-    const parsedTasks: ReviewTask[] = (parsed.tasks || []).map((t, idx) => ({
-      id: `task-${idx}-${Date.now()}`,
-      title: t.title,
-      type: t.type === "daily" ? "daily" : "one_time",
-    }));
-    setTasks(parsedTasks);
-
-    // Guide
-    setGuideContent(parsed.guide_content || rawText);
+    // Guide: Pure original post as requested (no redundant reformatted AI summary)
+    setGuideContent(rawText || "");
   }, [isOpen, source, feedItem, waitlistItem]);
 
-  const handleAddTask = () => {
-    if (!newTaskTitle.trim()) return;
-    setTasks((prev) => [
-      ...prev,
-      {
-        id: `custom-task-${Date.now()}`,
-        title: newTaskTitle.trim(),
-        type: newTaskType,
-      },
-    ]);
-    setNewTaskTitle("");
-  };
-
-  const handleRemoveTask = (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const handleToggleTaskType = (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        const nextType: "one_time" | "daily" | "weekly" =
-          t.type === "one_time" ? "daily" : t.type === "daily" ? "weekly" : "one_time";
-        return { ...t, type: nextType };
-      })
+  const toggleReminderDay = (dayId: string) => {
+    setReminderDays((prev) =>
+      prev.includes(dayId)
+        ? prev.filter((d) => d !== dayId)
+        : [...prev, dayId]
     );
   };
 
@@ -275,22 +254,37 @@ export function ProjectReviewModal({
 
       const newProjectId = projectData.id;
 
-      // 3. Insert tasks
-      if (tasks.length > 0) {
-        const taskRows = tasks
-          .map((t) => ({
-            project_id: newProjectId,
-            title: sanitizeSurrogates(t.title).trim(),
-            type: t.type,
-            status: "pending" as const,
-          }))
-          .filter((t) => t.title.length > 0);
+      // 3. Create reminder if scheduled
+      if (reminderOption !== "none") {
+        try {
+          const scheduleType: ReminderScheduleType = reminderOption;
+          const encodedFreq = encodeFrequency(
+            scheduleType,
+            reminderTime,
+            reminderDays,
+            reminderDate
+          );
+          const nextTriggerIso = calculateNextTrigger(
+            scheduleType,
+            reminderTime,
+            reminderDays,
+            reminderDate
+          );
 
-        if (taskRows.length > 0) {
-          const { error: tasksErr } = await supabase.from("tasks").insert(taskRows);
-          if (tasksErr) {
-            console.warn("Tasks insert warning:", tasksErr);
+          const { error: reminderErr } = await supabase.from("reminders").insert({
+            user_id: user.id,
+            project_id: newProjectId,
+            task_id: null,
+            frequency: encodedFreq,
+            channel: ["app"],
+            next_trigger_at: nextTriggerIso,
+          });
+
+          if (reminderErr) {
+            console.warn("Reminder insert warning:", reminderErr);
           }
+        } catch (rErr) {
+          console.warn("Error calculating/saving reminder:", rErr);
         }
       }
 
@@ -583,114 +577,212 @@ export function ProjectReviewModal({
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Tasks Checklist & Source Guide (5 Cols) */}
+            {/* RIGHT COLUMN: Quick Reminder & Raw Telegram Post (5 Cols) */}
             <div className="lg:col-span-5 space-y-5">
-              {/* Interactive Tasks Editor */}
+              {/* Quick Reminder Settings */}
               <div className="space-y-3 p-4 rounded-xl bg-bg-elevated-2/70 border border-border-hairline flex flex-col">
                 <div className="flex items-center justify-between gap-2">
                   <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
-                    <Zap className="w-4 h-4 text-accent" />
-                    <span>{isEn ? `Task Checklist (${tasks.length})` : `Daftar Checklist Tugas (${tasks.length})`}</span>
+                    <Bell className="w-4 h-4 text-accent" />
+                    <span>{isEn ? "Quick Reminder" : "Atur Pengingat Cepat"}</span>
                   </h4>
-                  <span className="text-[11px] font-mono text-text-tertiary">
-                    {isEn ? "Click badge to toggle type" : "Klik badge ubah tipe"}
-                  </span>
+                  {reminderOption !== "none" && (
+                    <span className="text-[11px] font-mono text-accent font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {reminderOption === "daily"
+                        ? isEn ? "Everyday" : "Setiap Hari"
+                        : reminderOption === "once"
+                        ? isEn ? "Single Alert" : "Hanya Sekali"
+                        : isEn ? "Weekly" : "Mingguan"}
+                    </span>
+                  )}
                 </div>
 
-                {/* Add task bar */}
-                <div className="flex gap-2">
-                  <select
-                    value={newTaskType}
-                    onChange={(e) => setNewTaskType(e.target.value as any)}
-                    className="px-2 py-1.5 rounded-lg bg-bg-elevated border border-border-hairline text-caption text-text-primary shrink-0 focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="one_time">{isEn ? "One-time" : "Sekali"}</option>
-                    <option value="daily">{isEn ? "Daily" : "Harian"}</option>
-                    <option value="weekly">{isEn ? "Weekly" : "Mingguan"}</option>
-                  </select>
-                  <Input
-                    type="text"
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    placeholder={isEn ? "Add task..." : "Tambah tugas..."}
-                    className="flex-1 !py-1.5 text-caption"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddTask();
-                      }
-                    }}
-                  />
+                {/* Quick frequency buttons */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
-                    onClick={handleAddTask}
-                    className="px-3 py-1.5 rounded-lg bg-accent text-on-accent hover:bg-accent-pressed transition-colors text-caption font-semibold shrink-0"
+                    onClick={() => setReminderOption("daily")}
+                    className={`px-3 py-2 rounded-lg border text-caption font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
+                      reminderOption === "daily"
+                        ? "bg-accent/15 border-accent text-accent font-bold"
+                        : "bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-hairline"
+                    }`}
                   >
-                    <Plus className="w-4 h-4" />
+                    <Clock className="w-4 h-4" />
+                    <span>{isEn ? "Daily" : "Setiap Hari"}</span>
+                    <span className="text-[10px] font-mono opacity-80">07:00 WIB</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReminderOption("once")}
+                    className={`px-3 py-2 rounded-lg border text-caption font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
+                      reminderOption === "once"
+                        ? "bg-accent/15 border-accent text-accent font-bold"
+                        : "bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-hairline"
+                    }`}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>{isEn ? "Once" : "Hanya Sekali"}</span>
+                    <span className="text-[10px] font-mono opacity-80">{isEn ? "Custom Date" : "Pilih Tgl"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReminderOption("weekly")}
+                    className={`px-3 py-2 rounded-lg border text-caption font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
+                      reminderOption === "weekly"
+                        ? "bg-accent/15 border-accent text-accent font-bold"
+                        : "bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-hairline"
+                    }`}
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span>{isEn ? "Weekly" : "Mingguan"}</span>
+                    <span className="text-[10px] font-mono opacity-80">{isEn ? "Select Days" : "Pilih Hari"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReminderOption("none")}
+                    className={`px-3 py-2 rounded-lg border text-caption font-semibold flex flex-col items-center justify-center gap-1 transition-all ${
+                      reminderOption === "none"
+                        ? "bg-bg-elevated-2 border-border-hairline text-text-primary font-bold"
+                        : "bg-bg-elevated border-border-subtle text-text-tertiary hover:text-text-secondary hover:border-border-hairline"
+                    }`}
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span>{isEn ? "No Reminder" : "Tanpa Alarm"}</span>
+                    <span className="text-[10px] font-mono opacity-80">{isEn ? "Off" : "Mati"}</span>
                   </button>
                 </div>
 
-                {/* Task list container */}
-                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
-                  {tasks.length > 0 ? (
-                    tasks.map((t) => (
-                      <div
-                        key={t.id}
-                        className="p-2.5 rounded-lg bg-bg-elevated border border-border-subtle hover:border-border-hairline text-caption flex items-start justify-between gap-2 transition-colors group"
-                      >
-                        <div className="min-w-0 flex items-start gap-2 pt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleTaskType(t.id)}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase shrink-0 transition-colors ${
-                              t.type === "daily"
-                                ? "bg-accent/15 text-accent border border-accent/30"
-                                : t.type === "weekly"
-                                ? "bg-link-teal/15 text-link-teal border border-link-teal/30"
-                                : "bg-bg-elevated-2 text-text-secondary border border-border-subtle"
-                            }`}
-                            title={isEn ? "Click to switch type (One-time / Daily / Weekly)" : "Klik untuk mengganti tipe (Sekali / Harian / Mingguan)"}
-                          >
-                            {t.type === "daily" ? (isEn ? "Daily" : "Harian") : t.type === "weekly" ? (isEn ? "Weekly" : "Mingguan") : (isEn ? "One-time" : "Sekali")}
-                          </button>
-                          <span className="text-text-primary leading-tight break-words font-medium">
-                            {t.title}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTask(t.id)}
-                          className="p-1 rounded text-text-tertiary hover:text-status-danger transition-colors shrink-0"
-                          title={isEn ? "Delete this task" : "Hapus tugas ini"}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-6 text-caption text-text-tertiary">
-                      {isEn ? "No tasks yet. Type a task above to add a checklist." : "Belum ada tugas. Ketik tugas di atas untuk menambahkan checklist pengerjaan."}
+                {/* Conditional detail form for reminder */}
+                {reminderOption === "daily" && (
+                  <div className="p-3 rounded-lg bg-bg-elevated border border-border-subtle space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-caption font-medium text-text-secondary flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-accent" />
+                        <span>{isEn ? "Alert Time (WIB / Local)" : "Waktu Pengingat (WIB)"}</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={reminderTime}
+                        onChange={(e) => setReminderTime(e.target.value)}
+                        className="px-2.5 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-caption font-mono text-text-primary focus:outline-none focus:border-accent"
+                      />
                     </div>
-                  )}
-                </div>
+                    <p className="text-[11px] text-text-tertiary">
+                      {isEn
+                        ? `Droppr will send an in-app reminder every day at ${reminderTime}.`
+                        : `Droppr akan membunyikan pengingat harian setiap pukul ${reminderTime} WIB.`}
+                    </p>
+                  </div>
+                )}
+
+                {reminderOption === "once" && (
+                  <div className="p-3 rounded-lg bg-bg-elevated border border-border-subtle space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-text-secondary flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-accent" />
+                          <span>{isEn ? "Date" : "Tanggal"}</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={reminderDate}
+                          onChange={(e) => setReminderDate(e.target.value)}
+                          className="w-full px-2.5 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-caption font-mono text-text-primary focus:outline-none focus:border-accent"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-text-secondary flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-accent" />
+                          <span>{isEn ? "Time" : "Waktu"}</span>
+                        </label>
+                        <input
+                          type="time"
+                          value={reminderTime}
+                          onChange={(e) => setReminderTime(e.target.value)}
+                          className="w-full px-2.5 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-caption font-mono text-text-primary focus:outline-none focus:border-accent"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-text-tertiary">
+                      {isEn
+                        ? `One-time alert scheduled for ${reminderDate} at ${reminderTime}.`
+                        : `Pengingat satu kali dijadwalkan pada ${reminderDate} pukul ${reminderTime} WIB.`}
+                    </p>
+                  </div>
+                )}
+
+                {reminderOption === "weekly" && (
+                  <div className="p-3 rounded-lg bg-bg-elevated border border-border-subtle space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-medium text-text-secondary">
+                        {isEn ? "Select Days" : "Pilih Hari Pengingat"}
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {DAYS_OF_WEEK.map((d) => {
+                          const isSelected = reminderDays.includes(d.id);
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => toggleReminderDay(d.id)}
+                              className={`px-2.5 py-1 rounded text-caption font-mono transition-colors ${
+                                isSelected
+                                  ? "bg-accent text-on-accent font-bold"
+                                  : "bg-bg-elevated-2 text-text-secondary border border-border-subtle hover:border-border-hairline"
+                              }`}
+                            >
+                              {d.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 pt-1 border-t border-border-subtle">
+                      <label className="text-caption font-medium text-text-secondary flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-accent" />
+                        <span>{isEn ? "Time" : "Waktu"}</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={reminderTime}
+                        onChange={(e) => setReminderTime(e.target.value)}
+                        className="px-2.5 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-caption font-mono text-text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {reminderOption === "none" && (
+                  <div className="p-2.5 rounded-lg bg-bg-elevated border border-border-subtle text-caption text-text-tertiary text-center">
+                    {isEn
+                      ? "No reminder scheduled. You can still set it anytime later."
+                      : "Tanpa pengingat otomatis. Anda tetap dapat memasangnya kapan saja nanti di menu Pengingat."}
+                  </div>
+                )}
               </div>
 
-              {/* Guide / Original text preview */}
+              {/* Guide / Pure original telegram post preview */}
               <div className="space-y-2">
                 <label className="text-caption font-medium text-text-secondary flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <BookOpen className="w-3.5 h-3.5 text-text-tertiary" />
-                    <span>{isEn ? "Notes / Task Guide" : "Catatan / Panduan Pengerjaan"}</span>
+                  <span className="flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-accent" />
+                    <span>{isEn ? "Original Telegram Post / Guide" : "Postingan Asli Telegram / Panduan"}</span>
                   </span>
-                  <span className="text-[11px] text-text-tertiary">{isEn ? "Saved to project" : "Tersimpan di proyek"}</span>
+                  <span className="text-[11px] text-text-tertiary">
+                    {isEn ? "Pure post saved to project" : "Tersimpan murni ke proyek"}
+                  </span>
                 </label>
                 <textarea
-                  rows={5}
+                  rows={8}
                   value={guideContent}
                   onChange={(e) => setGuideContent(e.target.value)}
-                  placeholder={isEn ? "Step-by-step notes..." : "Catatan panduan langkah kerja..."}
-                  className="w-full px-3 py-2 rounded-lg bg-bg-elevated-2 border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent font-mono resize-y"
+                  placeholder={isEn ? "Raw Telegram post content..." : "Isi postingan asli Telegram..."}
+                  className="w-full px-3 py-2.5 rounded-lg bg-bg-elevated-2 border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent font-mono resize-y leading-relaxed"
                 />
               </div>
             </div>
