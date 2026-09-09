@@ -42,6 +42,7 @@ import {
   extractTasksFromText,
   transferWaitlistUpdateToTasks,
 } from "@/lib/supabase/waitlists";
+import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 
 interface WaitlistClientViewProps {
   initialWaitlists: WaitlistItem[];
@@ -1412,7 +1413,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                     type="button"
                     onClick={() => {
                       if (detailModalTarget.raw_text) {
-                        navigator.clipboard.writeText(detailModalTarget.raw_text);
+                        navigator.clipboard.writeText(cleanDuplicateLinks(detailModalTarget.raw_text));
                         setDetailCopied(true);
                         setTimeout(() => setDetailCopied(false), 2000);
                       }
@@ -1437,7 +1438,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 </div>
 
                 <div className="p-3 rounded-md bg-bg-surface border border-border-subtle text-body-sm text-text-primary whitespace-pre-line leading-relaxed font-sans max-h-56 overflow-y-auto select-text">
-                  {detailModalTarget.raw_text}
+                  {cleanDuplicateLinks(detailModalTarget.raw_text)}
                 </div>
               </div>
             </div>

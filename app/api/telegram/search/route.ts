@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cleanTelegramHtml } from "@/lib/utils/clean-links";
 
 export interface TelegramUpdateItem {
   id: string;
@@ -13,21 +14,6 @@ const TARGET_CHANNELS = [
   { username: "airdropfind", name: "Airdrop Finder" },
   { username: "dutacryptoairdrop", name: "Duta Crypto Airdrop" },
 ];
-
-/**
- * Clean telegram HTML message text into readable text
- */
-function cleanTelegramText(rawHtml: string): string {
-  return rawHtml
-    .replace(/<br\s*[\/]?>/gi, "\n")
-    .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "$2 ($1)")
-    .replace(/<b[^>]*>(.*?)<\/b>/gi, "$1")
-    .replace(/<i[^>]*>(.*?)<\/i>/gi, "$1")
-    .replace(/<code[^>]*>(.*?)<\/code>/gi, "$1")
-    .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
-    .replace(/<[^>]+>/g, "")
-    .trim();
-}
 
 /**
  * Parse telegram public preview HTML messages
@@ -51,7 +37,7 @@ function parseTelegramHtml(html: string, channel: string, channelName: string): 
     // Extract text content
     const textMatch = /<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(block);
     const rawText = textMatch ? textMatch[1] : "";
-    const cleanText = cleanTelegramText(rawText);
+    const cleanText = cleanTelegramHtml(rawText);
 
     if (cleanText) {
       items.push({

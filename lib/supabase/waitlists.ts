@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { cleanHtmlEntities, sanitizeSurrogates, sanitizeJsonObject } from "./thread-updates";
+import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 
 export interface WaitlistItem {
   id: string;
@@ -37,14 +38,14 @@ export async function fetchWaitlists(): Promise<WaitlistItem[]> {
         id: String(row.id),
         project_name: cleanHtmlEntities(row.project_name),
         title: cleanHtmlEntities(row.title),
-        summary: row.summary ? cleanHtmlEntities(row.summary) : null,
+        summary: row.summary ? cleanDuplicateLinks(cleanHtmlEntities(row.summary)) : null,
         channel: row.channel,
         source_url: row.source_url,
-        raw_text: cleanHtmlEntities(row.raw_text),
+        raw_text: cleanDuplicateLinks(cleanHtmlEntities(row.raw_text)),
         status: row.status as "pending" | "joined",
         registered_account: row.registered_account,
-        ref_link: row.ref_link,
-        tasks: Array.isArray(row.tasks) ? row.tasks.map((t: string) => cleanHtmlEntities(t)) : [],
+        ref_link: row.ref_link ? cleanDuplicateLinks(row.ref_link) : null,
+        tasks: Array.isArray(row.tasks) ? row.tasks.map((t: string) => cleanDuplicateLinks(cleanHtmlEntities(t))) : [],
         joined_at: row.joined_at,
         created_at: row.created_at,
         expires_at: row.expires_at,

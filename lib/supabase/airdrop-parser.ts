@@ -4,6 +4,8 @@
  * Extracts: Clean Name, Chain, Classified Resource Links (Website, DApp, Faucet, Docs, X, Telegram, Discord, Ref Link, Custom Links), Tasks, and Guide Content.
  */
 
+import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
+
 export interface ParsedAirdropData {
   name: string;
   chain: string;
@@ -611,17 +613,18 @@ export function parseAirdropProjectData(
     existingTasks?: string[];
   } = {}
 ): ParsedAirdropData {
+  const cleanRawText = cleanDuplicateLinks(rawText);
   const name = cleanProjectName(title);
-  const chain = detectChain(rawText, title);
-  const social_links = parseResourceLinks(rawText, {
+  const chain = detectChain(cleanRawText, title);
+  const social_links = parseResourceLinks(cleanRawText, {
     sourceUrl: options.sourceUrl,
     fallbackRefLink: options.refLink,
   });
 
-  const tasks = parseTasks(rawText, name);
+  const tasks = parseTasks(cleanRawText, name);
   if (options.existingTasks && options.existingTasks.length > 0) {
     const existingParsed = options.existingTasks.map((t) => ({
-      title: cleanTaskLine(t),
+      title: cleanTaskLine(cleanDuplicateLinks(t)),
       type: (t.toLowerCase().includes("daily") || t.toLowerCase().includes("harian") ? "daily" : "one_time") as
         | "one_time"
         | "daily",
@@ -641,7 +644,7 @@ export function parseAirdropProjectData(
     cost: options.cost,
     social_links,
     tasks,
-    rawText,
+    rawText: cleanRawText,
     accountNote: options.accountNote,
   });
 

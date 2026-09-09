@@ -27,6 +27,7 @@ import {
   type ThreadItem,
 } from "@/lib/supabase/thread-updates";
 import { useTranslation } from "@/lib/i18n/context";
+import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 
 interface ParsedAiItem {
   type: "task" | "news";
@@ -722,7 +723,7 @@ export function TelegramUpdateModal({
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => handleCopy(item.id, item.text)}
+                              onClick={() => handleCopy(item.id, cleanDuplicateLinks(item.text))}
                               className="p-1 text-text-tertiary hover:text-text-primary rounded hover:bg-bg-elevated transition-colors"
                               title={isEn ? "Copy post text" : "Salin teks postingan"}
                             >
@@ -748,7 +749,7 @@ export function TelegramUpdateModal({
 
                         {/* Post Text */}
                         <p className="text-body-sm text-text-primary leading-relaxed whitespace-pre-line mb-3 line-clamp-6 hover:line-clamp-none transition-all">
-                          {item.text}
+                          {cleanDuplicateLinks(item.text)}
                         </p>
 
                         {/* Bottom Actions: Check if already in thread */}

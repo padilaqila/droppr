@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cleanTelegramHtml } from "@/lib/utils/clean-links";
 
 export interface LiveFeedItem {
   id: string;
@@ -90,26 +91,6 @@ const FALLBACK_FEEDS: LiveFeedItem[] = [
     actionText: "Snapshot",
   },
 ];
-
-function cleanTelegramHtml(rawHtml: string): string {
-  return rawHtml
-    .replace(/<br\s*[\/]?>/gi, "\n")
-    .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "$2 ($1)")
-    .replace(/<b[^>]*>(.*?)<\/b>/gi, "$1")
-    .replace(/<i[^>]*>(.*?)<\/i>/gi, "$1")
-    .replace(/<code[^>]*>(.*?)<\/code>/gi, "$1")
-    .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
-    .replace(/<tg-emoji[^>]*>(.*?)<\/tg-emoji>/gi, "$1")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&#036;|&dollar;/g, "$")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .trim();
-}
 
 async function scrapeTelegramChannel(
   channelUsername: "airdropfind" | "dutacryptoairdrop",

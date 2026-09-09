@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { cleanHtmlEntities, sanitizeSurrogates, sanitizeJsonObject } from "./thread-updates";
 import { parseAirdropProjectData, cleanProjectName } from "./airdrop-parser";
+import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 
 export interface AirdropFeedItem {
   id: string;
@@ -146,12 +147,12 @@ export async function fetchAirdropFeeds(options?: {
         channel: row.channel,
         channel_name: row.channel_name,
         title: cleanHtmlEntities(row.title),
-        summary: row.summary ? cleanHtmlEntities(row.summary) : null,
+        summary: row.summary ? cleanDuplicateLinks(cleanHtmlEntities(row.summary)) : null,
         category: row.category,
         cost: row.cost ? cleanHtmlEntities(row.cost) : null,
-        tasks: Array.isArray(row.tasks) ? row.tasks.map((t: string) => cleanHtmlEntities(t)) : [],
+        tasks: Array.isArray(row.tasks) ? row.tasks.map((t: string) => cleanDuplicateLinks(cleanHtmlEntities(t))) : [],
         source_url: row.source_url,
-        raw_text: cleanHtmlEntities(row.raw_text),
+        raw_text: cleanDuplicateLinks(cleanHtmlEntities(row.raw_text)),
         is_imported: Boolean(row.is_imported),
         created_at: row.created_at,
         expires_at: row.expires_at,

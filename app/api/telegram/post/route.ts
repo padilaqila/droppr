@@ -1,40 +1,5 @@
 import { NextResponse } from "next/server";
-
-/**
- * Clean telegram HTML message text into clean readable text preserving links and formatting
- */
-function cleanTelegramHtml(rawHtml: string): string {
-  return rawHtml
-    .replace(/<br\s*[\/]?>/gi, "\n")
-    // Smart link handler: don't duplicate URL if text and href are identical
-    .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => {
-      const cleanHref = href.trim();
-      const cleanText = text.replace(/<[^>]+>/g, "").trim();
-      if (!cleanText || cleanText === cleanHref) return cleanHref;
-      return `${cleanText} (${cleanHref})`;
-    })
-    // Extract bold and italic as clean text without polluting with asterisks/underscores
-    .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, "$1")
-    .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, "$1")
-    .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, "$1")
-    .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, "$1")
-    .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, "`$1`")
-    .replace(/<span[^>]*>([\s\S]*?)<\/span>/gi, "$1")
-    .replace(/<[^>]+>/g, "")
-    // Decode common HTML entities
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&#036;/g, "$")
-    // Clean any nested/stacked markdown symbols that pollute the text
-    .replace(/\*\*+/g, "")
-    .replace(/(?:^|\s)__+(?=\s|$)/g, " ")
-    .replace(/_+\*\*+/g, "")
-    .replace(/\*\*+_+/g, "")
-    .trim();
-}
+import { cleanTelegramHtml } from "@/lib/utils/clean-links";
 
 export async function POST(request: Request) {
   try {

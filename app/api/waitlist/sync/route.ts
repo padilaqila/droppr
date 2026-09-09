@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { cleanTelegramHtml } from "@/lib/utils/clean-links";
 
 interface ParsedWaitlistPost {
   channel: "dutacryptoairdrop" | "airdropfind";
@@ -11,22 +12,6 @@ interface ParsedWaitlistPost {
   refLink: string | null;
   tasks: string[];
   rawText: string;
-}
-
-/**
- * Clean Telegram HTML text
- */
-function cleanTelegramHtml(rawHtml: string): string {
-  return rawHtml
-    .replace(/<br\s*[\/]?>/gi, "\n")
-    .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "$2 ($1)")
-    .replace(/<b[^>]*>(.*?)<\/b>/gi, "$1")
-    .replace(/<i[^>]*>(.*?)<\/i>/gi, "$1")
-    .replace(/<code[^>]*>(.*?)<\/code>/gi, "$1")
-    .replace(/<span[^>]*>(.*?)<\/span>/gi, "$1")
-    .replace(/<tg-emoji[^>]*>(.*?)<\/tg-emoji>/gi, "$1")
-    .replace(/<[^>]+>/g, "")
-    .trim();
 }
 
 /**

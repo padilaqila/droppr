@@ -22,6 +22,7 @@ import {
 } from "@/lib/supabase/thread-updates";
 import { getTranslationAction } from "@/lib/utils/language-prefs";
 import { useTranslation } from "@/lib/i18n/context";
+import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 
 interface ProjectThreadViewProps {
   projectId: string;
@@ -119,7 +120,7 @@ function formatTime(isoString?: string | null, isEn?: boolean): string {
  * Render formatted text with auto clickable external links
  */
 function renderInteractivePostText(rawText: string) {
-  const cleaned = cleanHtmlEntities(rawText);
+  const cleaned = cleanDuplicateLinks(cleanHtmlEntities(rawText));
   // Match markdown links [text](url) or naked URLs
   const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"']+)/g;
   const elements: React.ReactNode[] = [];
@@ -146,7 +147,14 @@ function renderInteractivePostText(rawText: string) {
         </a>
       );
     } else if (match[3]) {
-      const url = match[3];
+      let url = match[3];
+      let trailingPunct = "";
+      const punctMatch = url.match(/([.,;:!?)\]]+)$/);
+      if (punctMatch) {
+        trailingPunct = punctMatch[1];
+        url = url.slice(0, -trailingPunct.length);
+      }
+
       elements.push(
         <a
           key={`url-${match.index}`}
@@ -160,6 +168,10 @@ function renderInteractivePostText(rawText: string) {
           <ExternalLink className="w-2.5 h-2.5 shrink-0 inline" />
         </a>
       );
+
+      if (trailingPunct) {
+        elements.push(trailingPunct);
+      }
     }
 
     lastIndex = linkRegex.lastIndex;
@@ -174,9 +186,7 @@ function renderInteractivePostText(rawText: string) {
 
 function cleanMessageText(rawText: string): string {
   if (!rawText) return "";
-  let text = rawText;
-  // Clean duplicate URLs e.g. "https://minara.fun/ (https://minara.fun/)" -> "https://minara.fun/"
-  text = text.replace(/(https?:\/\/[^\s\)]+)\s*\(\1\)/gi, "$1");
+  let text = cleanDuplicateLinks(rawText);
   return text
     .replace(/^---+\s*/gm, "")
     .replace(/^#{1,6}\s+.*(?:Catatan|Pesan Asli|Postingan Asli).*/gim, "")

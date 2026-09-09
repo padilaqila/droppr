@@ -2,6 +2,12 @@
 
 > File ini ditulis oleh agen AI, bukan oleh manusia. Dibaca otomatis di awal sesi (bagian atas file diprioritaskan). Lihat `AGENTS.md` §5 untuk format entri dan aturan pemangkasan.
 
+## [2026-09-09] Duplikasi URL Link Tautan Telegram Karena Normalisasi Tag Anchor
+- Apa yang salah: Tautan dalam pesan Telegram (misalnya link registrasi atau sumber tweet) muncul ganda seperti "https://hyperanon.org (https://hyperanon.org/)" di modal preview feed, panduan proyek, dan waitlist.
+- Kenapa terjadi (root cause, bukan cuma gejala): Parser scraper Telegram sebelumnya mengonversi semua tag `<a href="$1">$2</a>` menjadi template `$2 ($1)`. Ketika teks tautan ($2) adalah URL yang sama persis dengan atribut href ($1) (hanya beda trailing slash atau protokol), hasilnya menjadi duplikasi link berdampingan.
+- Perbaikan yang dilakukan: Membuat utilitas terpusat `lib/utils/clean-links.ts` (`normalizeUrlForCompare`, `cleanDuplicateLinks`, dan `cleanTelegramHtml`). Jika teks dan href mengarah ke tujuan yang sama, tautan tidak diduplikasi dan hanya menampilkan satu URL bersih. Utilitas ini diterapkan di semua rute scraper, fetch query, fungsi salin/terjemah, dan parser teks interaktif di feed, waitlist, panduan, dan thread linimasa.
+- Aturan ke depan: Jangan pernah mengonversi tag anchor HTML ke format `teks (href)` tanpa memeriksa kesamaan URL antara teks dan href terlebih dahulu menggunakan fungsi pembersih tautan terpusat.
+
 ## [2026-09-09] Audit Menyeluruh Lokalisasi Bilingual (ID/EN) di Seluruh Halaman & Modal
 - Apa yang salah: Beberapa tombol, modal aksi (seperti transfer tugas waitlist, telegram updates modal, quick links, status pills, badge, dan konfirmasi hapus), serta teks bantuan masih tertinggal dalam bahasa Indonesia ketika user mengganti bahasa sistem ke EN di Settings.
 - Kenapa terjadi (root cause, bukan cuma gejala): Lokalisasi sebelumnya hanya difokuskan pada teks navigasi statis utama (`dictionaries/id.ts` & `en.ts`), sedangkan komponen-komponen fitur interaktif, modal sekunder, dan tooltip aksi dibuat dengan hardcoded bahasa Indonesia tanpa memanggil `useTranslation()`.

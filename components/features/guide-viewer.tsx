@@ -5,6 +5,7 @@ import { ExternalLink, Edit2, Save, X, Info } from "lucide-react";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
+import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 
 interface GuideViewerProps {
   projectId: string;
@@ -14,9 +15,10 @@ interface GuideViewerProps {
 
 /**
  * Parses plain text containing URLs and Markdown-style links [Label](url)
- * into interactive React elements.
+ * into interactive React elements. Pre-cleans duplicate links.
  */
 function renderInteractiveText(text: string) {
+  const cleanText = cleanDuplicateLinks(text);
   // Regex to match markdown links [text](url) or standalone URLs
   const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"']+)/g;
 
@@ -24,7 +26,7 @@ function renderInteractiveText(text: string) {
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = linkRegex.exec(text)) !== null) {
+  while ((match = linkRegex.exec(cleanText)) !== null) {
     const matchStart = match.index;
     const matchEnd = linkRegex.lastIndex;
 

@@ -45,6 +45,7 @@ import {
 import { ProjectReviewModal } from "@/components/features/project-review-modal";
 import { useTranslation } from "@/lib/i18n/context";
 import { getTranslationAction } from "@/lib/utils/language-prefs";
+import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 
 interface FeedClientViewProps {
   initialFeeds: AirdropFeedItem[];
@@ -149,16 +150,17 @@ export function formatTimeAgo(isoString?: string | null, locale: "id" | "en" = "
   }
 }
 
-// Render raw telegram text with interactive links in preview modal
+// Render raw telegram text with interactive links in preview modal, deduplicating duplicate URLs
 function renderInteractiveText(text: string) {
+  const cleanText = cleanDuplicateLinks(text);
   const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"']+)/g;
   const elements: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = linkRegex.exec(text)) !== null) {
+  while ((match = linkRegex.exec(cleanText)) !== null) {
     if (match.index > lastIndex) {
-      elements.push(text.slice(lastIndex, match.index));
+      elements.push(cleanText.slice(lastIndex, match.index));
     }
 
     if (match[1] && match[2]) {
@@ -175,25 +177,37 @@ function renderInteractiveText(text: string) {
         </a>
       );
     } else if (match[3]) {
+      let rawUrl = match[3];
+      let trailingPunct = "";
+      const punctMatch = rawUrl.match(/([.,;:!?)\]]+)$/);
+      if (punctMatch) {
+        trailingPunct = punctMatch[1];
+        rawUrl = rawUrl.slice(0, -trailingPunct.length);
+      }
+
       elements.push(
         <a
           key={`url-${match.index}`}
-          href={match[3]}
+          href={rawUrl}
           target="_blank"
           rel="noreferrer"
           className="text-amber-400 hover:text-amber-300 underline underline-offset-2 inline-flex items-center gap-1 font-mono text-[12px] transition-colors break-all"
         >
-          <span>{match[3]}</span>
+          <span>{rawUrl}</span>
           <ExternalLink className="w-3 h-3 shrink-0 inline" />
         </a>
       );
+
+      if (trailingPunct) {
+        elements.push(trailingPunct);
+      }
     }
 
     lastIndex = linkRegex.lastIndex;
   }
 
-  if (lastIndex < text.length) {
-    elements.push(text.slice(lastIndex));
+  if (lastIndex < cleanText.length) {
+    elements.push(cleanText.slice(lastIndex));
   }
 
   return elements;
@@ -268,12 +282,13 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
 
     setIsPreviewTranslating(true);
     try {
-      const action = getTranslationAction(previewingFeed.raw_text, locale, false);
+      const cleanRaw = cleanDuplicateLinks(previewingFeed.raw_text);
+      const action = getTranslationAction(cleanRaw, locale, false);
       const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: previewingFeed.raw_text,
+          text: cleanRaw,
           targetLang: action.targetLang,
           sourceLang: action.sourceLang,
         }),
@@ -1058,7 +1073,8 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      const textToCopy = showPreviewTranslated && previewTranslatedText ? previewTranslatedText : previewingFeed.raw_text;
+                      const raw = showPreviewTranslated && previewTranslatedText ? previewTranslatedText : previewingFeed.raw_text;
+                      const textToCopy = cleanDuplicateLinks(raw);
                       navigator.clipboard.writeText(textToCopy);
                       setIsPreviewCopied(true);
                       setTimeout(() => setIsPreviewCopied(false), 2500);
