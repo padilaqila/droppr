@@ -467,16 +467,16 @@ export function DashboardClientView({
               </div>
             </div>
 
-            {/* Responsive Filter Bar (Wide, Minimal Glass, Zero Scrollbar) */}
-            <div className="p-1 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center gap-1 overflow-x-auto no-scrollbar shadow-xs">
+            {/* Responsive Filter Bar (Wide, Clean Surface, Zero Scrollbar) */}
+            <div className="p-1 rounded-xl bg-bg-elevated border border-border-hairline flex items-center gap-1 overflow-x-auto no-scrollbar shadow-none">
               {/* 1. Siap Dikerjakan */}
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("ready")}
                 className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "ready"
-                    ? "bg-accent text-on-accent font-semibold shadow-xs"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+                    ? "bg-accent text-on-accent font-semibold shadow-none"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
                 }`}
               >
                 <Flame className={`w-3.5 h-3.5 ${activeProjectFilter === "ready" ? "text-on-accent" : "text-accent"}`} />
@@ -485,7 +485,7 @@ export function DashboardClientView({
                   className={`ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold ${
                     activeProjectFilter === "ready"
                       ? "bg-black/20 text-on-accent"
-                      : "bg-white/[0.06] text-text-secondary"
+                      : "bg-bg-elevated-2 text-text-secondary border border-border-hairline"
                   }`}
                 >
                   {readyProjects.length}
@@ -498,8 +498,8 @@ export function DashboardClientView({
                 onClick={() => setActiveProjectFilter("overdue")}
                 className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "overdue"
-                    ? "bg-status-overdue text-white font-semibold shadow-xs"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+                    ? "bg-status-overdue text-white font-semibold shadow-none"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
                 }`}
               >
                 <AlertCircle className={`w-3.5 h-3.5 ${activeProjectFilter === "overdue" ? "text-white" : "text-status-overdue"}`} />
@@ -510,7 +510,7 @@ export function DashboardClientView({
                       ? "bg-black/20 text-white"
                       : overdueProjects.length > 0
                       ? "bg-status-overdue/20 text-status-overdue border border-status-overdue/30"
-                      : "bg-white/[0.06] text-text-secondary"
+                      : "bg-bg-elevated-2 text-text-secondary border border-border-hairline"
                   }`}
                 >
                   {overdueProjects.length}
@@ -523,8 +523,8 @@ export function DashboardClientView({
                 onClick={() => setActiveProjectFilter("completed_today")}
                 className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "completed_today"
-                    ? "bg-status-completed text-white font-semibold shadow-xs"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+                    ? "bg-status-completed text-white font-semibold shadow-none"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
                 }`}
               >
                 <CheckCircle2 className={`w-3.5 h-3.5 ${activeProjectFilter === "completed_today" ? "text-white" : "text-status-completed"}`} />
@@ -535,7 +535,7 @@ export function DashboardClientView({
                       ? "bg-black/20 text-white"
                       : completedTodayProjects.length > 0
                       ? "bg-status-completed/20 text-status-completed border border-status-completed/30"
-                      : "bg-white/[0.06] text-text-secondary"
+                      : "bg-bg-elevated-2 text-text-secondary border border-border-hairline"
                   }`}
                 >
                   {completedTodayProjects.length}
@@ -548,13 +548,13 @@ export function DashboardClientView({
                 onClick={() => setActiveProjectFilter("upcoming")}
                 className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "upcoming"
-                    ? "bg-white/[0.12] text-text-primary font-semibold"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+                    ? "bg-bg-elevated-2 text-text-primary font-semibold border border-border-hairline"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
                 }`}
               >
                 <Clock className="w-3.5 h-3.5 text-text-tertiary" />
                 <span>{t("dashboard.tabs.upcoming")}</span>
-                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-white/[0.06] text-text-secondary">
+                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-bg-elevated-2 border border-border-hairline text-text-secondary">
                   {upcomingProjects.length}
                 </span>
               </button>
@@ -565,13 +565,13 @@ export function DashboardClientView({
                 onClick={() => setActiveProjectFilter("skipped")}
                 className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "skipped"
-                    ? "bg-white/[0.12] text-text-primary font-semibold"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+                    ? "bg-bg-elevated-2 text-text-primary font-semibold border border-border-hairline"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
                 }`}
               >
                 <FastForward className="w-3.5 h-3.5 text-text-tertiary" />
                 <span>{t("dashboard.tabs.skipped")}</span>
-                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-white/[0.06] text-text-secondary">
+                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-bg-elevated-2 border border-border-hairline text-text-secondary">
                   {skippedProjects.length}
                 </span>
               </button>
@@ -582,12 +582,12 @@ export function DashboardClientView({
                 onClick={() => setActiveProjectFilter("all")}
                 className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "all"
-                    ? "bg-white/[0.12] text-text-primary font-semibold"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+                    ? "bg-bg-elevated-2 text-text-primary font-semibold border border-border-hairline"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
                 }`}
               >
                 <span>{t("dashboard.tabs.all")}</span>
-                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-white/[0.06] text-text-secondary">
+                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-bg-elevated-2 border border-border-hairline text-text-secondary">
                   {projects.length}
                 </span>
               </button>
@@ -665,13 +665,13 @@ export function DashboardClientView({
                   <div
                     key={proj.id}
                     onClick={() => handleOpenGuideModal(proj)}
-                    className="group rounded-xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.18] transition-all duration-150 cursor-pointer p-4 sm:p-5 flex flex-col justify-between gap-3.5 shadow-sm"
+                    className="group rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline hover:border-border-hairline-strong transition-all duration-150 cursor-pointer p-4 sm:p-5 flex flex-col justify-between gap-3.5 shadow-none"
                   >
                     {/* Top Row: Project Name, Badges & Quick Links */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
                       <div className="space-y-1.5 min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <div className="w-7 h-7 rounded-md bg-white/[0.04] border border-white/[0.08] text-accent font-bold font-mono text-[11px] flex items-center justify-center shrink-0">
+                          <div className="w-7 h-7 rounded-md bg-bg-elevated-2 border border-border-hairline text-accent font-bold font-mono text-[11px] flex items-center justify-center shrink-0">
                             {proj.name.slice(0, 2).toUpperCase()}
                           </div>
 
@@ -680,7 +680,7 @@ export function DashboardClientView({
                           </span>
 
                           {proj.chain && (
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-text-secondary">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg-elevated-2 border border-border-hairline text-text-secondary">
                               {proj.chain}
                             </span>
                           )}
@@ -749,7 +749,7 @@ export function DashboardClientView({
                             href={dappUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] text-text-secondary hover:text-text-primary border border-white/[0.08] text-caption font-medium transition-all"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border border-border-hairline text-caption font-medium transition-all"
                             title="Buka Web App DApp Langsung"
                           >
                             <Layers className="w-3.5 h-3.5 text-accent" />
@@ -800,13 +800,13 @@ export function DashboardClientView({
 
                     {/* Card Footer: CTA & Skip / Restore Controls */}
                     <div
-                      className="flex items-center justify-between pt-1 flex-wrap gap-2 border-t border-white/[0.04]"
+                      className="flex items-center justify-between pt-1 flex-wrap gap-2 border-t border-border-hairline"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         type="button"
                         onClick={() => handleOpenGuideModal(proj)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.03] hover:bg-accent hover:text-on-accent border border-white/[0.08] hover:border-accent text-caption font-semibold text-text-primary transition-all duration-150"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-elevated hover:bg-accent hover:text-on-accent border border-border-hairline hover:border-accent text-caption font-semibold text-text-primary transition-all duration-150"
                       >
                         <Compass className="w-3.5 h-3.5 text-accent group-hover:text-on-accent transition-colors" />
                         <span>{t("dashboard.card.openGuide")}</span>
@@ -821,10 +821,10 @@ export function DashboardClientView({
                             e.stopPropagation();
                             handleMarkProjectDone(proj.id);
                           }}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-caption font-semibold transition-all shadow-xs ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-caption font-semibold transition-all shadow-none ${
                             isDailyDone
                               ? "bg-status-completed/15 text-status-completed border-status-completed/30 hover:bg-status-completed/25"
-                              : "bg-white/[0.03] text-text-secondary hover:text-text-primary hover:bg-white/[0.06] border-white/[0.08]"
+                              : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 border-border-hairline"
                           }`}
                           title={
                             isDailyDone
@@ -849,7 +849,7 @@ export function DashboardClientView({
                             <button
                               type="button"
                               onClick={(e) => handleOpenReminderForProject(proj.id, e)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] text-text-secondary hover:text-text-primary border border-white/[0.08] text-[11px] font-medium transition-all"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border border-border-hairline text-[11px] font-medium transition-all"
                             >
                               <Bell className="w-3 h-3 text-accent" />
                               <span>{t("dashboard.card.reRemind")}</span>
@@ -859,7 +859,7 @@ export function DashboardClientView({
                           <button
                             type="button"
                             onClick={(e) => handleSkipProject(proj.id, e)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] text-text-tertiary hover:text-text-secondary border border-white/[0.08] text-[11px] font-medium transition-all"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-bg-elevated hover:bg-bg-elevated-2 text-text-tertiary hover:text-text-secondary border border-border-hairline text-[11px] font-medium transition-all"
                             title={t("dashboard.card.skipTooltip")}
                           >
                             <FastForward className="w-3 h-3" />
@@ -878,7 +878,7 @@ export function DashboardClientView({
         {/* RIGHT COLUMN: Active Reminders Schedule Widget (lg:col-span-4 xl:col-span-4 2xl:col-span-3 space-y-5) */}
         <div className="lg:col-span-4 xl:col-span-4 2xl:col-span-3 space-y-5">
           {/* Reminders Hub Widget */}
-          <div className="rounded-xl bg-white/[0.02] border border-white/[0.08] p-4 sm:p-5 space-y-3.5 shadow-sm">
+          <div className="rounded-xl bg-bg-elevated border border-border-hairline p-4 sm:p-5 space-y-3.5 shadow-none">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-accent" />
@@ -901,7 +901,7 @@ export function DashboardClientView({
             </p>
 
             {reminders.length === 0 ? (
-              <div className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.05] text-center space-y-2">
+              <div className="p-4 rounded-lg bg-bg-base border border-border-hairline text-center space-y-2">
                 <Clock className="w-6 h-6 text-text-tertiary mx-auto" />
                 <p className="text-[12px] text-text-secondary">
                   {t("dashboard.remindersWidget.emptyDesc")}
@@ -912,7 +912,7 @@ export function DashboardClientView({
                     setEditingReminder(null);
                     setIsReminderModalOpen(true);
                   }}
-                  className="!py-1.5 !px-3 text-caption inline-flex items-center gap-1.5 w-full justify-center shadow-xs"
+                  className="!py-1.5 !px-3 text-caption inline-flex items-center gap-1.5 w-full justify-center shadow-none"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{t("dashboard.remindersWidget.setReminderBtn")}</span>
@@ -930,8 +930,8 @@ export function DashboardClientView({
                       key={rem.id}
                       className={`p-3 rounded-lg border transition-colors space-y-1.5 ${
                         isToday
-                          ? "bg-accent/[0.06] border-accent/30"
-                          : "bg-white/[0.02] hover:bg-white/[0.04] border-white/[0.06]"
+                          ? "bg-accent/10 border-accent/30"
+                          : "bg-bg-base hover:bg-bg-elevated-2 border-border-hairline"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -975,7 +975,7 @@ export function DashboardClientView({
                       setEditingReminder(null);
                       setIsReminderModalOpen(true);
                     }}
-                    className="w-full py-2 px-3 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-text-secondary hover:text-text-primary text-caption font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
+                    className="w-full py-2 px-3 rounded-lg bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline text-text-secondary hover:text-text-primary text-caption font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5 text-accent" />
                     <span>
@@ -988,7 +988,7 @@ export function DashboardClientView({
           </div>
 
           {/* Quick Guidance Box */}
-          <div className="rounded-xl bg-white/[0.02] border border-white/[0.08] p-4 space-y-2 shadow-sm">
+          <div className="rounded-xl bg-bg-elevated border border-border-hairline p-4 space-y-2 shadow-none">
             <div className="flex items-center gap-1.5 text-caption font-semibold text-text-primary">
               <Sparkles className="w-3.5 h-3.5 text-accent" />
               <span>{isEn ? "Routine Farming Tips" : "Tips Garapan Rutin"}</span>
@@ -1007,7 +1007,7 @@ export function DashboardClientView({
           </div>
 
           {/* Quick Workspace Navigation Box (Fills Wide Screen Vertically) */}
-          <div className="rounded-xl bg-white/[0.02] border border-white/[0.08] p-4 space-y-2.5 shadow-sm">
+          <div className="rounded-xl bg-bg-elevated border border-border-hairline p-4 space-y-2.5 shadow-none">
             <span className="text-[11px] font-mono uppercase tracking-wider text-text-tertiary font-semibold block">
               {isEn ? "Quick Navigation" : "Akses Cepat Workspace"}
             </span>
@@ -1015,7 +1015,7 @@ export function DashboardClientView({
               <Link
                 href="/projects"
                 prefetch={false}
-                className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] text-caption text-text-secondary hover:text-text-primary transition-colors group"
+                className="flex items-center justify-between p-2 rounded-lg bg-bg-base hover:bg-bg-elevated-2 border border-border-hairline text-caption text-text-secondary hover:text-text-primary transition-colors group"
               >
                 <div className="flex items-center gap-2">
                   <FolderGit2 className="w-3.5 h-3.5 text-accent" />
@@ -1027,7 +1027,7 @@ export function DashboardClientView({
               <Link
                 href="/feed"
                 prefetch={false}
-                className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] text-caption text-text-secondary hover:text-text-primary transition-colors group"
+                className="flex items-center justify-between p-2 rounded-lg bg-bg-base hover:bg-bg-elevated-2 border border-border-hairline text-caption text-text-secondary hover:text-text-primary transition-colors group"
               >
                 <div className="flex items-center gap-2">
                   <Radio className="w-3.5 h-3.5 text-link-teal" />
@@ -1039,7 +1039,7 @@ export function DashboardClientView({
               <Link
                 href="/waitlist"
                 prefetch={false}
-                className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] text-caption text-text-secondary hover:text-text-primary transition-colors group"
+                className="flex items-center justify-between p-2 rounded-lg bg-bg-base hover:bg-bg-elevated-2 border border-border-hairline text-caption text-text-secondary hover:text-text-primary transition-colors group"
               >
                 <div className="flex items-center gap-2">
                   <FileText className="w-3.5 h-3.5 text-status-waiting" />
@@ -1051,7 +1051,7 @@ export function DashboardClientView({
               <Link
                 href="/wallets"
                 prefetch={false}
-                className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] text-caption text-text-secondary hover:text-text-primary transition-colors group"
+                className="flex items-center justify-between p-2 rounded-lg bg-bg-base hover:bg-bg-elevated-2 border border-border-hairline text-caption text-text-secondary hover:text-text-primary transition-colors group"
               >
                 <div className="flex items-center gap-2">
                   <Wallet className="w-3.5 h-3.5 text-status-in-progress" />

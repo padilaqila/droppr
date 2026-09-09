@@ -105,3 +105,94 @@ textarea::-webkit-scrollbar {
   scrollbar-width: none !important;
 }
 
+/* ==========================================================================
+   LIGHT MODE ENFORCEMENT: Clean Solid Surfaces, Zero Shadow, Zero Glass Blur, High Contrast
+   ========================================================================== */
+.light {
+  --shadow-elevation-1: none !important;
+  --shadow-elevation-2: none !important;
+  --shadow-card-subtle: none !important;
+}
+
+/* Disable glass blur everywhere in light mode */
+.light .backdrop-blur-xl,
+.light .backdrop-blur-2xl,
+.light .backdrop-blur-md,
+.light .backdrop-blur-lg,
+.light .backdrop-blur-sm,
+.light .backdrop-blur,
+.light [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Remove all shadows from cards and panels in light mode */
+.light .shadow-2xl,
+.light .shadow-xl,
+.light .shadow-lg,
+.light .shadow-md,
+.light .shadow-sm,
+.light [class*="shadow-[0_8px_30px"],
+.light [class*="shadow-[0_8px_32px"],
+.light [class*="shadow-[0_20px_50px"],
+.light [class*="shadow-[0_4px_20px"] {
+  box-shadow: none !important;
+}
+
+/* Surfaces: convert hardcoded white-alpha to solid white elevated panels in light mode */
+.light .bg-white\/\[0\.015\],
+.light .bg-white\/\[0\.02\],
+.light .bg-white\/\[0\.03\],
+.light .bg-white\/\[0\.04\],
+.light .bg-white\/\[0\.05\],
+.light .bg-white\/\[0\.06\] {
+  background-color: var(--color-bg-elevated) !important;
+}
+
+.light .bg-white\/\[0\.08\],
+.light .bg-white\/\[0\.1\],
+.light .bg-white\/\[0\.12\],
+.light .bg-white\/\[0\.15\],
+.light .bg-white\/\[0\.2\] {
+  background-color: var(--color-bg-elevated-2) !important;
+}
+
+/* Borders: convert hardcoded white borders to clean hairline borders in light mode */
+.light .border-white\/\[0\.04\],
+.light .border-white\/\[0\.05\],
+.light .border-white\/\[0\.06\],
+.light .border-white\/\[0\.08\],
+.light .border-white\/\[0\.1\],
+.light .border-white\/\[0\.12\],
+.light .border-white\/\[0\.15\],
+.light .border-white\/\[0\.16\],
+.light .border-white\/\[0\.18\],
+.light .border-white\/\[0\.2\],
+.light .border-white\/10,
+.light .border-white\/15,
+.light .border-white\/20,
+.light [class*="border-white/"] {
+  border-color: var(--color-border-hairline) !important;
+}
+
+/* Text: ensure all texts have strong contrast against light background */
+.light .text-white {
+  color: var(--color-text-primary) !important;
+}
+.light .text-white\/90,
+.light .text-white\/80 {
+  color: var(--color-text-primary) !important;
+}
+.light .text-white\/75,
+.light .text-white\/70,
+.light .text-white\/60 {
+  color: var(--color-text-secondary) !important;
+}
+.light .text-white\/50,
+.light .text-white\/40,
+.light .text-white\/30,
+.light .text-white\/20 {
+  color: var(--color-text-tertiary) !important;
+}
+
+
