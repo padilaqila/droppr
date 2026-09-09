@@ -29,7 +29,7 @@ export function getNextDailyResetTime(): Date {
  */
 export function isProjectDailyDone(
   project: { social_links?: Record<string, any> | any },
-  projectTasks?: Array<{ status: string; completed_at?: string | null }>
+  projectTasks?: Array<{ status: string; completed_at?: string | null; updated_at?: string | null }>
 ): boolean {
   if (!project) return false;
   const lastReset = getLastDailyResetTime();
@@ -43,12 +43,13 @@ export function isProjectDailyDone(
     }
   }
 
-  // 2. Associated tasks (if any): all tasks are 'done' and completed after lastReset
+  // 2. Associated tasks (if any): all tasks are 'done' and completed/updated after lastReset
   if (projectTasks && projectTasks.length > 0) {
     const allDone = projectTasks.every((t) => t.status === "done");
     const anyCompletedRecently = projectTasks.some((t) => {
-      if (!t.completed_at) return false;
-      const d = new Date(t.completed_at);
+      const timeStr = t.completed_at || t.updated_at;
+      if (!timeStr) return false;
+      const d = new Date(timeStr);
       return !isNaN(d.getTime()) && d >= lastReset;
     });
     if (allDone && anyCompletedRecently) {

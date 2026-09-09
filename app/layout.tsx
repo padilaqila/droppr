@@ -33,7 +33,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var p=window.location.pathname;if(p===''||p==='/'||p.startsWith('/login')||p.startsWith('/auth'))return;var t=localStorage.getItem('droppr-theme');if(t==='light')document.documentElement.classList.add('light')}catch(e){}})()`,
+            __html: `(function(){try{var p=window.location.pathname;if(p===''||p==='/'||p.startsWith('/login')||p.startsWith('/auth'))return;var t=localStorage.getItem('droppr-theme');if(t==='light')document.documentElement.classList.add('light')}catch(e){}})();(function(){try{if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(regs){for(var i=0;i<regs.length;i++){regs[i].unregister()}}).catch(function(){})}}catch(e){}})();`,
           }}
         />
       </head>

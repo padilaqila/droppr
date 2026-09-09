@@ -173,16 +173,35 @@ export function DashboardClientView({
     const pTasks = tasks.filter((t) => t.project_id === projectId);
     const currentlyDone = isProjectDailyDone(proj, pTasks);
     const newStatus = !currentlyDone;
+    const nowIso = newStatus ? new Date().toISOString() : null;
 
-    // Optimistic local state update
-    toggleProjectDailyTask(projectId, newStatus);
+    // 1. Optimistic update on projects state (updates social_links.last_daily_completed_at)
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p;
+        const currentSocial = (p.social_links as Record<string, any>) || {};
+        const updatedSocial = { ...currentSocial };
+        if (newStatus) {
+          updatedSocial.last_daily_completed_at = nowIso;
+        } else {
+          delete updatedSocial.last_daily_completed_at;
+        }
+        return {
+          ...p,
+          social_links: updatedSocial,
+        };
+      })
+    );
+
+    // 2. Optimistic update on tasks state (both status AND completed_at)
     setTasks((prev) =>
       prev.map((t) =>
         t.project_id === projectId
           ? {
               ...t,
               status: newStatus ? "done" : "pending",
-              updated_at: newStatus ? new Date().toISOString() : t.updated_at,
+              completed_at: nowIso,
+              updated_at: nowIso || new Date().toISOString(),
             }
           : t
       )
@@ -194,18 +213,11 @@ export function DashboardClientView({
         : (isEn ? `Tasks reset for ${proj.name}` : `Tugas dibuka kembali untuk ${proj.name}`)
     );
 
-    // Persist to database in background
+    // 3. Persist to database
     try {
-      const supabase = createClient();
-      const taskIds = pTasks.map((t) => t.id);
-      if (taskIds.length > 0) {
-        await (supabase as any)
-          .from("tasks")
-          .update({
-            status: newStatus ? "done" : "pending",
-            updated_at: new Date().toISOString(),
-          })
-          .in("id", taskIds);
+      const res = await toggleProjectDailyTask(projectId, newStatus);
+      if (!res.success) {
+        console.error("toggleProjectDailyTask failed:", res.error);
       }
     } catch (err) {
       console.error("Error updating tasks in db:", err);

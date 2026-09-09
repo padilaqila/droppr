@@ -234,6 +234,20 @@ export function TasksClientView({
       })
     );
 
+    // Optimistic UI update for tasks
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.project_id === project.id
+          ? {
+              ...t,
+              status: targetStatus ? "done" : "pending",
+              completed_at: nowIso,
+              updated_at: nowIso || new Date().toISOString(),
+            }
+          : t
+      )
+    );
+
     // Synchronize to DB
     const res = await toggleProjectDailyTask(project.id, targetStatus);
     setUpdatingTaskId(null);
@@ -241,6 +255,7 @@ export function TasksClientView({
     if (!res.success) {
       // Revert if error
       setProjects(initialProjects);
+      setTasks(initialTasks);
     }
   };
 
