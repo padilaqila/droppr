@@ -161,6 +161,11 @@ export function parseResourceLinks(
   const custom_links: Array<{ label: string; url: string }> = [];
   const seenUrls = new Set<string>();
 
+  // Store trimmed raw text for lossless original post retrieval
+  if (rawText && rawText.trim()) {
+    social_links.raw_text = rawText.trim();
+  }
+
   // If sourceUrl provided (e.g. Telegram post URL)
   if (options.sourceUrl && options.sourceUrl.startsWith("http")) {
     social_links.telegram_post_url = sanitizeUrl(options.sourceUrl);
@@ -329,6 +334,12 @@ export function parseResourceLinks(
       return;
     }
 
+    // 9. YouTube Video Tutorial
+    if (lowerUrl.includes("youtube.com/") || lowerUrl.includes("youtu.be/")) {
+      addCustomLink("Video Panduan YouTube", url);
+      return;
+    }
+
     // Otherwise candidate for Website or DApp
     if (!social_links.website) {
       social_links.website = url;
@@ -337,7 +348,22 @@ export function parseResourceLinks(
       social_links.dapp_url = url;
       seenUrls.add(url);
     } else {
-      addCustomLink("Tautan Garapan", url);
+      let smartLabel = "Tautan Terkait";
+      if (
+        lowerLine.includes("guide") ||
+        lowerLine.includes("panduan") ||
+        lowerLine.includes("tutorial") ||
+        lowerLine.includes("cara")
+      ) {
+        smartLabel = "Panduan Tambahan";
+      } else if (lowerLine.includes("swap") || lowerLine.includes("dex")) {
+        smartLabel = "DEX / Swap";
+      } else if (lowerLine.includes("mint") || lowerLine.includes("nft")) {
+        smartLabel = "Mint NFT";
+      } else if (lowerLine.includes("dashboard") || lowerLine.includes("portal")) {
+        smartLabel = "Portal Garapan";
+      }
+      addCustomLink(smartLabel, url);
     }
   });
 
@@ -459,6 +485,25 @@ export function parseTasks(
     return false;
   };
 
+  const isPromotionalOrFooter = (cleaned: string) => {
+    const l = cleaned.toLowerCase();
+    return (
+      l.includes("duta crypto") ||
+      l.includes("airdrop finder") ||
+      l.includes("jp bareng") ||
+      l.includes("semoga kita") ||
+      l.includes("silahkan tonton") ||
+      l.includes("tonton caranya") ||
+      l.includes("solusi ampuh") ||
+      l.includes("channel telegram") ||
+      l.includes("join telegram") ||
+      l.includes("subscribe") ||
+      l.includes("youtube.com") ||
+      l.includes("youtu.be") ||
+      l.includes("disclaimer")
+    );
+  };
+
   lines.forEach((line) => {
     const isBulletOrStep =
       /^\[?\(?\d+[\]\)\.]*\s*/.test(line) ||
@@ -476,6 +521,7 @@ export function parseTasks(
         !cleaned.toLowerCase().startsWith("fee") &&
         !isJustLinkHeader(line, cleaned) &&
         !isSectionHeader(cleaned) &&
+        !isPromotionalOrFooter(cleaned) &&
         !seenTitles.has(cleaned.toLowerCase())
       ) {
         seenTitles.add(cleaned.toLowerCase());

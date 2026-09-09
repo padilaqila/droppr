@@ -2,14 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CardBase } from "@/components/ui/card";
-import { ButtonPrimary, ButtonSecondary, ButtonDanger } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   User,
   Bell,
-  Palette,
   Download,
   AlertTriangle,
   CheckCircle2,
@@ -22,10 +17,24 @@ import {
   Clock,
   KeyRound,
   Trash2,
+  Languages,
+  Globe,
+  RotateCcw,
+  CheckCheck,
+  ShieldCheck,
+  FolderGit2,
+  Wallet,
+  Compass,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  getLanguagePreference,
+  setLanguagePreference,
+  getEffectiveLanguage,
+  type LanguagePreference,
+} from "@/lib/utils/language-prefs";
 
-type SettingsTab = "account" | "notifications" | "appearance_ai" | "backup" | "danger";
+type SettingsTab = "language" | "account" | "notifications" | "backup" | "danger";
 
 interface NotificationPrefs {
   inApp: boolean;
@@ -36,12 +45,20 @@ interface NotificationPrefs {
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("account");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("language");
 
-  // User state
+  // User info state
   const [userEmail, setUserEmail] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
   const [copiedId, setCopiedId] = useState(false);
+
+  // Stats
+  const [stats, setStats] = useState({ projects: 0, folders: 0, wallets: 0 });
+
+  // Language state
+  const [langPref, setLangPref] = useState<LanguagePreference>("system");
+  const [detectedSysLang, setDetectedSysLang] = useState<string>("id");
+  const [langToast, setLangToast] = useState(false);
 
   // Password change state
   const [newPassword, setNewPassword] = useState("");
@@ -58,6 +75,7 @@ export default function SettingsPage() {
     defaultTime: "09:00",
   });
   const [notifSaved, setNotifSaved] = useState(false);
+  const [browserPermission, setBrowserPermission] = useState<string>("default");
 
   // Export states
   const [isExportingJson, setIsExportingJson] = useState(false);
@@ -69,7 +87,7 @@ export default function SettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [dangerMsg, setDangerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Load user info & notification preferences
+  // Load user info, language, notification preferences, and workspace stats
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
@@ -79,13 +97,38 @@ export default function SettingsPage() {
       }
     });
 
+    // Language
+    const currentPref = getLanguagePreference();
+    setLangPref(currentPref);
+    if (typeof navigator !== "undefined") {
+      setDetectedSysLang(navigator.language || "id-ID");
+    }
+
+    // Browser Notification permission
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setBrowserPermission(Notification.permission);
+    }
+
+    // Stats
+    Promise.allSettled([
+      supabase.from("projects").select("id", { count: "exact", head: true }),
+      supabase.from("folders").select("id", { count: "exact", head: true }),
+      supabase.from("wallets").select("id", { count: "exact", head: true }),
+    ]).then(([projRes, foldRes, wallRes]) => {
+      setStats({
+        projects: projRes.status === "fulfilled" ? projRes.value.count || 0 : 0,
+        folders: foldRes.status === "fulfilled" ? foldRes.value.count || 0 : 0,
+        wallets: wallRes.status === "fulfilled" ? wallRes.value.count || 0 : 0,
+      });
+    });
+
     try {
       const savedPrefs = localStorage.getItem("droppr-notification-prefs");
       if (savedPrefs) {
         setNotificationPrefs(JSON.parse(savedPrefs));
       }
     } catch {
-      // Ignore local storage error
+      // Ignore
     }
   }, []);
 
@@ -101,6 +144,23 @@ export default function SettingsPage() {
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
+  };
+
+  const handleSelectLanguage = (pref: LanguagePreference) => {
+    setLangPref(pref);
+    setLanguagePreference(pref);
+    setLangToast(true);
+    setTimeout(() => setLangToast(false), 3000);
+  };
+
+  const handleRequestPushPermission = async () => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      const perm = await Notification.requestPermission();
+      setBrowserPermission(perm);
+      if (perm === "granted") {
+        setNotificationPrefs((prev) => ({ ...prev, push: true }));
+      }
+    }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -139,10 +199,7 @@ export default function SettingsPage() {
   const handleSaveNotificationPrefs = (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      localStorage.setItem(
-        "droppr-notification-prefs",
-        JSON.stringify(notificationPrefs)
-      );
+      localStorage.setItem("droppr-notification-prefs", JSON.stringify(notificationPrefs));
       setNotifSaved(true);
       setTimeout(() => setNotifSaved(false), 3000);
     } catch (err) {
@@ -161,17 +218,19 @@ export default function SettingsPage() {
         { data: wallets },
         { data: reminders },
         { data: folders },
+        { data: updates },
       ] = await Promise.all([
         supabase.from("projects").select("*"),
         supabase.from("tasks").select("*"),
         supabase.from("wallets").select("*"),
         supabase.from("reminders").select("*"),
         supabase.from("folders").select("*"),
+        supabase.from("project_updates").select("*"),
       ]);
 
       const backupData = {
         app: "Droppr",
-        version: "0.1.0-alpha",
+        version: "1.0.0",
         exportedAt: new Date().toISOString(),
         user: { id: userId, email: userEmail },
         folders: folders || [],
@@ -179,6 +238,7 @@ export default function SettingsPage() {
         tasks: tasks || [],
         wallets: wallets || [],
         reminders: reminders || [],
+        updates: updates || [],
       };
 
       const blob = new Blob([JSON.stringify(backupData, null, 2)], {
@@ -193,7 +253,7 @@ export default function SettingsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setExportSuccess("File backup JSON berhasil diunduh.");
+      setExportSuccess("File backup JSON lengkap berhasil diunduh.");
     } catch (err) {
       console.error("Export JSON failed:", err);
       alert("Gagal mengekspor data JSON.");
@@ -271,6 +331,30 @@ export default function SettingsPage() {
     }
   };
 
+  const handleResetFeedImportStatus = async () => {
+    if (!confirm("Reset status import feed Telegram? Sinyal yang pernah kamu hapus dari garapan akan bisa di-import ulang.")) {
+      return;
+    }
+    setDangerMsg(null);
+    try {
+      const supabase = createClient() as any;
+      await Promise.allSettled([
+        supabase.from("airdrop_feeds").update({ is_imported: false }).eq("is_imported", true),
+        supabase.from("waitlists").update({ is_imported: false }).eq("is_imported", true),
+      ]);
+      setDangerMsg({
+        type: "success",
+        text: "Status import feed & waitlist berhasil di-reset. Kamu bisa menambahkan ulang dari Feed.",
+      });
+      router.refresh();
+    } catch (err: any) {
+      setDangerMsg({
+        type: "error",
+        text: err?.message || "Gagal me-reset status feed.",
+      });
+    }
+  };
+
   const handleDeleteAllProjects = async () => {
     if (deleteConfirmText.trim().toUpperCase() !== "HAPUS") {
       setDangerMsg({
@@ -284,10 +368,12 @@ export default function SettingsPage() {
     setDangerMsg(null);
     try {
       const supabase = createClient() as any;
-      const { error } = await supabase.from("projects").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      const { error } = await supabase
+        .from("projects")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
       if (error) throw error;
 
-      // Revert feed & waitlist imported statuses
       await Promise.allSettled([
         supabase.from("airdrop_feeds").update({ is_imported: false }).eq("is_imported", true),
         supabase.from("waitlists").update({ is_imported: false }).eq("is_imported", true),
@@ -309,25 +395,56 @@ export default function SettingsPage() {
     }
   };
 
+  const effectiveLang = getEffectiveLanguage(langPref);
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Top Header */}
-      <div>
-        <h1 className="text-heading-2 font-semibold text-text-primary">Settings</h1>
-        <p className="text-body-sm text-text-secondary">
-          Kelola akun, preferensi notifikasi, tampilan workspace, dan backup data.
-        </p>
+    <div className="space-y-6 max-w-4xl pb-16">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-white/[0.06]">
+        <div>
+          <h1 className="text-heading-2 font-bold text-text-primary tracking-tight">
+            Pengaturan & Preferensi
+          </h1>
+          <p className="text-body-sm text-text-secondary mt-1">
+            Konfigurasikan preferensi bahasa terjemahan Telegram, keamanan akun, siklus harian, dan backup data.
+          </p>
+        </div>
+
+        {/* Quick Workspace Stats Chips */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="px-3 py-1 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[11px] font-mono text-text-secondary flex items-center gap-1.5">
+            <FolderGit2 className="w-3.5 h-3.5 text-accent" />
+            <span>{stats.projects} Proyek</span>
+          </span>
+          <span className="px-3 py-1 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[11px] font-mono text-text-secondary flex items-center gap-1.5">
+            <Wallet className="w-3.5 h-3.5 text-link-teal" />
+            <span>{stats.wallets} Wallet</span>
+          </span>
+        </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-border-hairline overflow-x-auto max-w-full pb-1">
+      {/* TABS NAVIGATION BAR */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 border-b border-white/[0.06]">
+        <button
+          type="button"
+          onClick={() => setActiveTab("language")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
+            activeTab === "language"
+              ? "bg-accent/20 text-accent border-accent/40 shadow-xs"
+              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border-transparent"
+          }`}
+        >
+          <Languages className="w-4 h-4" />
+          <span>Bahasa & Terjemahan</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("account")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
             activeTab === "account"
-              ? "bg-accent text-on-accent"
-              : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
+              ? "bg-white/[0.08] text-text-primary border-white/[0.2] shadow-xs"
+              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border-transparent"
           }`}
         >
           <User className="w-4 h-4" />
@@ -337,49 +454,36 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={() => setActiveTab("notifications")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
             activeTab === "notifications"
-              ? "bg-accent text-on-accent"
-              : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
+              ? "bg-white/[0.08] text-text-primary border-white/[0.2] shadow-xs"
+              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border-transparent"
           }`}
         >
           <Bell className="w-4 h-4" />
-          <span>Notifikasi & Pengingat</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("appearance_ai")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
-            activeTab === "appearance_ai"
-              ? "bg-accent text-on-accent"
-              : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
-          }`}
-        >
-          <Palette className="w-4 h-4" />
-          <span>Tampilan & AI</span>
+          <span>Operasional & Notifikasi</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("backup")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
             activeTab === "backup"
-              ? "bg-accent text-on-accent"
-              : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
+              ? "bg-white/[0.08] text-text-primary border-white/[0.2] shadow-xs"
+              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border-transparent"
           }`}
         >
           <Download className="w-4 h-4" />
-          <span>Export & Backup</span>
+          <span>Backup & Ekspor</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("danger")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-caption font-semibold transition-colors whitespace-nowrap shrink-0 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
             activeTab === "danger"
-              ? "bg-status-overdue text-text-primary"
-              : "text-text-secondary hover:text-status-overdue hover:bg-bg-elevated"
+              ? "bg-status-overdue/20 text-status-overdue border-status-overdue/40 shadow-xs"
+              : "text-text-secondary hover:text-status-overdue hover:bg-white/[0.04] border-transparent"
           }`}
         >
           <AlertTriangle className="w-4 h-4" />
@@ -387,416 +491,589 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* TAB 1: AKUN & KEAMANAN */}
+      {/* ======================================================== */}
+      {/* TAB 1: BAHASA & TERJEMAHAN                               */}
+      {/* ======================================================== */}
+      {activeTab === "language" && (
+        <div className="space-y-4">
+          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-accent/15 text-accent border border-accent/25">
+                  <Languages className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
+                    Preferensi Bahasa & Terjemahan Cerdas
+                  </h2>
+                  <p className="text-caption text-text-secondary mt-0.5">
+                    Tentukan target terjemahan default untuk pesan Telegram dan panduan garapan airdrop.
+                  </p>
+                </div>
+              </div>
+
+              {langToast && (
+                <span className="px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption font-semibold animate-in fade-in flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Tersimpan</span>
+                </span>
+              )}
+            </div>
+
+            {/* 3 Interactive Language Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+              {/* Option 1: Auto / System */}
+              <div
+                onClick={() => handleSelectLanguage("system")}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
+                  langPref === "system"
+                    ? "bg-accent/[0.08] border-accent/60 ring-1 ring-accent/60 shadow-lg shadow-accent/10"
+                    : "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.04]"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-accent">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  {langPref === "system" && (
+                    <span className="w-5 h-5 rounded-full bg-accent text-on-accent flex items-center justify-center text-[10px] font-bold">
+                      ✓
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-body-sm font-bold text-text-primary flex items-center gap-1.5">
+                    <span>Otomatis (Sistem)</span>
+                  </h3>
+                  <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
+                    Mengikuti region perangkat:{" "}
+                    <strong className="text-accent font-mono">
+                      {detectedSysLang.toUpperCase()}
+                    </strong>{" "}
+                    (Aktif: {effectiveLang === "id" ? "Indonesia" : "English"}).
+                  </p>
+                </div>
+              </div>
+
+              {/* Option 2: English (EN) */}
+              <div
+                onClick={() => handleSelectLanguage("en")}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
+                  langPref === "en"
+                    ? "bg-accent/[0.08] border-accent/60 ring-1 ring-accent/60 shadow-lg shadow-accent/10"
+                    : "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.04]"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xl">🇺🇸</span>
+                  {langPref === "en" && (
+                    <span className="w-5 h-5 rounded-full bg-accent text-on-accent flex items-center justify-center text-[10px] font-bold">
+                      ✓
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-body-sm font-bold text-text-primary">
+                    English (EN)
+                  </h3>
+                  <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
+                    Default terjemahan ke Bahasa Inggris. Postingan berbahasa Indonesia otomatis dialihkan ke Inggris.
+                  </p>
+                </div>
+              </div>
+
+              {/* Option 3: Indonesian (ID) */}
+              <div
+                onClick={() => handleSelectLanguage("id")}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
+                  langPref === "id"
+                    ? "bg-accent/[0.08] border-accent/60 ring-1 ring-accent/60 shadow-lg shadow-accent/10"
+                    : "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.04]"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xl">🇮🇩</span>
+                  {langPref === "id" && (
+                    <span className="w-5 h-5 rounded-full bg-accent text-on-accent flex items-center justify-center text-[10px] font-bold">
+                      ✓
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-body-sm font-bold text-text-primary">
+                    Bahasa Indonesia (ID)
+                  </h3>
+                  <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
+                    Default terjemahan ke Indonesia. Postingan berbahasa Indonesia otomatis ditawarkan terjemahan ke Inggris.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Smart Dual-Way Explanation Banner */}
+            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+              <h4 className="text-caption font-bold text-text-primary flex items-center gap-1.5">
+                <Compass className="w-3.5 h-3.5 text-link-teal" />
+                <span>Cara Kerja Deteksi & Terjemahan Dua Arah (Dual-Way)</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] text-text-secondary leading-relaxed pt-1">
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
+                  <div className="font-semibold text-text-primary flex items-center gap-1.5">
+                    <span>📩 Postingan Asli Bahasa Indonesia</span>
+                  </div>
+                  <p>
+                    Tombol terjemahan otomatis berubah menjadi{" "}
+                    <strong className="text-accent font-mono">"Translate to English"</strong>.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
+                  <div className="font-semibold text-text-primary flex items-center gap-1.5">
+                    <span>🌍 Postingan Asli Bahasa Inggris / Asing</span>
+                  </div>
+                  <p>
+                    Tombol terjemahan otomatis berubah menjadi{" "}
+                    <strong className="text-link-teal font-mono">"Terjemahkan ke Indonesia"</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* TAB 2: AKUN & KEAMANAN                                   */}
+      {/* ======================================================== */}
       {activeTab === "account" && (
         <div className="space-y-4">
-          <CardBase className="space-y-4">
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-accent" />
-              <h2 className="text-app-section-title font-semibold text-text-primary">
-                Informasi Akun
-              </h2>
+          {/* User Info Card */}
+          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-accent/15 text-accent border border-accent/25">
+                <User className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
+                  Identitas Pengguna
+                </h2>
+                <p className="text-caption text-text-secondary">
+                  Informasi akun Supabase terautentikasi dan sesi aktif saat ini.
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-3 pt-1">
-              <div>
-                <label className="block text-caption font-semibold text-text-secondary mb-1">
-                  Email Terdaftar
-                </label>
-                <div className="h-10 px-4 flex items-center rounded-md bg-bg-elevated-2 border border-border-hairline text-body-sm text-text-primary font-mono">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
+                <span className="text-[11px] font-mono text-text-tertiary">Email Terdaftar</span>
+                <p className="text-body-sm font-semibold text-text-primary font-mono truncate">
                   {userEmail || "Memuat..."}
-                </div>
+                </p>
               </div>
 
-              <div>
-                <label className="block text-caption font-semibold text-text-secondary mb-1">
-                  User ID (Supabase Auth UID)
-                </label>
-                <div className="flex items-center gap-2">
-                  <div className="h-10 px-4 flex-1 flex items-center rounded-md bg-bg-elevated-2 border border-border-hairline text-caption text-text-secondary font-mono truncate">
-                    {userId || "-"}
-                  </div>
-                  <ButtonSecondary
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono text-text-tertiary">User ID Supabase</span>
+                  <button
                     type="button"
                     onClick={handleCopyUserId}
-                    className="!py-2 !px-3 shrink-0 inline-flex items-center gap-1.5"
-                    title="Salin UID"
+                    className="text-[10px] text-accent hover:underline inline-flex items-center gap-1 font-mono"
                   >
-                    {copiedId ? (
-                      <Check className="w-4 h-4 text-status-completed" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
+                    {copiedId ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                     <span>{copiedId ? "Tersalin" : "Salin"}</span>
-                  </ButtonSecondary>
+                  </button>
                 </div>
+                <p className="text-[11px] font-mono text-text-secondary truncate">
+                  {userId || "Memuat..."}
+                </p>
               </div>
             </div>
-          </CardBase>
 
-          {/* Form Ubah Password */}
-          <CardBase className="space-y-4">
-            <div className="flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-accent" />
-              <h2 className="text-app-section-title font-semibold text-text-primary">
-                Ubah Password
-              </h2>
+            {/* Logout button */}
+            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between">
+              <div>
+                <div className="text-body-sm font-semibold text-text-primary">Sesi Login</div>
+                <div className="text-caption text-text-secondary">
+                  Keluar dari sesi Droppr pada browser ini.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="px-3.5 py-2 rounded-xl bg-status-overdue/15 hover:bg-status-overdue/25 border border-status-overdue/30 text-status-overdue text-caption font-semibold transition-all inline-flex items-center gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Keluar Akun</span>
+              </button>
             </div>
-            <p className="text-body-sm text-text-secondary">
-              Ganti kata sandi akun Anda untuk meningkatkan keamanan workspace.
-            </p>
+          </div>
+
+          {/* Change Password Card */}
+          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-link-teal/15 text-link-teal border border-link-teal/25">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
+                  Perbarui Kata Sandi
+                </h2>
+                <p className="text-caption text-text-secondary">
+                  Ubah password akun Supabase untuk menjaga keamanan workspace Anda.
+                </p>
+              </div>
+            </div>
 
             {passwordSuccess && (
-              <div className="p-3 rounded-md bg-status-completed/10 border border-status-completed/30 text-status-completed text-caption flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>{passwordSuccess}</span>
               </div>
             )}
 
             {passwordError && (
-              <div className="p-3 rounded-md bg-status-overdue/10 border border-status-overdue/30 text-status-overdue text-caption">
-                {passwordError}
+              <div className="p-3 rounded-xl bg-status-overdue/15 border border-status-overdue/30 text-status-overdue text-caption flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{passwordError}</span>
               </div>
             )}
 
-            <form onSubmit={handleChangePassword} className="space-y-3 pt-1">
+            <form onSubmit={handleChangePassword} className="space-y-3 max-w-md pt-1">
               <div>
-                <label className="block text-caption font-semibold text-text-secondary mb-1">
-                  Password Baru
+                <label className="block text-caption font-medium text-text-secondary mb-1">
+                  Password Baru (Min. 6 Karakter)
                 </label>
-                <Input
+                <input
                   type="password"
-                  placeholder="Minimal 6 karakter"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  disabled={passwordLoading}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/60"
                 />
               </div>
 
               <div>
-                <label className="block text-caption font-semibold text-text-secondary mb-1">
-                  Konfirmasi Password Baru
+                <label className="block text-caption font-medium text-text-secondary mb-1">
+                  Ulangi Password Baru
                 </label>
-                <Input
+                <input
                   type="password"
-                  placeholder="Ketik ulang password baru"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={passwordLoading}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/60"
                 />
               </div>
 
               <div className="pt-2">
-                <ButtonPrimary type="submit" disabled={passwordLoading || !newPassword}>
-                  {passwordLoading ? "Menyimpan..." : "Perbarui Password"}
-                </ButtonPrimary>
+                <button
+                  type="submit"
+                  disabled={passwordLoading || !newPassword || !confirmPassword}
+                  className="px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed disabled:opacity-50 text-caption font-semibold transition-all shadow-md shadow-accent/20"
+                >
+                  {passwordLoading ? "Menyimpan..." : "Simpan Password Baru"}
+                </button>
               </div>
             </form>
-          </CardBase>
-
-          {/* Sesi & Logout */}
-          <CardBase className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-app-section-title font-semibold text-text-primary">
-                  Sesi Login
-                </h2>
-                <p className="text-body-sm text-text-secondary">
-                  Keluar dari sesi saat ini di peramban ini.
-                </p>
-              </div>
-              <ButtonDanger
-                onClick={handleSignOut}
-                className="inline-flex items-center gap-1.5"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Keluar dari Akun</span>
-              </ButtonDanger>
-            </div>
-          </CardBase>
+          </div>
         </div>
       )}
 
-      {/* TAB 2: NOTIFIKASI & PENGINGAT */}
+      {/* ======================================================== */}
+      {/* TAB 3: OPERASIONAL & NOTIFIKASI                          */}
+      {/* ======================================================== */}
       {activeTab === "notifications" && (
-        <CardBase className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-accent" />
-            <h2 className="text-app-section-title font-semibold text-text-primary">
-              Preferensi Pengingat
-            </h2>
-          </div>
-          <p className="text-body-sm text-text-secondary">
-            Atur saluran pengiriman notifikasi dan jam default untuk agenda harian airdrop.
-          </p>
-
-          {notifSaved && (
-            <div className="p-3 rounded-md bg-status-completed/10 border border-status-completed/30 text-status-completed text-caption flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>Preferensi notifikasi berhasil disimpan.</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSaveNotificationPrefs} className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <label className="block text-caption font-semibold text-text-secondary">
-                Saluran Notifikasi yang Diaktifkan
-              </label>
-
-              <label className="flex items-center gap-3 p-3 rounded-md bg-bg-elevated-2 border border-border-hairline cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.inApp}
-                  onChange={(e) =>
-                    setNotificationPrefs({ ...notificationPrefs, inApp: e.target.checked })
-                  }
-                  className="rounded text-accent focus:ring-accent"
-                />
-                <div>
-                  <div className="text-body-sm font-semibold text-text-primary">
-                    In-App Notification (Rekomendasi)
-                  </div>
-                  <div className="text-caption text-text-tertiary">
-                    Pengingat muncul langsung di Dashboard dan icon lonceng Droppr.
-                  </div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 rounded-md bg-bg-elevated-2 border border-border-hairline cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.email}
-                  onChange={(e) =>
-                    setNotificationPrefs({ ...notificationPrefs, email: e.target.checked })
-                  }
-                  className="rounded text-accent focus:ring-accent"
-                />
-                <div>
-                  <div className="text-body-sm font-semibold text-text-primary">
-                    Email Digest (via Supabase Edge Functions)
-                  </div>
-                  <div className="text-caption text-text-tertiary">
-                    Kirim ringkasan pengingat snapshot dan task penting ke email terdaftar.
-                  </div>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 rounded-md bg-bg-elevated-2 border border-border-hairline cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.push}
-                  onChange={(e) =>
-                    setNotificationPrefs({ ...notificationPrefs, push: e.target.checked })
-                  }
-                  className="rounded text-accent focus:ring-accent"
-                />
-                <div>
-                  <div className="text-body-sm font-semibold text-text-primary">
-                    Browser Push Notification
-                  </div>
-                  <div className="text-caption text-text-tertiary">
-                    Pemberitahuan pop-up langsung di desktop saat browser aktif.
-                  </div>
-                </div>
-              </label>
-            </div>
-
-            <div>
-              <label className="block text-caption font-semibold text-text-secondary mb-1">
-                Jam Pengiriman Pengingat Harian Default
-              </label>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-text-tertiary" />
-                <select
-                  value={notificationPrefs.defaultTime}
-                  onChange={(e) =>
-                    setNotificationPrefs({
-                      ...notificationPrefs,
-                      defaultTime: e.target.value,
-                    })
-                  }
-                  className="h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline focus:outline-none focus:border-accent font-mono"
-                >
-                  <option value="07:00">07:00 WIB (Pagi Awal)</option>
-                  <option value="09:00">09:00 WIB (Pagi Hari - Rekomendasi)</option>
-                  <option value="12:00">12:00 WIB (Siang)</option>
-                  <option value="18:00">18:00 WIB (Sore)</option>
-                  <option value="20:00">20:00 WIB (Malam Hari)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <ButtonPrimary type="submit">Simpan Preferensi Notifikasi</ButtonPrimary>
-            </div>
-          </form>
-        </CardBase>
-      )}
-
-      {/* TAB 3: TAMPILAN & AI */}
-      {activeTab === "appearance_ai" && (
         <div className="space-y-4">
-          <CardBase className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-app-section-title font-semibold text-text-primary">
-                  Tema Tampilan
-                </h2>
-                <p className="text-body-sm text-text-secondary">
-                  Pilih antara Mode Gelap (Mission Control `#14181F`) atau Mode Terang (`#F5F3EF`).
+          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
+                    Jadwal Operasional & Pengingat
+                  </h2>
+                  <p className="text-caption text-text-secondary">
+                    Standar siklus reset harian dan preferensi saluran notifikasi garapan.
+                  </p>
+                </div>
+              </div>
+
+              {notifSaved && (
+                <span className="px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption font-semibold animate-in fade-in flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Tersimpan</span>
+                </span>
+              )}
+            </div>
+
+            {/* Daily Reset Info Card */}
+            <div className="p-4 rounded-2xl bg-amber-500/[0.06] border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="text-caption font-bold text-amber-400">
+                  Siklus Reset Garapan Harian (Daily Task Reset)
+                </div>
+                <p className="text-[11px] text-text-secondary">
+                  Setiap hari pukul <strong className="text-text-primary font-mono">07:00 WIB (00:00 UTC)</strong>, status pengerjaan tugas rutin harian akan otomatis di-reset untuk siklus hari baru.
                 </p>
               </div>
-              <ThemeToggle />
+              <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-mono shrink-0">
+                Reset: 07:00 WIB
+              </span>
             </div>
-          </CardBase>
 
-          <CardBase className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-accent" />
-              <h2 className="text-app-section-title font-semibold text-text-primary">
-                AI Smart Parser (SumoPod AI Integration)
-              </h2>
-            </div>
-            <p className="text-body-sm text-text-secondary">
-              Droppr dilengkapi integrasi AI untuk membaca postingan airdrop dari X / Telegram dan mengekstrak nama proyek, jaringan, checklist tugas, serta link sosial secara otomatis.
-            </p>
+            <form onSubmit={handleSaveNotificationPrefs} className="space-y-4 pt-1">
+              <div className="space-y-2">
+                <label className="block text-caption font-semibold text-text-secondary">
+                  Saluran Notifikasi
+                </label>
 
-            <div className="p-3.5 rounded-md bg-bg-elevated-2 border border-border-hairline space-y-2 text-caption">
-              <div className="flex items-center justify-between">
-                <span className="text-text-secondary font-mono">Status Integrasi:</span>
-                <span className="px-2 py-0.5 rounded-full bg-status-completed/15 text-status-completed font-semibold">
-                  ● Terhubung & Aktif
-                </span>
+                {/* In-app */}
+                <label className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] cursor-pointer hover:bg-white/[0.04] transition-colors select-none">
+                  <input
+                    type="checkbox"
+                    checked={notificationPrefs.inApp}
+                    onChange={(e) =>
+                      setNotificationPrefs({ ...notificationPrefs, inApp: e.target.checked })
+                    }
+                    className="rounded text-accent focus:ring-accent"
+                  />
+                  <div>
+                    <div className="text-body-sm font-semibold text-text-primary">
+                      In-App Dashboard Notification (Aktif)
+                    </div>
+                    <div className="text-caption text-text-tertiary">
+                      Pengingat otomatis muncul di Command Center Dashboard saat tugas perlu dikerjakan.
+                    </div>
+                  </div>
+                </label>
+
+                {/* Push browser */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                  <label className="flex items-center gap-3 cursor-pointer select-none flex-1">
+                    <input
+                      type="checkbox"
+                      checked={notificationPrefs.push}
+                      onChange={(e) =>
+                        setNotificationPrefs({ ...notificationPrefs, push: e.target.checked })
+                      }
+                      className="rounded text-accent focus:ring-accent"
+                    />
+                    <div>
+                      <div className="text-body-sm font-semibold text-text-primary">
+                        Browser Push Notification
+                      </div>
+                      <div className="text-caption text-text-tertiary">
+                        Pemberitahuan pop-up desktop saat peramban sedang berjalan.
+                      </div>
+                    </div>
+                  </label>
+
+                  {browserPermission !== "granted" && (
+                    <button
+                      type="button"
+                      onClick={handleRequestPushPermission}
+                      className="text-[11px] font-semibold text-accent hover:underline px-2 py-1 rounded bg-accent/10 border border-accent/20 shrink-0"
+                    >
+                      Izinkan Browser
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-text-secondary font-mono">Endpoint API:</span>
-                <span className="text-text-primary font-mono">https://ai.sumopod.com/v1</span>
+
+              {/* Default notification time */}
+              <div>
+                <label className="block text-caption font-semibold text-text-secondary mb-1">
+                  Jam Pengingat Rutin Harian Default
+                </label>
+                <div className="flex items-center gap-2 max-w-xs">
+                  <Clock className="w-4 h-4 text-text-tertiary" />
+                  <select
+                    value={notificationPrefs.defaultTime}
+                    onChange={(e) =>
+                      setNotificationPrefs({
+                        ...notificationPrefs,
+                        defaultTime: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent font-mono"
+                  >
+                    <option value="07:00" className="bg-[#0e131b] text-text-primary">07:00 WIB (Pagi Awal - Saat Reset)</option>
+                    <option value="09:00" className="bg-[#0e131b] text-text-primary">09:00 WIB (Pagi Hari - Standar)</option>
+                    <option value="12:00" className="bg-[#0e131b] text-text-primary">12:00 WIB (Siang)</option>
+                    <option value="18:00" className="bg-[#0e131b] text-text-primary">18:00 WIB (Sore)</option>
+                    <option value="21:00" className="bg-[#0e131b] text-text-primary">21:00 WIB (Malam Hari)</option>
+                  </select>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-text-secondary font-mono">Default Model:</span>
-                <span className="text-text-primary font-mono">deepseek-chat / llama-3.3-70b</span>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-md shadow-accent/20"
+                >
+                  Simpan Pengaturan Notifikasi
+                </button>
               </div>
-            </div>
-          </CardBase>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* TAB 4: EXPORT & BACKUP */}
+      {/* ======================================================== */}
+      {/* TAB 4: BACKUP & EKSPOR DATA                              */}
+      {/* ======================================================== */}
       {activeTab === "backup" && (
-        <CardBase className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Download className="w-4 h-4 text-accent" />
-            <h2 className="text-app-section-title font-semibold text-text-primary">
-              Export & Cadangan Data Workspace
-            </h2>
-          </div>
-          <p className="text-body-sm text-text-secondary">
-            Sesuai prinsip non-custodial & kedaulatan data di Droppr, Anda dapat mengunduh seluruh database proyek, checklist task, dan jadwal kapan saja.
-          </p>
-
-          {exportSuccess && (
-            <div className="p-3 rounded-md bg-status-completed/10 border border-status-completed/30 text-status-completed text-caption flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>{exportSuccess}</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-            <div className="p-4 rounded-lg bg-bg-elevated-2 border border-border-hairline flex flex-col justify-between space-y-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-text-primary font-semibold text-body-sm">
-                  <FileJson className="w-4 h-4 text-accent" />
-                  <span>Cadangan Lengkap (JSON)</span>
-                </div>
-                <p className="text-caption text-text-tertiary">
-                  Menyimpan seluruh struktur proyek, folder, task, catatan, relasi wallet, dan pengingat untuk di-restore atau diarsipkan.
+        <div className="space-y-4">
+          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/25">
+                <Download className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
+                  Kedaulatan & Cadangan Data
+                </h2>
+                <p className="text-caption text-text-secondary">
+                  Unduh seluruh database garapan, folder, linimasa pembaruan, dan wallet Anda secara mandiri kapan saja.
                 </p>
               </div>
-              <ButtonPrimary
-                onClick={handleExportJson}
-                disabled={isExportingJson}
-                className="w-full !py-2 text-caption inline-flex items-center justify-center gap-2"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>{isExportingJson ? "Membuat Backup..." : "Unduh Backup JSON"}</span>
-              </ButtonPrimary>
             </div>
 
-            <div className="p-4 rounded-lg bg-bg-elevated-2 border border-border-hairline flex flex-col justify-between space-y-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-text-primary font-semibold text-body-sm">
-                  <FileSpreadsheet className="w-4 h-4 text-link-teal" />
-                  <span>Ringkasan Spreadsheet (CSV)</span>
-                </div>
-                <p className="text-caption text-text-tertiary">
-                  Format tabel yang kompatibel dengan Excel, Google Sheets, atau Notion untuk pelaporan performa garapan.
-                </p>
+            {exportSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{exportSuccess}</span>
               </div>
-              <ButtonSecondary
-                onClick={handleExportCsv}
-                disabled={isExportingCsv}
-                className="w-full !py-2 text-caption inline-flex items-center justify-center gap-2"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>{isExportingCsv ? "Memproses CSV..." : "Unduh File CSV"}</span>
-              </ButtonSecondary>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+              {/* Full JSON Dump */}
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-text-primary font-bold text-body-sm">
+                    <FileJson className="w-4 h-4 text-accent" />
+                    <span>Cadangan Lengkap (JSON)</span>
+                  </div>
+                  <p className="text-[11px] text-text-secondary leading-relaxed">
+                    Menyimpan 100% struktur hierarki folder, proyek, tugas, catatan linimasa, pengingat, dan wallet untuk di-restore atau diarsipkan.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExportJson}
+                  disabled={isExportingJson}
+                  className="w-full py-2 px-3 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed disabled:opacity-50 text-caption font-semibold transition-all inline-flex items-center justify-center gap-2 shadow-md shadow-accent/20"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{isExportingJson ? "Membuat Cadangan..." : "Unduh Backup JSON"}</span>
+                </button>
+              </div>
+
+              {/* CSV Spreadsheet */}
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-text-primary font-bold text-body-sm">
+                    <FileSpreadsheet className="w-4 h-4 text-link-teal" />
+                    <span>Ringkasan Tabel (CSV)</span>
+                  </div>
+                  <p className="text-[11px] text-text-secondary leading-relaxed">
+                    Tabel ringkasan proyek garapan dan progress tugas yang kompatibel langsung dengan Microsoft Excel, Google Sheets, atau Notion.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  disabled={isExportingCsv}
+                  className="w-full py-2 px-3 rounded-xl bg-white/[0.04] text-text-primary hover:bg-white/[0.08] border border-white/[0.1] disabled:opacity-50 text-caption font-semibold transition-all inline-flex items-center justify-center gap-2"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>{isExportingCsv ? "Memproses CSV..." : "Unduh File CSV"}</span>
+                </button>
+              </div>
             </div>
           </div>
-        </CardBase>
+        </div>
       )}
 
-      {/* TAB 5: ZONA BAHAYA */}
+      {/* ======================================================== */}
+      {/* TAB 5: ZONA BAHAYA & PEMELIHARAAN                        */}
+      {/* ======================================================== */}
       {activeTab === "danger" && (
         <div className="space-y-4">
-          <CardBase className="border-status-overdue/40 space-y-4">
-            <div className="flex items-center gap-2 text-status-overdue">
+          <div className="rounded-2xl p-5 sm:p-6 bg-status-overdue/[0.04] border border-status-overdue/30 backdrop-blur-xl shadow-xl shadow-black/20 space-y-4">
+            <div className="flex items-center gap-2.5 text-status-overdue">
               <AlertTriangle className="w-5 h-5" />
-              <h2 className="text-app-section-title font-semibold">
-                Zona Bahaya (Danger Zone)
-              </h2>
+              <div>
+                <h2 className="text-body-md sm:text-heading-3 font-bold">
+                  Zona Bahaya & Pemeliharaan Database
+                </h2>
+                <p className="text-caption text-text-secondary">
+                  Aksi pembersihan dan penghapusan data permanen. Pastikan Anda telah membuat backup JSON sebelum melanjutkan.
+                </p>
+              </div>
             </div>
-            <p className="text-body-sm text-text-secondary">
-              Tindakan di bawah ini bersifat permanen dan tidak dapat dibatalkan. Harap pastikan Anda telah mengunduh backup data sebelum melanjutkan.
-            </p>
 
             {dangerMsg && (
               <div
-                className={`p-3 rounded-md text-caption ${
+                className={`p-3 rounded-xl text-caption flex items-center gap-2 ${
                   dangerMsg.type === "success"
-                    ? "bg-status-completed/10 border border-status-completed/30 text-status-completed"
-                    : "bg-status-overdue/10 border border-status-overdue/30 text-status-overdue"
+                    ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                    : "bg-status-overdue/15 border border-status-overdue/30 text-status-overdue"
                 }`}
               >
-                {dangerMsg.text}
+                {dangerMsg.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                <span>{dangerMsg.text}</span>
               </div>
             )}
 
             {/* Action 1: Bersihkan Task Selesai */}
-            <div className="p-4 rounded-lg bg-bg-elevated-2 border border-border-hairline flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-body-sm font-semibold text-text-primary">
+                <div className="text-body-sm font-bold text-text-primary">
                   Bersihkan Tugas yang Sudah Selesai
-                </h3>
+                </div>
                 <p className="text-caption text-text-tertiary">
-                  Hanya menghapus task yang statusnya sudah centang hijau (done) di seluruh proyek.
+                  Menghapus tugas lama yang statusnya sudah selesai (done) di database agar ringan.
                 </p>
               </div>
-              <ButtonSecondary
+              <button
+                type="button"
                 onClick={handleClearCompletedTasks}
-                className="shrink-0 text-caption !py-1.5 !px-3"
+                className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] text-text-secondary hover:text-text-primary text-caption font-semibold transition-all shrink-0"
               >
-                Bersihkan Task Selesai
-              </ButtonSecondary>
+                Bersihkan Tugas Selesai
+              </button>
             </div>
 
-            {/* Action 2: Hapus Seluruh Data Proyek */}
-            <div className="p-4 rounded-lg bg-status-overdue/5 border border-status-overdue/30 space-y-3">
+            {/* Action 2: Reset Status Feed Telegram */}
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-body-sm font-semibold text-status-overdue">
-                  Hapus Seluruh Data Proyek & Task
-                </h3>
+                <div className="text-body-sm font-bold text-text-primary">
+                  Reset Status Import Feed Sinyal
+                </div>
+                <p className="text-caption text-text-tertiary">
+                  Mengembalikan status sinyal feed/waitlist sehingga postingan yang pernah dihapus dapat ditambahkan kembali.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleResetFeedImportStatus}
+                className="px-3.5 py-1.5 rounded-xl bg-link-teal/15 hover:bg-link-teal/25 border border-link-teal/30 text-link-teal text-caption font-semibold transition-all shrink-0"
+              >
+                Reset Sinyal Feed
+              </button>
+            </div>
+
+            {/* Action 3: Hapus Seluruh Proyek */}
+            <div className="p-4 rounded-xl bg-status-overdue/10 border border-status-overdue/30 space-y-3">
+              <div>
+                <div className="text-body-sm font-bold text-status-overdue">
+                  Hapus Seluruh Data Garapan & Proyek
+                </div>
                 <p className="text-caption text-text-secondary">
-                  Menghapus semua daftar proyek, checklist task, dan jadwal pengingat di akun ini dari Supabase.
+                  Menghapus SEMUA proyek, catatan linimasa, dan tugas di akun ini dari Supabase.
                 </p>
               </div>
 
@@ -805,24 +1082,26 @@ export default function SettingsPage() {
                   Ketik <strong className="text-text-primary font-mono font-bold">HAPUS</strong> untuk mengonfirmasi:
                 </label>
                 <div className="flex items-center gap-2 max-w-sm">
-                  <Input
+                  <input
+                    type="text"
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value)}
                     placeholder="Ketik HAPUS"
-                    className="!h-9 text-caption font-mono"
+                    className="w-full px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.1] text-caption font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-status-overdue"
                   />
-                  <ButtonDanger
+                  <button
+                    type="button"
                     onClick={handleDeleteAllProjects}
                     disabled={isDeleting || deleteConfirmText.trim().toUpperCase() !== "HAPUS"}
-                    className="shrink-0 !py-1.5 !px-3 text-caption inline-flex items-center gap-1"
+                    className="px-3.5 py-1.5 rounded-xl bg-status-overdue text-white hover:bg-status-overdue/90 disabled:opacity-40 text-caption font-semibold transition-all shrink-0 inline-flex items-center gap-1.5 shadow-md shadow-status-overdue/20"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>{isDeleting ? "Menghapus..." : "Hapus Semua"}</span>
-                  </ButtonDanger>
+                  </button>
                 </div>
               </div>
             </div>
-          </CardBase>
+          </div>
         </div>
       )}
     </div>

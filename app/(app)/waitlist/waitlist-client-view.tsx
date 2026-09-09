@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   Hourglass,
   RefreshCw,
@@ -24,6 +25,7 @@ import {
   ListPlus,
   Trash2,
   FolderPlus,
+  Clock,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { ButtonSecondary } from "@/components/ui/button";
@@ -42,6 +44,28 @@ import {
 
 interface WaitlistClientViewProps {
   initialWaitlists: WaitlistItem[];
+}
+
+function getChannelInfo(channelId: string) {
+  if (channelId === "dutacryptoairdrop") {
+    return {
+      name: "Duta Crypto Airdrop",
+      handle: "@dutacryptoairdrop",
+      logo: "/images/credits/dutacrypto.webp",
+    };
+  }
+  if (channelId === "airdropfind") {
+    return {
+      name: "Airdrop Finder",
+      handle: "@airdropfind",
+      logo: "/images/credits/airdropfinder.webp",
+    };
+  }
+  return {
+    name: channelId,
+    handle: `@${channelId}`,
+    logo: null,
+  };
 }
 
 export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps) {
@@ -388,41 +412,48 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-hairline pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-heading font-bold text-text-primary flex items-center gap-2">
-              <Hourglass className="w-5 h-5 text-accent" />
-              <span>Waitlist Airdrop</span>
-            </h1>
-            <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-accent/15 text-accent border border-accent/30">
-              Rentang 3 Bulan (90 Hari)
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-accent/15 text-accent border border-accent/25 shadow-lg shadow-accent/10">
+              <Hourglass className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-heading-2 font-bold text-text-primary tracking-tight flex items-center gap-2">
+                <span>Waitlist Airdrop</span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-accent/15 text-accent border border-accent/30 shadow-xs">
+                  Rentang 90 Hari
+                </span>
+              </h1>
+              <p className="text-body-sm text-text-secondary mt-0.5">
+                Kelola proyek waitlist yang kamu ikuti, catat akun terdaftar, dan pantau update terbaru langsung dari Telegram.
+              </p>
+            </div>
           </div>
-          <p className="text-body-sm text-text-secondary mt-1">
-            Simpan proyek yang sudah kamu ikuti waitlist-nya, catat email/akun pendaftaran, dan cari perkembangan terbaru di Telegram.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleSyncTelegram}
             disabled={isSyncing}
-            className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-md bg-accent text-on-accent font-semibold text-caption sm:text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-all shadow-sm"
-            title="Pindai postingan waitlist (JOIN WAITLIST / New Waitlist:) dari Telegram 3 bulan terakhir"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-on-accent font-semibold text-caption sm:text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-all shadow-lg shadow-accent/20"
+            title="Pindai postingan waitlist dari Telegram 3 bulan terakhir"
           >
-            <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSyncing ? "animate-spin" : ""}`} />
-            <span>{isSyncing ? "Menyinkronkan 90 Hari..." : "Sinkronkan Telegram 90 Hari"}</span>
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+            <span>{isSyncing ? "Memindai 90 Hari..." : "Sinkronkan Telegram 90 Hari"}</span>
           </button>
         </div>
       </div>
 
       {/* Sync Status Banner */}
       {syncMessage && (
-        <div className="p-3 rounded-md bg-accent/10 border border-accent/30 text-text-primary text-caption flex items-center justify-between">
-          <span>{syncMessage}</span>
+        <div className="p-3.5 rounded-xl bg-accent/10 backdrop-blur-md border border-accent/25 text-accent text-body-sm flex items-center justify-between shadow-lg shadow-accent/5">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-accent shrink-0 animate-pulse" />
+            <span>{syncMessage}</span>
+          </div>
           <button
             onClick={() => setSyncMessage(null)}
             className="text-text-tertiary hover:text-text-primary text-xs ml-2 font-mono"
@@ -434,7 +465,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
 
       {/* Task Transfer Success Banner */}
       {transferSuccessNotification && (
-        <div className="p-3.5 rounded-lg bg-status-completed/15 border border-status-completed/30 flex items-center justify-between gap-3 shadow-sm">
+        <div className="p-3.5 rounded-xl bg-status-completed/15 backdrop-blur-md border border-status-completed/30 flex items-center justify-between gap-3 shadow-lg shadow-status-completed/10">
           <div className="flex items-center gap-2.5 min-w-0">
             <Check className="w-5 h-5 text-status-completed shrink-0 stroke-[3]" />
             <div className="text-body-sm text-text-primary">
@@ -444,7 +475,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => router.push(`/projects/${transferSuccessNotification.projectId}`)}
-              className="px-3 py-1 rounded bg-status-completed text-white text-caption font-semibold hover:opacity-90 transition-opacity"
+              className="px-3 py-1.5 rounded-lg bg-status-completed text-white text-caption font-semibold hover:opacity-90 transition-opacity"
             >
               Buka Proyek →
             </button>
@@ -458,66 +489,66 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
         </div>
       )}
 
-      {/* Navigation Tabs & Filters */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      {/* Navigation Tabs & Filters (Liquid Frosted Glass) */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Dual Tabs */}
-        <div className="flex items-center p-1 rounded-lg bg-bg-elevated border border-border-hairline self-start max-w-full overflow-x-auto">
+        <div className="inline-flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.03] backdrop-blur-md border border-white/[0.08] overflow-x-auto no-scrollbar self-start sm:self-auto">
           <button
             onClick={() => setActiveTab("joined")}
-            className={`flex items-center gap-2 px-2.5 sm:px-4 py-1.5 rounded-md text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
               activeTab === "joined"
-                ? "bg-bg-elevated-2 text-text-primary shadow-sm ring-1 ring-border-hairline"
-                : "text-text-secondary hover:text-text-primary"
+                ? "bg-status-completed/20 text-status-completed border border-status-completed/30 shadow-xs"
+                : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
             <UserCheck className="w-4 h-4 text-status-completed shrink-0" />
             <span>Waitlist yang Saya Ikuti</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[11px] font-mono bg-status-completed/20 text-status-completed font-bold">
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-status-completed/20 text-status-completed font-bold">
               {joinedCount}
             </span>
           </button>
 
           <button
             onClick={() => setActiveTab("pending")}
-            className={`flex items-center gap-2 px-2.5 sm:px-4 py-1.5 rounded-md text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
               activeTab === "pending"
-                ? "bg-bg-elevated-2 text-text-primary shadow-sm ring-1 ring-border-hairline"
-                : "text-text-secondary hover:text-text-primary"
+                ? "bg-accent/20 text-accent border border-accent/30 shadow-xs"
+                : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
             <Sparkles className="w-4 h-4 text-accent shrink-0" />
             <span>Eksplorasi Waitlist Baru</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[11px] font-mono bg-accent/20 text-accent font-bold">
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-accent/20 text-accent font-bold">
               {pendingCount}
             </span>
           </button>
         </div>
 
         {/* Filters and Search Bar */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Channel selector filter */}
-          <div className="flex items-center gap-1 bg-bg-elevated border border-border-hairline rounded-md px-2 py-1">
-            <Filter className="w-3.5 h-3.5 text-text-tertiary mr-1" />
+          <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2">
+            <Filter className="w-3.5 h-3.5 text-text-tertiary" />
             <select
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value as any)}
               className="bg-transparent text-caption text-text-primary focus:outline-none cursor-pointer pr-1"
             >
-              <option value="all">Semua Channel</option>
-              <option value="dutacryptoairdrop">Duta Crypto</option>
-              <option value="airdropfind">Airdrop Finder</option>
+              <option value="all" className="bg-[#0e131b] text-text-primary">Semua Channel</option>
+              <option value="dutacryptoairdrop" className="bg-[#0e131b] text-text-primary">Duta Crypto</option>
+              <option value="airdropfind" className="bg-[#0e131b] text-text-primary">Airdrop Finder</option>
             </select>
           </div>
 
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[180px] sm:min-w-[220px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+          <div className="relative flex-1 min-w-[200px] sm:min-w-[240px]">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari proyek / email terdaftar..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-md bg-bg-elevated border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
             />
           </div>
         </div>
@@ -525,9 +556,9 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
 
       {/* Main Grid Content */}
       {filteredWaitlists.length === 0 ? (
-        <div className="py-20 text-center rounded-xl bg-bg-elevated/40 border border-dashed border-border-hairline p-8 space-y-3">
-          <Hourglass className="w-10 h-10 text-text-tertiary mx-auto stroke-1" />
-          <p className="text-body-sm text-text-secondary font-medium">
+        <div className="py-20 text-center rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-dashed border-white/[0.1] p-8 space-y-3 shadow-xl shadow-black/20">
+          <Hourglass className="w-10 h-10 text-text-tertiary mx-auto opacity-50 stroke-1" />
+          <p className="text-body-md text-text-secondary font-medium">
             {activeTab === "joined"
               ? "Belum ada proyek waitlist yang kamu ikuti."
               : "Tidak ada data waitlist baru yang cocok dengan filter pencarian."}
@@ -539,66 +570,80 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filteredWaitlists.map((item) => {
             const isJoined = item.status === "joined";
-            const isConverting = convertingId === item.id;
+            const channelInfo = getChannelInfo(item.channel);
 
             return (
               <div
                 key={item.id}
-                className={`rounded-xl border flex flex-col justify-between transition-all p-4 ${
+                className={`rounded-2xl p-5 sm:p-6 backdrop-blur-xl border flex flex-col justify-between transition-all duration-200 shadow-xl shadow-black/20 space-y-4 group relative ${
                   isJoined
-                    ? "bg-bg-elevated-2/90 border-status-completed/30 shadow-sm ring-1 ring-status-completed/20"
-                    : "bg-bg-elevated border-border-hairline hover:border-border-hairline-strong"
+                    ? "bg-white/[0.03] border-status-completed/30 hover:border-status-completed/50"
+                    : "bg-white/[0.03] border-white/[0.08] hover:border-white/[0.2] hover:bg-white/[0.04]"
                 }`}
               >
                 {/* Card Top Information */}
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   {/* Channel & Date Badge */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-text-secondary px-2 py-0.5 rounded bg-bg-surface border border-border-hairline">
-                      <Send className="w-3 h-3 text-link-teal" />
-                      <span>{item.channel === "dutacryptoairdrop" ? "Duta Crypto" : "Airdrop Finder"}</span>
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-6 h-6 rounded-full overflow-hidden border border-white/20 bg-white/[0.05] shrink-0 flex items-center justify-center">
+                        {channelInfo.logo ? (
+                          <Image
+                            src={channelInfo.logo}
+                            alt={channelInfo.name}
+                            width={24}
+                            height={24}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Send className="w-3 h-3 text-link-teal" />
+                        )}
+                      </div>
+                      <span className="text-caption font-medium text-text-secondary truncate">
+                        {channelInfo.name}
+                      </span>
+                    </div>
 
-                    <span className="text-[11px] font-mono text-text-tertiary flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
+                    <span className="text-[11px] font-mono text-text-tertiary flex items-center gap-1 shrink-0">
+                      <Calendar className="w-3 h-3 text-text-tertiary/70" />
                       <span>{formatDate(item.created_at)}</span>
                     </span>
                   </div>
 
                   {/* Project Name & Title */}
                   <div>
-                    <div className="flex items-center justify-between gap-1.5">
-                      <h3 className="text-body-sm font-bold text-text-primary truncate">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-body-md font-bold text-text-primary tracking-tight truncate">
                         {item.project_name}
                       </h3>
                       {isJoined && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-status-completed/15 text-status-completed border border-status-completed/30 shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-status-completed/15 text-status-completed border border-status-completed/30 shrink-0">
                           <Check className="w-3 h-3 stroke-[3]" />
                           <span>Joined</span>
                         </span>
                       )}
                     </div>
-                    <p className="text-caption text-text-secondary line-clamp-2 mt-0.5">
+                    <p className="text-caption text-text-secondary line-clamp-2 mt-1 leading-relaxed">
                       {item.title}
                     </p>
                   </div>
 
                   {/* Registered Account Section for Joined items */}
                   {isJoined && (
-                    <div className="p-2.5 rounded-lg bg-bg-surface border border-border-hairline space-y-1.5">
+                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1.5">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-text-tertiary font-semibold flex items-center gap-1">
-                          <UserCheck className="w-3 h-3 text-status-completed" />
+                        <span className="text-text-tertiary font-semibold flex items-center gap-1.5">
+                          <UserCheck className="w-3.5 h-3.5 text-status-completed" />
                           <span>Akun Terdaftar:</span>
                         </span>
                         <button
                           onClick={() => handleOpenJoinModal(item)}
-                          className="text-accent hover:underline inline-flex items-center gap-0.5 font-medium"
+                          className="text-accent hover:text-accent-hover inline-flex items-center gap-1 font-medium transition-colors"
                         >
-                          <Edit2 className="w-2.5 h-2.5" />
+                          <Edit2 className="w-3 h-3" />
                           <span>Edit</span>
                         </button>
                       </div>
@@ -619,14 +664,14 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   {item.tasks && item.tasks.length > 0 && (
                     <div className="space-y-1.5 pt-1">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-semibold text-text-tertiary uppercase tracking-wider">
+                        <span className="font-semibold text-text-tertiary uppercase tracking-wider text-[10px]">
                           Instruksi Pendaftaran:
                         </span>
                         <a
                           href={item.source_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-text-tertiary hover:text-link-teal inline-flex items-center gap-0.5 font-mono"
+                          className="text-text-tertiary hover:text-link-teal inline-flex items-center gap-1 font-mono transition-colors"
                           title="Buka postingan asli di Telegram"
                         >
                           <span>Buka TG</span>
@@ -637,7 +682,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       <ul className="space-y-1">
                         {item.tasks.slice(0, 3).map((task, idx) => (
                           <li key={idx} className="text-caption text-text-secondary flex items-start gap-1.5">
-                            <span className="text-text-tertiary shrink-0 mt-0.5">•</span>
+                            <span className="text-accent shrink-0 mt-0.5">•</span>
                             <span className="line-clamp-1">{task}</span>
                           </li>
                         ))}
@@ -648,7 +693,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           <button
                             type="button"
                             onClick={() => setDetailModalTarget(item)}
-                            className="text-[11px] text-accent hover:underline font-semibold inline-flex items-center gap-1 cursor-pointer"
+                            className="text-[11px] text-accent hover:text-accent-hover font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
                             title="Klik untuk membuka popup seluruh langkah pendaftaran lengkap"
                           >
                             <span>+{item.tasks.length - 3} langkah lainnya (Lihat Semua)</span>
@@ -677,16 +722,16 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 </div>
 
                 {/* Card Bottom Actions */}
-                <div className="pt-3 border-t border-border-subtle mt-3 space-y-2">
+                <div className="pt-3.5 border-t border-white/[0.06] mt-3 space-y-2">
                   {isJoined ? (
                     /* ACTIONS FOR JOINED WAITLIST */
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <div className="grid grid-cols-2 gap-2">
                         {/* UPDATE TG BUTTON */}
                         <button
                           type="button"
                           onClick={() => handleOpenTgSearch(item)}
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-link-teal/15 border border-link-teal/30 text-link-teal hover:bg-link-teal/25 text-caption font-semibold transition-colors shadow-xs"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-link-teal/40 text-link-teal hover:bg-link-teal/10 text-caption font-semibold transition-all shadow-xs"
                           title="Cari perkembangan terbaru dari Telegram untuk proyek ini"
                         >
                           <Search className="w-3.5 h-3.5" />
@@ -697,7 +742,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                         <button
                           type="button"
                           onClick={() => setReviewingWaitlist(item)}
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-colors shadow-xs"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-lg shadow-accent/20"
                           title="Review dan buat proyek Droppr"
                         >
                           <FolderPlus className="w-3.5 h-3.5" />
@@ -732,18 +777,18 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       <button
                         type="button"
                         onClick={() => handleOpenJoinModal(item)}
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-colors shadow-xs"
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-lg shadow-accent/20"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Tandai Sudah Join</span>
                       </button>
 
-                      <div className="flex items-center justify-between text-caption pt-0.5 text-text-tertiary">
+                      <div className="flex items-center justify-between text-caption pt-1 text-text-tertiary">
                         <a
                           href={item.source_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-text-secondary hover:text-link-teal hover:underline inline-flex items-center gap-1 text-[11px]"
+                          className="text-text-secondary hover:text-link-teal hover:underline inline-flex items-center gap-1 text-[11px] transition-colors"
                         >
                           <Send className="w-3 h-3 text-link-teal" />
                           <span>Buka Telegram</span>
@@ -753,7 +798,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
-                          className="text-text-tertiary hover:text-status-overdue text-[11px]"
+                          className="text-text-tertiary hover:text-status-overdue text-[11px] transition-colors"
                           title="Abaikan dan hapus"
                         >
                           Hapus

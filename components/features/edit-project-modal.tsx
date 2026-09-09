@@ -16,6 +16,10 @@ import {
   ExternalLink,
   Layers,
   AlertTriangle,
+  Folder,
+  Activity,
+  FileText,
+  Link as LinkIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
@@ -251,255 +255,296 @@ export function EditProjectModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Edit Proyek Airdrop"
-      description="Ubah nama, status, multi-website, faucet link, tutorial, dan link kustom."
-      maxWidth="xl"
+      description="Perbarui informasi identitas, tautan website, faucet, komunitas, dan catatan panduan."
+      maxWidth="2xl"
     >
-      <form onSubmit={handleSave} className="space-y-4">
+      <form onSubmit={handleSave} className="space-y-5">
         {error && (
-          <div className="p-3 rounded-md bg-status-overdue/10 border border-status-overdue/30 text-status-overdue text-caption">
-            {error}
+          <div className="p-3.5 rounded-xl bg-status-overdue/10 border border-status-overdue/30 text-status-overdue text-caption flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
-        {/* Section 1: Informasi Dasar */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Nama Project <span className="text-status-overdue">*</span>
-            </label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Contoh: Aura Network"
-              required
-              disabled={isSaving || isDeleting}
-            />
-          </div>
-
-          <div>
-            <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Chain / Jaringan
-            </label>
-            <Input
-              value={chain}
-              onChange={(e) => setChain(e.target.value)}
-              placeholder="Contoh: Arbitrum, Sepolia, Berachain"
-              disabled={isSaving || isDeleting}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Folder Kategori
-            </label>
-            <select
-              value={folderId}
-              onChange={(e) => setFolderId(e.target.value)}
-              className="w-full h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
-              disabled={isSaving || isDeleting}
-            >
-              <option value="">(Tanpa Folder)</option>
-              {folders.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Status Lifecycle
-            </label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-              className="w-full h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent cursor-pointer"
-              disabled={isSaving || isDeleting}
-            >
-              <option value="not_started">Belum Mulai</option>
-              <option value="in_progress">Sedang Dikerjakan</option>
-              <option value="waiting">Menunggu TGE / Snapshot</option>
-              <option value="ready_to_claim">Siap Klaim</option>
-              <option value="completed">Selesai / Klaim Selesai</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Section 2: Website & Sumber Daya Airdrop Utama (Menjawab isu multi-web & faucet) */}
-        <div className="space-y-3 pt-2 border-t border-border-hairline">
-          <div className="flex items-center justify-between">
-            <span className="text-body-sm font-semibold text-text-primary flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-accent" />
-              <span>Situs Web & Sumber Daya Utama</span>
-            </span>
-            <span className="text-caption text-text-tertiary">
-              Bedakan web resmi, portal dApp, dan faucet
+        {/* SECTION 1: INFORMASI DASAR PROYEK */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-4 shadow-sm">
+          <div className="flex items-center gap-2 pb-1 border-b border-white/[0.05]">
+            <Layers className="w-4 h-4 text-accent shrink-0" />
+            <span className="text-body-sm font-semibold text-text-primary">
+              Identitas & Status Proyek
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* Website 1: Web Resmi */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-caption text-text-secondary mb-1">
-                🌐 Website Resmi / Portal Info
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Nama Proyek <span className="text-status-overdue">*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Contoh: MINARA, Monad, Berachain"
+                required
+                disabled={isSaving || isDeleting}
+                className="w-full h-10 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Jaringan / Chain
+              </label>
+              <input
+                type="text"
+                value={chain}
+                onChange={(e) => setChain(e.target.value)}
+                placeholder="Contoh: Ethereum, Arbitrum, Base, Berachain"
+                disabled={isSaving || isDeleting}
+                className="w-full h-10 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-caption font-medium text-text-secondary mb-1.5 flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-text-tertiary" />
+                <span>Folder Kategori</span>
+              </label>
+              <select
+                value={folderId}
+                onChange={(e) => setFolderId(e.target.value)}
+                disabled={isSaving || isDeleting}
+                className="w-full h-10 px-3.5 rounded-xl bg-[#0d121b] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <option value="">(Tanpa Folder)</option>
+                {folders.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-caption font-medium text-text-secondary mb-1.5 flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-text-tertiary" />
+                <span>Status Garapan</span>
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as ProjectStatus)}
+                disabled={isSaving || isDeleting}
+                className="w-full h-10 px-3.5 rounded-xl bg-[#0d121b] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <option value="not_started">Belum Mulai</option>
+                <option value="in_progress">Sedang Dikerjakan</option>
+                <option value="waiting">Menunggu TGE / Snapshot</option>
+                <option value="ready_to_claim">Siap Klaim</option>
+                <option value="completed">Selesai / Klaim Selesai</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: SITUS WEB & SUMBER DAYA UTAMA (NO DOUBLE EMOJIS) */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1 border-b border-white/[0.05]">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-link-teal shrink-0" />
+              <span className="text-body-sm font-semibold text-text-primary">
+                Situs Web & Sumber Daya Utama
+              </span>
+            </div>
+            <span className="text-[11px] text-text-tertiary">
+              Tautan portal resmi, dApp swap, dan faucet testnet
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Website Resmi */}
+            <div>
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Website Resmi / Portal Info
               </label>
               <div className="relative">
-                <Globe className="w-4 h-4 text-text-tertiary absolute left-3 top-3 pointer-events-none" />
+                <Globe className="w-4 h-4 text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="url"
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   placeholder="https://project.xyz"
-                  className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
                   disabled={isSaving || isDeleting}
+                  className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
                 />
               </div>
             </div>
 
-            {/* Website 2: DApp / Testnet App */}
+            {/* DApp Web App */}
             <div>
-              <label className="block text-caption text-text-secondary mb-1">
-                🚀 Web App / DApp Testnet (Web ke-2)
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Web App / DApp Testnet
               </label>
               <div className="relative">
-                <ExternalLink className="w-4 h-4 text-accent absolute left-3 top-3 pointer-events-none" />
+                <ExternalLink className="w-4 h-4 text-accent absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="url"
                   value={dappUrl}
                   onChange={(e) => setDappUrl(e.target.value)}
-                  placeholder="https://app.project.xyz atau swap portal"
-                  className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
+                  placeholder="https://app.project.xyz"
                   disabled={isSaving || isDeleting}
+                  className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
                 />
               </div>
             </div>
 
-            {/* Link Faucet */}
+            {/* Faucet Link */}
             <div>
-              <label className="block text-caption text-text-secondary mb-1">
-                🚰 Link Faucet (Klaim Saldo Testnet)
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Faucet Testnet (Klaim Gas)
               </label>
               <div className="relative">
-                <Droplets className="w-4 h-4 text-link-teal absolute left-3 top-3 pointer-events-none" />
+                <Droplets className="w-4 h-4 text-link-teal absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="url"
                   value={faucetUrl}
                   onChange={(e) => setFaucetUrl(e.target.value)}
                   placeholder="https://faucet.project.xyz"
-                  className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
                   disabled={isSaving || isDeleting}
+                  className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
                 />
               </div>
             </div>
 
-            {/* Docs */}
+            {/* Dokumentasi */}
             <div>
-              <label className="block text-caption text-text-secondary mb-1">
-                📚 Dokumentasi / GitBook / Panduan Resmi
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Dokumentasi / GitBook / Panduan
               </label>
               <div className="relative">
-                <BookOpen className="w-4 h-4 text-text-tertiary absolute left-3 top-3 pointer-events-none" />
+                <BookOpen className="w-4 h-4 text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="url"
                   value={docsUrl}
                   onChange={(e) => setDocsUrl(e.target.value)}
                   placeholder="https://docs.project.xyz"
-                  className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
                   disabled={isSaving || isDeleting}
+                  className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Section 3: Akun Sosial Media */}
-        <div className="space-y-3 pt-2 border-t border-border-hairline">
-          <span className="text-body-sm font-semibold text-text-primary block">
-            Media Sosial & Komunitas
-          </span>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="relative">
-              <span className="text-body-sm font-bold text-text-tertiary absolute left-3 top-2 pointer-events-none">
-                𝕏
-              </span>
-              <input
-                type="text"
-                value={twitter}
-                onChange={(e) => setTwitter(e.target.value)}
-                placeholder="Twitter / X (@handle)"
-                className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
-                disabled={isSaving || isDeleting}
-              />
+        {/* SECTION 3: MEDIA SOSIAL & LINK POST TELEGRAM INDUK */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-4 shadow-sm">
+          <div className="flex items-center gap-2 pb-1 border-b border-white/[0.05]">
+            <Send className="w-4 h-4 text-accent shrink-0" />
+            <span className="text-body-sm font-semibold text-text-primary">
+              Media Sosial & Sumber Telegram
+            </span>
+          </div>
+
+          {/* 3 Grid Sosmed */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Twitter / X
+              </label>
+              <div className="relative">
+                <span className="text-[13px] font-bold text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                  𝕏
+                </span>
+                <input
+                  type="text"
+                  value={twitter}
+                  onChange={(e) => setTwitter(e.target.value)}
+                  placeholder="https://x.com/... atau @handle"
+                  disabled={isSaving || isDeleting}
+                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <Send className="w-4 h-4 text-text-tertiary absolute left-3 top-3 pointer-events-none" />
-              <input
-                type="text"
-                value={telegram}
-                onChange={(e) => setTelegram(e.target.value)}
-                placeholder="Telegram (t.me/...)"
-                className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
-                disabled={isSaving || isDeleting}
-              />
+
+            <div>
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Telegram Channel / Group
+              </label>
+              <div className="relative">
+                <Send className="w-3.5 h-3.5 text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={telegram}
+                  onChange={(e) => setTelegram(e.target.value)}
+                  placeholder="https://t.me/..."
+                  disabled={isSaving || isDeleting}
+                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <MessageSquare className="w-4 h-4 text-text-tertiary absolute left-3 top-3 pointer-events-none" />
-              <input
-                type="text"
-                value={discord}
-                onChange={(e) => setDiscord(e.target.value)}
-                placeholder="Discord Invite URL"
-                className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
-                disabled={isSaving || isDeleting}
-              />
+
+            <div>
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Discord
+              </label>
+              <div className="relative">
+                <MessageSquare className="w-3.5 h-3.5 text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={discord}
+                  onChange={(e) => setDiscord(e.target.value)}
+                  placeholder="https://discord.gg/..."
+                  disabled={isSaving || isDeleting}
+                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Telegram Root Post Link (For Update Tracking) */}
-          <div className="pt-2">
-            <label className="block text-caption text-text-secondary mb-1">
-              📌 Link Postingan Telegram Induk / Sumber Garapan
+          {/* Link Postingan Telegram Induk */}
+          <div className="pt-2 border-t border-white/[0.04]">
+            <label className="block text-caption font-medium text-text-secondary mb-1.5">
+              Link Postingan Telegram Induk (Sumber Garapan)
             </label>
             <div className="relative">
-              <Send className="w-4 h-4 text-accent absolute left-3 top-3 pointer-events-none" />
+              <Send className="w-4 h-4 text-accent absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="url"
                 value={telegramPostUrl}
                 onChange={(e) => setTelegramPostUrl(e.target.value)}
                 placeholder="https://t.me/airdropfind/115116 atau https://t.me/dutacryptoairdrop/4294"
-                className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-2 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent"
                 disabled={isSaving || isDeleting}
+                className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50 font-mono text-[13px]"
               />
             </div>
-            <p className="text-[11px] text-text-tertiary mt-1">
-              Tautan postingan awal garapan ini di Telegram. Berguna untuk melacak update berantai otomatis meskipun admin channel hanya me-reply post ini.
+            <p className="text-[11px] text-text-tertiary mt-1.5 leading-relaxed">
+              Tautan pesan awal garapan ini di Telegram. Berguna untuk melacak update berantai secara otomatis saat admin channel mengirimkan info pembaruan.
             </p>
           </div>
         </div>
 
-        {/* Section 4: Link Kustom Tambahan (Explorer, Galxe, Zealy, dll.) */}
-        <div className="space-y-2 pt-2 border-t border-border-hairline">
-          <div className="flex items-center justify-between">
-            <label className="block text-body-sm font-semibold text-text-primary">
-              Link Tambahan Lainnya ({customLinks.length})
-            </label>
-            <span className="text-caption text-text-tertiary">
+        {/* SECTION 4: TAUTAN TAMBAHAN LAINNYA */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-3.5 shadow-sm">
+          <div className="flex items-center justify-between pb-1 border-b border-white/[0.05]">
+            <div className="flex items-center gap-2">
+              <LinkIcon className="w-4 h-4 text-text-secondary shrink-0" />
+              <span className="text-body-sm font-semibold text-text-primary">
+                Tautan Tambahan ({customLinks.length})
+              </span>
+            </div>
+            <span className="text-[11px] text-text-tertiary">
               Explorer, Galxe, Zealy, Guild, dsb.
             </span>
           </div>
 
           {customLinks.length > 0 && (
-            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+            <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
               {customLinks.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-2 rounded-md bg-bg-elevated-2 border border-border-hairline text-body-sm"
+                  className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-white/[0.02] border border-white/[0.06] text-body-sm group hover:border-white/[0.12] transition-all"
                 >
-                  <div className="flex items-center gap-2 min-w-0 pr-2">
-                    <span className="font-medium text-text-primary shrink-0">
+                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                    <span className="font-medium text-text-primary text-caption shrink-0">
                       {item.label}:
                     </span>
                     <span className="text-caption text-link-teal truncate font-mono">
@@ -509,7 +554,7 @@ export function EditProjectModal({
                   <button
                     type="button"
                     onClick={() => handleRemoveCustomLink(idx)}
-                    className="text-text-tertiary hover:text-status-overdue shrink-0"
+                    className="p-1 text-text-tertiary hover:text-status-overdue rounded-lg hover:bg-white/[0.05] transition-colors shrink-0"
                     title="Hapus Link"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -525,68 +570,72 @@ export function EditProjectModal({
               value={newCustomLabel}
               onChange={(e) => setNewCustomLabel(e.target.value)}
               placeholder="Label (cth: Explorer)"
-              className="w-full sm:w-1/3 bg-bg-elevated-2 text-text-primary text-body-sm px-3 py-1.5 rounded-md border border-border-hairline focus:outline-none focus:border-accent"
               disabled={isSaving || isDeleting}
+              className="w-full sm:w-1/3 h-9 px-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
             />
             <input
               type="url"
               value={newCustomUrl}
               onChange={(e) => setNewCustomUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full sm:flex-1 bg-bg-elevated-2 text-text-primary text-body-sm px-3 py-1.5 rounded-md border border-border-hairline focus:outline-none focus:border-accent"
               disabled={isSaving || isDeleting}
+              className="w-full sm:flex-1 h-9 px-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50 font-mono text-[13px]"
             />
-            <ButtonSecondary
+            <button
               type="button"
               onClick={handleAddCustomLink}
-              className="!py-1.5 !px-3 shrink-0 inline-flex items-center justify-center gap-1 text-caption"
-              disabled={isSaving || isDeleting}
+              disabled={!newCustomLabel.trim() || !newCustomUrl.trim() || isSaving || isDeleting}
+              className="h-9 px-3.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] text-text-primary text-caption font-semibold inline-flex items-center justify-center gap-1.5 transition-all shrink-0 disabled:opacity-40"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 text-accent" />
               <span>Tambah</span>
-            </ButtonSecondary>
+            </button>
           </div>
         </div>
 
-        {/* Section 5: Panduan Kerja (Guide Content) */}
-        <div className="pt-2 border-t border-border-hairline">
-          <label className="block text-body-sm font-semibold text-text-primary mb-1">
-            Panduan Kerja & Catatan
-          </label>
+        {/* SECTION 5: CATATAN GARAPAN / PANDUAN KERJA */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-3 shadow-sm">
+          <div className="flex items-center gap-2 pb-1 border-b border-white/[0.05]">
+            <FileText className="w-4 h-4 text-text-secondary shrink-0" />
+            <span className="text-body-sm font-semibold text-text-primary">
+              Catatan Garapan & Panduan Kerja
+            </span>
+          </div>
+
           <textarea
             rows={4}
             value={guideContent}
             onChange={(e) => setGuideContent(e.target.value)}
-            placeholder="Panduan kerja, URL faucet penting, catatan gas fee, step by step..."
-            className="w-full bg-bg-elevated-2 text-text-primary text-body-sm p-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent font-sans"
+            placeholder="Tulis panduan kerja, trik pengerjaan, catatan gas fee, atau info penting lainnya..."
             disabled={isSaving || isDeleting}
+            className="w-full p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all font-sans leading-relaxed no-scrollbar resize-none disabled:opacity-50"
           />
-          <p className="text-caption text-text-tertiary mt-0.5">
-            URL otomatis menjadi link clickable saat dilihat di halaman detail proyek.
+          <p className="text-[11px] text-text-tertiary">
+            Tautan URL di dalam catatan otomatis menjadi link interaktif saat dilihat pada halaman linimasa proyek.
           </p>
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-border-hairline">
+        {/* FOOTER ACTIONS */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
           <div>
             {confirmDelete ? (
-              <div className="flex items-center gap-2">
-                <span className="text-caption text-status-overdue font-medium flex items-center gap-1">
+              <div className="flex items-center gap-2.5 p-2 rounded-xl bg-status-overdue/10 border border-status-overdue/30">
+                <span className="text-caption text-status-overdue font-semibold flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  Yakin hapus proyek ini?
+                  Hapus proyek ini?
                 </span>
                 <button
                   type="button"
                   onClick={handleDeleteProject}
                   disabled={isDeleting}
-                  className="px-2.5 py-1 bg-status-overdue text-white text-caption font-semibold rounded hover:bg-red-700 transition-colors"
+                  className="px-3 py-1 bg-status-overdue text-white text-caption font-bold rounded-lg hover:bg-red-700 transition-colors shadow-xs"
                 >
                   {isDeleting ? "Menghapus..." : "Ya, Hapus"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
-                  className="text-caption text-text-secondary hover:text-text-primary underline px-1"
+                  className="text-caption text-text-tertiary hover:text-text-primary px-1.5 transition-colors"
                 >
                   Batal
                 </button>
@@ -595,7 +644,7 @@ export function EditProjectModal({
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className="text-caption text-status-overdue hover:underline inline-flex items-center gap-1"
+                className="text-caption text-status-overdue/80 hover:text-status-overdue inline-flex items-center gap-1.5 py-1 transition-colors font-medium"
                 disabled={isSaving || isDeleting}
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -604,19 +653,21 @@ export function EditProjectModal({
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-2.5">
             <ButtonSecondary
               type="button"
               onClick={onClose}
               disabled={isSaving || isDeleting}
+              className="!py-2 !px-4 text-caption rounded-xl"
             >
               Batal
             </ButtonSecondary>
             <ButtonPrimary
               type="submit"
               disabled={isSaving || isDeleting}
+              className="!py-2 !px-5 text-caption rounded-xl"
             >
-              {isSaving ? "Menyimpan Perubahan..." : "Simpan Perubahan"}
+              {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
             </ButtonPrimary>
           </div>
         </div>

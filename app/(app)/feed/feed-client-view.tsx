@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { CardBase } from "@/components/ui/card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import {
@@ -13,7 +15,6 @@ import {
   Send,
   Trash2,
   CheckCircle2,
-  Circle,
   FolderPlus,
   Clock,
   Zap,
@@ -24,6 +25,13 @@ import {
   RotateCcw,
   AlertCircle,
   X,
+  BookOpen,
+  Copy,
+  Layers,
+  Sparkles,
+  MessageSquare,
+  Layers2,
+  Languages,
 } from "lucide-react";
 import {
   fetchAirdropFeeds,
@@ -35,9 +43,37 @@ import {
   type AirdropFeedItem,
 } from "@/lib/supabase/airdrop-feeds";
 import { ProjectReviewModal } from "@/components/features/project-review-modal";
+import { useTranslation } from "@/lib/i18n/context";
+import { getTranslationAction } from "@/lib/utils/language-prefs";
 
 interface FeedClientViewProps {
   initialFeeds: AirdropFeedItem[];
+}
+
+// Channel logo & identity metadata
+export function getChannelInfo(channelId: string) {
+  if (channelId === "dutacryptoairdrop") {
+    return {
+      name: "Duta Crypto Airdrop",
+      handle: "@dutacryptoairdrop",
+      logo: "/images/credits/dutacrypto.webp",
+      url: "https://t.me/dutacryptoairdrop",
+    };
+  }
+  if (channelId === "airdropfind") {
+    return {
+      name: "Airdrop Finder",
+      handle: "@airdropfind",
+      logo: "/images/credits/airdropfinder.webp",
+      url: "https://t.me/airdropfind",
+    };
+  }
+  return {
+    name: channelId,
+    handle: `@${channelId}`,
+    logo: null,
+    url: `https://t.me/${channelId}`,
+  };
 }
 
 // Pure helper detection for Free vs Paid Airdrop
@@ -79,27 +115,180 @@ export function isFeedPaid(feed: AirdropFeedItem): boolean {
   return !isFeedFree(feed);
 }
 
+// Extracts core project name for intelligent grouping and mention counting
+export function extractCoreProjectKey(title: string): string {
+  return title
+    .replace(/^(TESTNET|AIRDROP|FREE|NEW AIRDROPS?|NEW TESTNET|NEW WAITLIST|UPDATE|REMINDER|CLAIM)\s*[:|-]?\s*/i, "")
+    .replace(/\s*[|\-–—].*$/, "")
+    .replace(/\(.*?\)/g, "")
+    .split(/\s+/)[0]
+    .toLowerCase()
+    .trim();
+}
+
+// Human readable relative timestamp (WIB localized)
+export function formatTimeAgo(isoString?: string | null): string {
+  if (!isoString) return "";
+  try {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return "Baru saja";
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} mnt lalu`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours} jam lalu`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return "Kemarin";
+    if (diffDays < 7) return `${diffDays} hari lalu`;
+    return new Date(isoString).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+    });
+  } catch {
+    return "";
+  }
+}
+
+// Render raw telegram text with interactive links in preview modal
+function renderInteractiveText(text: string) {
+  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"']+)/g;
+  const elements: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      elements.push(text.slice(lastIndex, match.index));
+    }
+
+    if (match[1] && match[2]) {
+      elements.push(
+        <a
+          key={`md-${match.index}`}
+          href={match[2]}
+          target="_blank"
+          rel="noreferrer"
+          className="text-amber-400 hover:text-amber-300 underline underline-offset-2 inline-flex items-center gap-1 font-medium transition-colors break-all"
+        >
+          <span>{match[1]}</span>
+          <ExternalLink className="w-3 h-3 shrink-0 inline" />
+        </a>
+      );
+    } else if (match[3]) {
+      elements.push(
+        <a
+          key={`url-${match.index}`}
+          href={match[3]}
+          target="_blank"
+          rel="noreferrer"
+          className="text-amber-400 hover:text-amber-300 underline underline-offset-2 inline-flex items-center gap-1 font-mono text-[12px] transition-colors break-all"
+        >
+          <span>{match[3]}</span>
+          <ExternalLink className="w-3 h-3 shrink-0 inline" />
+        </a>
+      );
+    }
+
+    lastIndex = linkRegex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    elements.push(text.slice(lastIndex));
+  }
+
+  return elements;
+}
+
 export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const router = useRouter();
+  const { t, locale } = useTranslation();
   const [feeds, setFeeds] = useState<AirdropFeedItem[]>(initialFeeds);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Filter States: Tipe Garapan (Testnet, Retro/Mainnet) & Biaya/Modal (Gratis, Berbayar)
+  // Filter States
   const [channelFilter, setChannelFilter] = useState<"all" | "dutacryptoairdrop" | "airdropfind">("all");
   const [categoryFilter, setCategoryFilter] = useState<"all" | "testnet" | "retro">("all");
   const [costFilter, setCostFilter] = useState<"all" | "free" | "paid">("all");
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Interactive Task Selection per feed (id -> set of checked task indices)
-  const [selectedTasks, setSelectedTasks] = useState<Record<string, Set<number>>>({});
+  const [isGroupedByProject, setIsGroupedByProject] = useState(false);
 
   // Converting to project loading state
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [convertedSuccessId, setConvertedSuccessId] = useState<string | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [reviewingFeed, setReviewingFeed] = useState<AirdropFeedItem | null>(null);
+
+  // Telegram original post preview modal state & manual on-demand translation
+  const [previewingFeed, setPreviewingFeed] = useState<AirdropFeedItem | null>(null);
+  const [isPreviewCopied, setIsPreviewCopied] = useState(false);
+  const [isPreviewTranslating, setIsPreviewTranslating] = useState(false);
+  const [previewTranslatedText, setPreviewTranslatedText] = useState<string | null>(null);
+  const [showPreviewTranslated, setShowPreviewTranslated] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Lock body scroll when preview modal is open
+  useEffect(() => {
+    if (previewingFeed) {
+      const orig = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = orig;
+      };
+    }
+  }, [previewingFeed]);
+
+  const handleOpenPreview = (feed: AirdropFeedItem) => {
+    setPreviewingFeed(feed);
+    setPreviewTranslatedText(null);
+    setShowPreviewTranslated(false);
+    setIsPreviewTranslating(false);
+    setIsPreviewCopied(false);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewingFeed(null);
+    setPreviewTranslatedText(null);
+    setShowPreviewTranslated(false);
+    setIsPreviewTranslating(false);
+    setIsPreviewCopied(false);
+  };
+
+  const handleTranslatePreview = async () => {
+    if (!previewingFeed) return;
+    if (previewTranslatedText) {
+      setShowPreviewTranslated(!showPreviewTranslated);
+      return;
+    }
+
+    setIsPreviewTranslating(true);
+    try {
+      const action = getTranslationAction(previewingFeed.raw_text, locale, false);
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: previewingFeed.raw_text,
+          targetLang: action.targetLang,
+          sourceLang: action.sourceLang,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data?.translatedText) {
+        setPreviewTranslatedText(json.data.translatedText);
+        setShowPreviewTranslated(true);
+      }
+    } catch (err) {
+      console.error("Gagal menerjemahkan postingan feed:", err);
+    } finally {
+      setIsPreviewTranslating(false);
+    }
+  };
 
   // Convert feed item to official Droppr Project (AI or manual)
   const handleMakeProject = async (feed: AirdropFeedItem, useAI: boolean = false) => {
@@ -208,23 +397,27 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
     }
   };
 
+  // Calculate mention frequency per project key across all feeds
+  const projectMentionStats = useMemo(() => {
+    const stats: Record<string, { count: number; titles: string[] }> = {};
+    feeds.forEach((f) => {
+      const key = extractCoreProjectKey(f.title);
+      if (!key) return;
+      if (!stats[key]) {
+        stats[key] = { count: 0, titles: [] };
+      }
+      stats[key].count += 1;
+      if (!stats[key].titles.includes(f.title)) {
+        stats[key].titles.push(f.title);
+      }
+    });
+    return stats;
+  }, [feeds]);
+
   // Delete individual feed item
   const handleDeleteFeed = async (feedId: string) => {
     setFeeds((prev) => prev.filter((f) => f.id !== feedId));
     await deleteAirdropFeed(feedId);
-  };
-
-  // Toggle task checkbox in feed card
-  const handleToggleFeedTask = (feedId: string, taskIdx: number) => {
-    setSelectedTasks((prev) => {
-      const currentSet = new Set(prev[feedId] || []);
-      if (currentSet.has(taskIdx)) {
-        currentSet.delete(taskIdx);
-      } else {
-        currentSet.add(taskIdx);
-      }
-      return { ...prev, [feedId]: currentSet };
-    });
   };
 
   // Filtered feeds logic (Testnet vs Retro vs Waitlist & Free vs Paid)
@@ -246,9 +439,6 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
         } else if (categoryFilter === "retro") {
           const isRetro = feed.category === "retro" || isFeedPaid(feed);
           if (!isRetro) return false;
-        } else if (categoryFilter === "waitlist") {
-          const isWaitlist = feed.category === "waitlist" || feed.title.toLowerCase().includes("waitlist");
-          if (!isWaitlist) return false;
         }
       }
 
@@ -274,6 +464,19 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
     });
   }, [feeds, channelFilter, categoryFilter, costFilter, searchQuery]);
 
+  // Feeds to display: either all matching or deduplicated by project
+  const displayedFeeds = useMemo(() => {
+    if (!isGroupedByProject) return filteredFeeds;
+    const seen = new Set<string>();
+    return filteredFeeds.filter((f) => {
+      const key = extractCoreProjectKey(f.title);
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [filteredFeeds, isGroupedByProject]);
+
   // Counts for category badges
   const testnetCount = useMemo(
     () => feeds.filter((f) => f.category === "testnet" || !isFeedPaid(f)).length,
@@ -286,68 +489,55 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const freeCostCount = useMemo(() => feeds.filter((f) => isFeedFree(f)).length, [feeds]);
   const paidCostCount = useMemo(() => feeds.filter((f) => isFeedPaid(f)).length, [feeds]);
 
-  const formatDate = (isoString?: string | null) => {
-    if (!isoString) return "";
-    try {
-      const d = new Date(isoString);
-      return d.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return isoString;
-    }
-  };
-
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-6 max-w-5xl mx-auto pb-16">
       {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-accent/15 text-accent border border-accent/20">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-accent/15 text-accent border border-accent/25 shadow-lg shadow-accent/10">
               <Rss className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-heading-2 font-bold text-text-primary tracking-tight">
-                Feed Airdrop Baru
+              <h1 className="text-heading-2 font-bold text-text-primary tracking-tight flex items-center gap-2">
+                <span>{t("feed.title")}</span>
               </h1>
               <p className="text-body-sm text-text-secondary mt-0.5">
-                Kurasi garapan testnet & airdrop baru (maksimal 1 bulan). Tersimpan di cloud & otomatis kadaluarsa 1 bulan.
+                {t("feed.subtitle")}
               </p>
             </div>
           </div>
         </div>
 
         {/* Action buttons */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <ButtonSecondary
             onClick={handleCleanupExpired}
-            className="!py-1.5 !px-3 text-caption text-text-tertiary hover:text-text-primary border-border-subtle"
+            className="!py-2 !px-3.5 text-caption text-text-tertiary hover:text-text-primary bg-white/[0.03] backdrop-blur-md border-white/[0.08] hover:border-white/[0.2] transition-all rounded-xl"
             title="Bersihkan postingan lama yang sudah melebihi 30 hari"
           >
-            <Trash2 className="w-3.5 h-3.5 mr-1" />
-            <span>Bersihkan &gt;1 Bln</span>
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            <span>{t("feed.cleanOldPosts")}</span>
           </ButtonSecondary>
 
           <ButtonPrimary
             onClick={handleSyncFeed}
             disabled={isSyncing}
-            className="!py-1.5 !px-3.5 text-body-sm inline-flex items-center gap-2"
+            className="!py-2 !px-4 text-body-sm inline-flex items-center gap-2 rounded-xl shadow-lg shadow-accent/20"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-            <span>{isSyncing ? "Memindai..." : "Sinkronkan Feed"}</span>
+            <span>{isSyncing ? t("feed.syncing") : t("feed.syncButton")}</span>
           </ButtonPrimary>
         </div>
       </div>
 
       {/* SYNC NOTIFICATION BANNER */}
       {syncStatus && (
-        <div className="p-3 rounded-lg bg-accent/10 border border-accent/20 text-accent text-body-sm flex items-center justify-between">
-          <span>{syncStatus}</span>
+        <div className="p-3.5 rounded-xl bg-accent/10 backdrop-blur-md border border-accent/25 text-accent text-body-sm flex items-center justify-between shadow-lg shadow-accent/5">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-accent shrink-0 animate-pulse" />
+            <span>{syncStatus}</span>
+          </div>
           <button
             type="button"
             onClick={() => setSyncStatus(null)}
@@ -360,7 +550,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
 
       {/* ERROR ALERT BANNER */}
       {errorMessage && (
-        <div className="p-3.5 rounded-lg bg-status-danger/15 border border-status-danger/30 text-status-danger text-body-sm flex items-center justify-between gap-2 shadow-xs">
+        <div className="p-3.5 rounded-xl bg-status-danger/15 backdrop-blur-md border border-status-danger/30 text-status-danger text-body-sm flex items-center justify-between gap-2 shadow-lg shadow-status-danger/10">
           <div className="flex items-center gap-2 min-w-0">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span className="truncate">{errorMessage}</span>
@@ -368,7 +558,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
           <button
             type="button"
             onClick={() => setErrorMessage(null)}
-            className="p-1 rounded hover:bg-status-danger/20 text-status-danger transition-colors shrink-0"
+            className="p-1 rounded-lg hover:bg-status-danger/20 text-status-danger transition-colors shrink-0"
             title="Tutup pesan"
           >
             <X className="w-4 h-4" />
@@ -376,240 +566,300 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
         </div>
       )}
 
-      {/* FILTER CONTROLS BAR */}
-      <CardBase className="p-4 space-y-3.5 border-border-subtle">
+      {/* FILTER CONTROLS BAR (Liquid Frosted Glass) */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Channel Tabs */}
-          <div className="flex items-center gap-1 bg-bg-elevated-2 p-1 rounded-lg text-caption overflow-x-auto max-w-full pb-0.5">
+          <div className="inline-flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.03] backdrop-blur-md border border-white/[0.08] overflow-x-auto no-scrollbar">
             <button
               type="button"
               onClick={() => setChannelFilter("all")}
-              className={`px-3 py-1 rounded-md transition-all font-medium shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-caption font-medium transition-all shrink-0 ${
                 channelFilter === "all"
-                  ? "bg-bg-elevated text-text-primary font-semibold shadow-xs"
-                  : "text-text-tertiary hover:text-text-primary"
+                  ? "bg-accent/20 text-accent font-semibold border border-accent/30 shadow-xs"
+                  : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
               }`}
             >
-              Semua Channel
+              {t("feed.allChannels")}
             </button>
             <button
               type="button"
               onClick={() => setChannelFilter("dutacryptoairdrop")}
-              className={`px-3 py-1 rounded-md transition-all font-medium flex items-center gap-1.5 shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-caption font-medium transition-all flex items-center gap-2 shrink-0 ${
                 channelFilter === "dutacryptoairdrop"
-                  ? "bg-accent/20 text-accent font-semibold shadow-xs"
-                  : "text-text-tertiary hover:text-text-primary"
+                  ? "bg-accent/20 text-accent font-semibold border border-accent/30 shadow-xs"
+                  : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
               }`}
             >
-              <Send className="w-3 h-3 text-accent" />
+              <div className="w-4 h-4 rounded-full overflow-hidden shrink-0 border border-white/20">
+                <Image
+                  src="/images/credits/dutacrypto.webp"
+                  alt="Duta Crypto"
+                  width={16}
+                  height={16}
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <span>Duta Crypto</span>
             </button>
             <button
               type="button"
               onClick={() => setChannelFilter("airdropfind")}
-              className={`px-3 py-1 rounded-md transition-all font-medium flex items-center gap-1.5 shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-caption font-medium transition-all flex items-center gap-2 shrink-0 ${
                 channelFilter === "airdropfind"
-                  ? "bg-link-teal/20 text-link-teal font-semibold shadow-xs"
-                  : "text-text-tertiary hover:text-text-primary"
+                  ? "bg-link-teal/20 text-link-teal font-semibold border border-link-teal/30 shadow-xs"
+                  : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
               }`}
             >
-              <Send className="w-3 h-3 text-link-teal" />
+              <div className="w-4 h-4 rounded-full overflow-hidden shrink-0 border border-white/20">
+                <Image
+                  src="/images/credits/airdropfinder.webp"
+                  alt="Airdrop Finder"
+                  width={16}
+                  height={16}
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <span>Airdrop Finder</span>
             </button>
           </div>
 
-          {/* Search bar */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nama garapan, token, atau protokol di feed..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-md bg-bg-elevated-2 border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent transition-colors"
-            />
+          {/* Search bar & Group Toggle */}
+          <div className="flex items-center gap-2.5 flex-1 max-w-lg">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("feed.searchPlaceholder")}
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
+              />
+            </div>
+
+            {/* Smart Deduplication / Group Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsGroupedByProject(!isGroupedByProject)}
+              className={`px-3 py-2 rounded-xl border text-caption font-medium transition-all flex items-center gap-1.5 shrink-0 ${
+                isGroupedByProject
+                  ? "bg-accent/20 text-accent border-accent/35 font-semibold shadow-xs"
+                  : "bg-white/[0.03] text-text-secondary border-white/[0.08] hover:text-text-primary hover:border-white/[0.2]"
+              }`}
+              title="Kelompokkan berdasarkan nama proyek agar tidak muncul berulang saat proyek yang sama di-update di Telegram"
+            >
+              <Layers2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Kelompokkan Proyek</span>
+              <span className="sm:hidden">Group</span>
+            </button>
           </div>
         </div>
 
-        {/* Tipe Garapan Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-border-subtle text-caption">
-          <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1">
-            Tipe Garapan:
-          </span>
+        {/* Tipe Garapan & Biaya Pills */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/[0.06] text-caption">
+          {/* Tipe Filter */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1">
+              Kategori:
+            </span>
 
-          <button
-            type="button"
-            onClick={() => setCategoryFilter("all")}
-            className={`px-2.5 py-0.5 rounded-full border transition-colors ${
-              categoryFilter === "all"
-                ? "bg-bg-elevated-2 text-text-primary border-border-hairline-strong font-semibold shadow-xs"
-                : "border-transparent bg-bg-elevated-2/60 text-text-tertiary hover:text-text-primary hover:border-border-hairline"
-            }`}
-          >
-            Semua ({feeds.length})
-          </button>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("all")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                categoryFilter === "all"
+                  ? "bg-white/[0.08] text-text-primary border-white/[0.18] font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              Semua ({feeds.length})
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setCategoryFilter("testnet")}
-            className={`px-2.5 py-0.5 rounded-full border transition-colors flex items-center gap-1 ${
-              categoryFilter === "testnet"
-                ? "bg-link-teal/15 text-link-teal border-link-teal/40 font-semibold shadow-xs"
-                : "border-transparent bg-bg-elevated-2/60 text-text-tertiary hover:text-text-primary hover:border-border-hairline"
-            }`}
-          >
-            <Zap className="w-2.5 h-2.5" />
-            <span>Testnet ({testnetCount})</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("testnet")}
+              className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
+                categoryFilter === "testnet"
+                  ? "bg-link-teal/20 text-link-teal border-link-teal/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              <Zap className="w-3 h-3 text-link-teal" />
+              <span>Testnet ({testnetCount})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setCategoryFilter("retro")}
-            className={`px-2.5 py-0.5 rounded-full border transition-colors flex items-center gap-1 ${
-              categoryFilter === "retro"
-                ? "bg-amber-500/15 text-amber-400 border-amber-500/40 font-semibold shadow-xs"
-                : "border-transparent bg-bg-elevated-2/60 text-text-tertiary hover:text-text-primary hover:border-border-hairline"
-            }`}
-          >
-            <Flame className="w-2.5 h-2.5" />
-            <span>Retro / Mainnet ({retroCount})</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("retro")}
+              className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
+                categoryFilter === "retro"
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              <Flame className="w-3 h-3 text-amber-400" />
+              <span>Retro ({retroCount})</span>
+            </button>
+          </div>
+
+          {/* Biaya Filter */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1">
+              Biaya:
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setCostFilter("all")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                costFilter === "all"
+                  ? "bg-white/[0.08] text-text-primary border-white/[0.18] font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              Semua
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCostFilter("free")}
+              className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
+                costFilter === "free"
+                  ? "bg-status-completed/20 text-status-completed border-status-completed/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              <Coins className="w-3 h-3 text-status-completed" />
+              <span>Gratis ({freeCostCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCostFilter("paid")}
+              className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
+                costFilter === "paid"
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              <Wallet className="w-3 h-3 text-amber-400" />
+              <span>Berbayar ({paidCostCount})</span>
+            </button>
+          </div>
         </div>
+      </div>
 
-        {/* Biaya / Modal (Cost) Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-border-subtle text-caption">
-          <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1">
-            Biaya / Modal:
-          </span>
-
-          <button
-            type="button"
-            onClick={() => setCostFilter("all")}
-            className={`px-2.5 py-0.5 rounded-full border transition-colors ${
-              costFilter === "all"
-                ? "bg-bg-elevated-2 text-text-primary border-border-hairline-strong font-semibold shadow-xs"
-                : "border-transparent bg-bg-elevated-2/60 text-text-tertiary hover:text-text-primary hover:border-border-hairline"
-            }`}
-          >
-            Semua Biaya
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setCostFilter("free")}
-            className={`px-2.5 py-0.5 rounded-full border transition-colors flex items-center gap-1 ${
-              costFilter === "free"
-                ? "bg-status-completed/15 text-status-completed border-status-completed/40 font-semibold shadow-xs"
-                : "border-transparent bg-bg-elevated-2/60 text-text-tertiary hover:text-text-primary hover:border-border-hairline"
-            }`}
-          >
-            <Coins className="w-2.5 h-2.5" />
-            <span>Gratis / Faucet ({freeCostCount})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setCostFilter("paid")}
-            className={`px-2.5 py-0.5 rounded-full border transition-colors flex items-center gap-1 ${
-              costFilter === "paid"
-                ? "bg-amber-500/15 text-amber-400 border-amber-500/40 font-semibold shadow-xs"
-                : "border-transparent bg-bg-elevated-2/60 text-text-tertiary hover:text-text-primary hover:border-border-hairline"
-            }`}
-          >
-            <Wallet className="w-2.5 h-2.5" />
-            <span>Berbayar / Gas Fee ({paidCostCount})</span>
-          </button>
-        </div>
-      </CardBase>
-
-      {/* FEED STREAM CONTAINER */}
+      {/* FEED STREAM CONTAINER (Liquid Frosted Glass Telegram Message Style) */}
       <div className="space-y-4">
-        {filteredFeeds.length === 0 ? (
-          <CardBase className="p-12 text-center space-y-3">
-            <Rss className="w-8 h-8 text-text-tertiary mx-auto" />
+        {displayedFeeds.length === 0 ? (
+          <div className="p-12 text-center space-y-3 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20">
+            <Rss className="w-9 h-9 text-text-tertiary mx-auto opacity-50" />
             <h3 className="text-body-md font-semibold text-text-primary">
-              Belum ada postingan airdrop baru di feed
+              Tidak ada postingan airdrop yang cocok
             </h3>
             <p className="text-caption text-text-secondary max-w-md mx-auto">
-              Klik tombol &quot;Sinkronkan Feed&quot; di atas untuk memindai peluang airdrop dan testnet terbaru dari channel Telegram pilihan.
+              Coba atur filter channel, kategori, atau klik sinkronkan untuk memindai pembaruan terbaru dari Telegram.
             </p>
             <div className="pt-2">
-              <ButtonPrimary onClick={handleSyncFeed} disabled={isSyncing}>
+              <ButtonPrimary onClick={handleSyncFeed} disabled={isSyncing} className="rounded-xl">
                 <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
                 <span>Sinkronkan Sekarang</span>
               </ButtonPrimary>
             </div>
-          </CardBase>
+          </div>
         ) : (
-          filteredFeeds.map((feed) => {
-            const isDuta = feed.channel === "dutacryptoairdrop";
-            const checkedSet = selectedTasks[feed.id] || new Set();
-            const isConverting = convertingId === feed.id;
+          displayedFeeds.map((feed) => {
+            const channelInfo = getChannelInfo(feed.channel);
             const isConverted = feed.is_imported || convertedSuccessId === feed.id;
+            const projectKey = extractCoreProjectKey(feed.title);
+            const mentionCount = projectMentionStats[projectKey]?.count || 1;
+            const relativeTime = formatTimeAgo(feed.created_at);
 
             return (
-              <CardBase
+              <div
                 key={feed.id}
-                className={`p-4 md:p-5 transition-all space-y-3.5 border-border-subtle ${
+                className={`p-5 sm:p-6 rounded-2xl bg-white/[0.03] backdrop-blur-xl border transition-all duration-200 space-y-4 relative group shadow-xl shadow-black/20 ${
                   isConverted
-                    ? "bg-bg-elevated/40 border-status-completed/30"
-                    : "hover:border-border-hairline"
+                    ? "border-status-completed/30 bg-status-completed/[0.02]"
+                    : "border-white/[0.08] hover:border-white/[0.2] hover:bg-white/[0.04]"
                 }`}
               >
-                {/* Post Card Header */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {/* Channel Avatar Icon */}
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
-                        isDuta
-                          ? "bg-accent/15 text-accent border-accent/25"
-                          : "bg-link-teal/15 text-link-teal border-link-teal/25"
-                      }`}
-                    >
-                      <Send className="w-4 h-4" />
+                {/* Header: Telegram Channel Avatar, Channel Name, Timestamp, Badges */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Official Channel Avatar */}
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/15 bg-white/[0.05] shrink-0 shadow-md flex items-center justify-center">
+                      {channelInfo.logo ? (
+                        <Image
+                          src={channelInfo.logo}
+                          alt={channelInfo.name}
+                          width={40}
+                          height={40}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Send className="w-4 h-4 text-accent" />
+                      )}
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-body-sm font-bold text-text-primary truncate">
-                          {feed.channel_name}
+                          {channelInfo.name}
                         </span>
-                        <span className="text-[11px] font-mono text-text-tertiary">
-                          @{feed.channel}
+                        <span className="text-[12px] font-mono text-text-tertiary">
+                          {channelInfo.handle}
                         </span>
-                        <span className="text-text-tertiary text-caption">•</span>
-                        <span className="text-[11px] font-mono text-text-tertiary flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-text-tertiary/70" />
-                          <span>{formatDate(feed.created_at)}</span>
-                        </span>
+                        {relativeTime && (
+                          <>
+                            <span className="text-white/20 text-caption">•</span>
+                            <span className="text-[11px] font-mono text-text-tertiary flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-text-tertiary/70" />
+                              <span>{relativeTime}</span>
+                            </span>
+                          </>
+                        )}
                       </div>
+                      <p className="text-[11px] text-text-tertiary/80 font-mono">
+                        Sumber Telegram Airdrop Signal
+                      </p>
                     </div>
                   </div>
 
-                  {/* Badges & Delete */}
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Badges: Mention frequency & Category & Cost */}
+                  <div className="flex items-center gap-1.5 flex-wrap self-start sm:self-auto">
+                    {/* Mention Frequency Counter Badge */}
+                    {mentionCount > 1 && (
+                      <span
+                        className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-accent/15 text-accent border border-accent/30 flex items-center gap-1 shadow-xs"
+                        title={`Proyek ini sudah disebut atau diperbarui ${mentionCount} kali di channel Telegram`}
+                      >
+                        <Layers2 className="w-3 h-3" />
+                        <span>{mentionCount}x Update</span>
+                      </span>
+                    )}
+
                     {/* Cost Badge */}
                     {isFeedFree(feed) ? (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold border bg-status-completed/10 text-status-completed border-status-completed/25 flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-status-completed/15 text-status-completed border border-status-completed/30 flex items-center gap-1">
                         <Coins className="w-3 h-3" />
                         <span>Gratis</span>
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold border bg-amber-500/10 text-amber-400 border-amber-500/25 flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
                         <Wallet className="w-3 h-3" />
-                        <span>{feed.cost || "Berbayar (Gas Fee)"}</span>
+                        <span>{feed.cost || "Gas Fee"}</span>
                       </span>
                     )}
 
-                    {/* Category Badge: Testnet or Retro */}
+                    {/* Category Badge */}
                     {feed.category === "retro" || isFeedPaid(feed) ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/10 border border-amber-500/25 text-amber-400 flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1">
                         <Flame className="w-3 h-3" />
-                        <span>Retro / Mainnet</span>
+                        <span>Retro</span>
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-link-teal/10 border border-link-teal/25 text-link-teal flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-link-teal/15 border border-link-teal/30 text-link-teal flex items-center gap-1">
                         <Zap className="w-3 h-3" />
                         <span>Testnet</span>
                       </span>
@@ -619,86 +869,48 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     <button
                       type="button"
                       onClick={() => handleDeleteFeed(feed.id)}
-                      className="p-1 text-text-tertiary hover:text-status-overdue rounded transition-colors ml-1"
-                      title="Hapus dari feed"
+                      className="p-1.5 text-text-tertiary hover:text-status-overdue rounded-lg hover:bg-white/[0.05] transition-colors ml-1"
+                      title="Hapus pesan ini dari feed"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Post Title & Summary */}
-                <div className="space-y-1">
-                  <h2 className="text-heading-3 font-bold text-text-primary tracking-tight">
+                {/* Message Body: Title & Clean Summary */}
+                <div className="space-y-2">
+                  <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary tracking-tight leading-snug">
                     {feed.title}
                   </h2>
-                  {feed.summary && (
-                    <p className="text-body-sm text-text-secondary leading-relaxed">
+                  {feed.summary ? (
+                    <p className="text-body-sm text-text-secondary leading-relaxed line-clamp-3">
                       {feed.summary}
+                    </p>
+                  ) : (
+                    <p className="text-caption text-text-tertiary line-clamp-2 italic">
+                      {feed.raw_text.replace(/\n+/g, " ").slice(0, 160)}...
                     </p>
                   )}
                 </div>
 
-                {/* Interactive Task Checklist Preview */}
-                {feed.tasks && feed.tasks.length > 0 && (
-                  <div className="p-3 rounded-lg bg-bg-elevated-2/50 border border-border-subtle space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-caption font-semibold text-text-primary flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-accent" />
-                        <span>Langkah Garapan Terdeteksi ({feed.tasks.length}):</span>
-                      </span>
-                      <span className="text-[11px] text-text-tertiary font-mono">
-                        {checkedSet.size} dari {feed.tasks.length} langkah dipilih
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      {feed.tasks.map((taskText, idx) => {
-                        const isChecked = checkedSet.has(idx);
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => handleToggleFeedTask(feed.id, idx)}
-                            className={`px-2.5 py-1.5 rounded-md border text-caption flex items-start gap-2 cursor-pointer transition-all ${
-                              isChecked
-                                ? "bg-accent/10 border-accent/40 text-text-primary font-medium shadow-xs"
-                                : "bg-bg-elevated/80 border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-hairline hover:bg-bg-elevated"
-                            }`}
-                          >
-                            <div className="pt-0.5 shrink-0">
-                              {isChecked ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-accent" />
-                              ) : (
-                                <Circle className="w-3.5 h-3.5 text-text-tertiary/60" />
-                              )}
-                            </div>
-                            <span className="leading-snug break-words">{taskText}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Post Footer Actions */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border-subtle">
+                {/* Actions Footer */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/[0.06]">
+                  {/* Left: Project Creation Status or Button */}
                   <div className="flex items-center gap-2">
-                    {/* Convert directly into project button */}
                     {isConverted ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-status-completed/15 text-status-completed border border-status-completed/30 text-caption font-semibold">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-status-completed/15 text-status-completed border border-status-completed/30 text-caption font-semibold">
                           <Check className="w-3.5 h-3.5" />
-                          <span>Sudah Jadi Proyek Garapan</span>
+                          <span>Sudah Jadi Proyek</span>
                         </span>
 
                         {feed.linked_project_id && (
                           <Link
                             href={`/projects/${feed.linked_project_id}`}
                             prefetch={false}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-bg-elevated hover:bg-bg-elevated-2 text-text-primary border border-border-hairline text-caption font-medium transition-colors"
-                            title="Buka workstation proyek ini"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-text-primary border border-white/[0.1] text-caption font-medium transition-colors"
                           >
-                            <span>Lihat Proyek</span>
+                            <span>Buka Proyek</span>
                             <ExternalLink className="w-3 h-3 text-text-tertiary" />
                           </Link>
                         )}
@@ -707,61 +919,238 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                           type="button"
                           onClick={() => handleResetFeedStatus(feed.id)}
                           disabled={resettingId === feed.id}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-elevated border border-transparent hover:border-border-hairline transition-colors text-caption"
-                          title="Reset status garapan feed ini agar bisa dibuat ulang"
+                          className="p-1.5 text-text-tertiary hover:text-text-primary rounded-lg hover:bg-white/[0.05] transition-colors"
+                          title="Reset status"
                         >
-                          <RotateCcw className={`w-3 h-3 ${resettingId === feed.id ? "animate-spin text-accent" : ""}`} />
-                          <span>{resettingId === feed.id ? "Mereset..." : "Reset"}</span>
+                          <RotateCcw className={`w-3.5 h-3.5 ${resettingId === feed.id ? "animate-spin text-accent" : ""}`} />
                         </button>
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => setReviewingFeed(feed)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-accent text-on-accent hover:bg-accent-pressed transition-colors text-body-sm font-semibold shadow-xs"
-                        title="Review dan buat proyek Droppr"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed transition-all text-body-sm font-semibold shadow-lg shadow-accent/20"
                       >
-                        <FolderPlus className="w-3.5 h-3.5" />
-                        <span>+ Proyek</span>
+                        <FolderPlus className="w-4 h-4" />
+                        <span>{t("feed.addProject")}</span>
                       </button>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {/* Shortcut live search di X (Twitter) untuk mengecek sentimen/KOL nyata */}
+                  {/* Right: View Original Post Modal, Check X, Open Telegram */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* View Original Post Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPreview(feed)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-text-primary border border-white/[0.1] hover:border-white/[0.2] text-caption font-medium transition-all"
+                      title="Lihat pesan asli Telegram lengkap dengan tautan aslinya"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-accent" />
+                      <span>{t("feed.viewOriginal")}</span>
+                    </button>
+
+                    {/* Check on X / Twitter */}
                     <a
                       href={`https://x.com/search?q=${encodeURIComponent(
                         feed.title
-                          .replace(/^(TESTNET|AIRDROP|FREE|NEW AIRDROPS?|NEW TESTNET|NEW WAITLIST)\s*[:|-]?\s*/i, "")
+                          .replace(/^(TESTNET|AIRDROP|FREE|NEW AIRDROPS?|NEW TESTNET|NEW WAITLIST|UPDATE)\s*[:|-]?\s*/i, "")
                           .trim()
                       )}+airdrop&f=live`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border border-border-subtle hover:border-border-hairline text-caption font-medium transition-colors"
-                      title="Cek siapa saja yang membicarakan proyek ini di X (Twitter) secara live"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary border border-white/[0.08] hover:border-white/[0.2] text-caption font-medium transition-all"
+                      title="Cek sentimen & kabar proyek ini di X (Twitter)"
                     >
-                      <Search className="w-3 h-3" />
+                      <Search className="w-3 h-3 text-text-tertiary" />
                       <span>Cek di X</span>
-                      <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
                     </a>
 
+                    {/* Open in Telegram */}
                     <a
                       href={feed.source_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-bg-elevated text-link-teal hover:underline text-caption font-medium border border-border-subtle hover:border-border-hairline transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-link-teal hover:text-link-teal/90 border border-white/[0.08] hover:border-white/[0.2] text-caption font-medium transition-all"
+                      title="Buka langsung di aplikasi atau web Telegram"
                     >
                       <Send className="w-3 h-3" />
-                      <span>Telegram</span>
-                      <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                      <span className="hidden sm:inline">Buka di Telegram</span>
+                      <span className="sm:hidden">TG</span>
+                      <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
                     </a>
                   </div>
                 </div>
-              </CardBase>
+              </div>
             );
           })
         )}
       </div>
+
+      {/* ======================================================== */}
+      {/* POPUP MODAL: LIHAT POSTINGAN ASLI TELEGRAM               */}
+      {/* ======================================================== */}
+      {previewingFeed && mounted && typeof document !== "undefined" && (() => {
+        const previewAction = getTranslationAction(previewingFeed.raw_text, locale, showPreviewTranslated);
+        return createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overscroll-contain animate-fade-in">
+            {/* Full-screen Backdrop Blur (covers topbar, sidebar, and whole viewport) */}
+            <div
+              className="fixed inset-0 bg-black/85 backdrop-blur-xl transition-opacity"
+              onClick={handleClosePreview}
+            />
+
+            <div
+              className="relative z-10 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-[#0e131b]/95 backdrop-blur-2xl border border-white/[0.12] shadow-2xl shadow-black/80 overflow-hidden my-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-center justify-between gap-3 shrink-0 bg-white/[0.02]">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full overflow-hidden border border-white/20 bg-white/[0.05] shrink-0 flex items-center justify-center shadow-md">
+                    {getChannelInfo(previewingFeed.channel).logo ? (
+                      <Image
+                        src={getChannelInfo(previewingFeed.channel).logo!}
+                        alt={previewingFeed.channel_name}
+                        width={36}
+                        height={36}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Send className="w-4 h-4 text-accent" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-body-md font-bold text-text-primary truncate">
+                      {previewingFeed.title}
+                    </h3>
+                    <p className="text-[12px] font-mono text-text-tertiary">
+                      {previewingFeed.channel_name} • {formatTimeAgo(previewingFeed.created_at)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Translate Button - Only shown if post language is opposite to system language */}
+                  {previewAction.shouldShowTranslate && (
+                    <button
+                      type="button"
+                      onClick={handleTranslatePreview}
+                      disabled={isPreviewTranslating}
+                      className={`px-2.5 py-1.5 rounded-lg border text-caption font-medium transition-all flex items-center gap-1.5 ${
+                        showPreviewTranslated
+                          ? "bg-status-completed/20 text-status-completed border-status-completed/40"
+                          : "bg-white/[0.05] hover:bg-white/[0.1] text-text-secondary hover:text-text-primary border-white/[0.08]"
+                      }`}
+                      title="Terjemahkan teks postingan"
+                    >
+                      <Languages className={`w-3.5 h-3.5 ${isPreviewTranslating ? "animate-spin text-accent" : ""}`} />
+                      <span>
+                        {isPreviewTranslating
+                          ? (locale === "id" ? "Menerjemahkan..." : "Translating...")
+                          : showPreviewTranslated
+                          ? previewAction.revertLabel
+                          : previewAction.buttonLabel}
+                      </span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const textToCopy = showPreviewTranslated && previewTranslatedText ? previewTranslatedText : previewingFeed.raw_text;
+                      navigator.clipboard.writeText(textToCopy);
+                      setIsPreviewCopied(true);
+                      setTimeout(() => setIsPreviewCopied(false), 2500);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-text-secondary hover:text-text-primary border border-white/[0.08] text-caption font-medium transition-all flex items-center gap-1.5"
+                    title="Salin teks postingan Telegram"
+                  >
+                    {isPreviewCopied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-status-completed" />
+                        <span className="text-status-completed">Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Salin</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleClosePreview}
+                    className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-white/[0.08] transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body: Telegram Raw Text with formatted clickable links */}
+              <div className="p-5 sm:p-6 overflow-y-auto space-y-3 no-scrollbar">
+                {showPreviewTranslated && previewTranslatedText && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-status-completed/10 border border-status-completed/25 text-[11px] font-medium text-status-completed w-fit">
+                    <span className="w-1.5 h-1.5 rounded-full bg-status-completed animate-pulse" />
+                    <span>
+                      {locale === "id"
+                        ? "Diterjemahkan ke Bahasa Indonesia"
+                        : "Translated to English"}
+                    </span>
+                  </div>
+                )}
+
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-body-sm text-text-secondary leading-relaxed whitespace-pre-line break-words font-sans selection:bg-accent/30 selection:text-white">
+                  {renderInteractiveText(
+                    showPreviewTranslated && previewTranslatedText
+                      ? previewTranslatedText
+                      : previewingFeed.raw_text
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-5 border-t border-white/[0.08] bg-white/[0.02] flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <a
+                  href={previewingFeed.source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-link-teal text-caption font-medium border border-white/[0.08] transition-all"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Buka di Telegram</span>
+                  <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
+                </a>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleClosePreview}
+                    className="px-4 py-2 rounded-xl text-caption text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-all font-medium"
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const item = previewingFeed;
+                      handleClosePreview();
+                      setReviewingFeed(item);
+                    }}
+                    className="px-4 py-2 rounded-xl text-caption font-semibold text-on-accent bg-accent hover:bg-accent-pressed transition-all shadow-lg shadow-accent/20 flex items-center gap-1.5"
+                  >
+                    <FolderPlus className="w-3.5 h-3.5" />
+                    <span>Jadikan Proyek</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
 
       {/* ======================================================== */}
       {/* REVIEW & BUAT PROYEK MODAL                               */}

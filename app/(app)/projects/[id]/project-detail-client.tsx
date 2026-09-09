@@ -15,6 +15,7 @@ import {
   Wallet,
   Copy,
   Check,
+  CheckCircle2,
   ShieldAlert,
   BookOpen,
   ChevronDown,
@@ -23,6 +24,7 @@ import {
   AtSign,
   X,
 } from "lucide-react";
+import { isProjectDailyDone, toggleProjectDailyTask } from "@/lib/supabase/daily-tasks-helper";
 import { ProjectStatusPills } from "@/components/features/project-status-pills";
 import { ProjectQuickLinks } from "@/components/features/project-quick-links";
 import { InteractiveTaskList } from "@/components/features/interactive-task-list";
@@ -66,6 +68,10 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
   const [tasks, setTasks] = useState<TaskRow[]>(project.tasks || []);
   const [reminders, setReminders] = useState<ReminderRow[]>(project.reminders || []);
   const [accounts, setAccounts] = useState<AccountRow[]>(project.accounts || []);
+  const [socialLinks, setSocialLinks] = useState<Record<string, any>>(
+    (project.social_links as Record<string, any>) || {}
+  );
+  const [isTogglingDaily, setIsTogglingDaily] = useState(false);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [accountPlatform, setAccountPlatform] = useState<string>("Discord");
   const [customPlatform, setCustomPlatform] = useState<string>("");
@@ -99,7 +105,53 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
     setAccounts(project.accounts || []);
   }, [project.accounts]);
 
-  // Seamless 1-Click Status Change (Optimistic UI)
+  useEffect(() => {
+    setSocialLinks((project.social_links as Record<string, any>) || {});
+  }, [project.social_links]);
+
+  // Derived: Is today's daily task completed for this project?
+  const isTodayDone = isProjectDailyDone({ social_links: socialLinks }, tasks);
+
+  // Toggle Daily Task Done for today (Syncs with Dashboard and auto-resets at 07:00 WIB)
+  const handleToggleDailyDone = async () => {
+    if (isTogglingDaily) return;
+    setIsTogglingDaily(true);
+
+    const nextState = !isTodayDone;
+    const nowIso = nextState ? new Date().toISOString() : null;
+
+    // Optimistic UI state updates
+    setSocialLinks((prev) => {
+      const next = { ...prev };
+      if (nowIso) {
+        next.last_daily_completed_at = nowIso;
+      } else {
+        delete next.last_daily_completed_at;
+      }
+      return next;
+    });
+
+    setTasks((prev) =>
+      prev.map((t) => ({
+        ...t,
+        status: nextState ? "done" : "pending",
+        completed_at: nextState ? nowIso : null,
+      }))
+    );
+
+    try {
+      await toggleProjectDailyTask(project.id, nextState);
+      router.refresh();
+    } catch (err) {
+      console.error("Failed to toggle daily task:", err);
+      // Revert on error
+      setSocialLinks((project.social_links as Record<string, any>) || {});
+    } finally {
+      setIsTogglingDaily(false);
+    }
+  };
+
+  // Seamless 1-Click Status Change for Long-term Project Lifecycle (Optimistic UI)
   const handleStatusChange = async (nextStatus: ProjectStatusEnum) => {
     if (nextStatus === currentStatus) return;
     setCurrentStatus(nextStatus);
@@ -238,23 +290,23 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         </div>
       </div>
 
-      {/* Header Card: Title, Chain, and 1-Click Status Pills */}
-      <div className="p-4 rounded-lg bg-bg-elevated border border-border-hairline space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      {/* Header Card: Title, Chain, and 1-Click Status Pills (Liquid Frosted Glass) */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-heading-1 font-bold text-text-primary">
+            <h1 className="text-heading-1 font-bold text-text-primary tracking-tight">
               {project.name}
             </h1>
-            <p className="text-caption text-text-secondary font-mono mt-0.5">
-              Network/Chain:{" "}
-              <span className="text-text-primary font-semibold">
+            <p className="text-caption text-text-secondary font-mono mt-1 flex items-center gap-1.5">
+              <span>Network/Chain:</span>
+              <span className="text-text-primary font-semibold px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08]">
                 {project.chain || "Belum ditentukan"}
               </span>
             </p>
           </div>
 
           {/* 1-Click Status Pills */}
-          <div className="flex flex-col sm:items-end gap-1 w-full sm:w-auto overflow-hidden">
+          <div className="flex flex-col sm:items-end gap-1.5 w-full sm:w-auto overflow-hidden">
             <span className="text-[11px] font-medium text-text-tertiary">
               Status Proyek (1-Klik):
             </span>
@@ -262,6 +314,68 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               currentStatus={currentStatus}
               onStatusChange={handleStatusChange}
             />
+          </div>
+        </div>
+
+        {/* Action Controls: Daily Task Done & Reminders directly on detail page */}
+        <div className="pt-3 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Daily Task Completion Toggle (Syncs with Dashboard and resets 07:00 WIB) */}
+            <button
+              type="button"
+              onClick={handleToggleDailyDone}
+              disabled={isTogglingDaily}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-caption font-semibold transition-all shadow-sm ${
+                isTodayDone
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
+                  : "bg-amber-400/15 text-amber-300 hover:bg-amber-400/25 border border-amber-400/30"
+              }`}
+              title={
+                isTodayDone
+                  ? "Tugas hari ini sudah selesai dikerjakan! Klik jika ingin membuka kembali."
+                  : "Tandai tugas hari ini sudah dikerjakan (sinkron dengan Dashboard & reset besok jam 07:00 WIB)"
+              }
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>
+                {isTodayDone
+                  ? "✓ Tugas Hari Ini Selesai (Buka Kembali)"
+                  : "Tandai Selesai Hari Ini"}
+              </span>
+            </button>
+
+            {/* Status Hari Ini Tag */}
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[11px] font-mono text-text-tertiary">
+              <Clock className="w-3 h-3 text-amber-400/80" />
+              <span>Reset: 07:00 WIB</span>
+            </div>
+
+            {/* Reminder Control Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingReminder(reminders[0] || null);
+                setIsReminderModalOpen(true);
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-caption font-medium transition-all ${
+                reminders.length > 0
+                  ? "bg-amber-400/15 text-amber-300 border-amber-400/30 hover:bg-amber-400/25"
+                  : "bg-white/[0.04] text-text-secondary hover:text-text-primary hover:bg-white/[0.08] border-white/[0.08]"
+              }`}
+            >
+              <Bell className="w-3.5 h-3.5 text-accent" />
+              <span>
+                {reminders.length > 0
+                  ? `Pengingat Aktif (${reminders.length})`
+                  : "+ Pasang Pengingat"}
+              </span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 text-caption text-text-tertiary">
+            <span className="text-[11px] font-mono">
+              Terakhir diperbarui: {new Date(project.updated_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+            </span>
           </div>
         </div>
 
@@ -276,70 +390,27 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
 
       {/* Dual-Column Workstation Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* LEFT COLUMN: Main Execution Hub (65% width) */}
+        {/* LEFT COLUMN: Main Execution Hub (Threads / Thread X Timeline) */}
         <div className="lg:col-span-8 space-y-4">
-          {/* Section 1: Langkah Garapan Utama (Checklist Pengerjaan Awal) */}
-          <CardBase className="p-4 space-y-3">
-            <InteractiveTaskList
-              projectId={project.id}
-              initialTasks={tasks}
-              onTasksUpdated={() => router.refresh()}
-            />
-          </CardBase>
-
-          {/* Section 2: Modern Thread & Riwayat Garapan (Telegram & Update Lanjutan) */}
-          <CardBase className="p-4 space-y-3">
-            <ProjectThreadView
-              projectId={project.id}
-              projectName={project.name}
-              onOpenTelegramSearch={() => setIsTelegramModalOpen(true)}
-              refreshTrigger={threadRefreshTrigger}
-              onThreadsLoaded={setThreads}
-            />
-          </CardBase>
-
-          {/* Section 2: Panduan & Catatan Garapan (Collapsible Accordion) */}
-          <CardBase className="p-4 space-y-3">
-            <div
-              onClick={() => setIsGuideExpanded(!isGuideExpanded)}
-              className="flex items-center justify-between cursor-pointer select-none"
-            >
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-accent" />
-                <h2 className="text-body-sm font-semibold text-text-primary">
-                  Panduan & Catatan Garapan
-                </h2>
-              </div>
-              <button
-                type="button"
-                className="p-1 rounded text-text-tertiary hover:text-text-primary transition-colors"
-              >
-                {isGuideExpanded ? (
-                  <ChevronUp className="w-4 h-4" />
-                ) : (
-                  <ChevronDown className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-
-            {isGuideExpanded && (
-              <div className="pt-2 border-t border-border-hairline">
-                <GuideViewer
-                  projectId={project.id}
-                  initialContent={project.guide_content}
-                  onContentUpdated={() => router.refresh()}
-                />
-              </div>
-            )}
-          </CardBase>
+          <ProjectThreadView
+            projectId={project.id}
+            projectName={project.name}
+            projectChain={project.chain}
+            guideContent={project.guide_content}
+            socialLinks={project.social_links as Record<string, any>}
+            projectCreatedAt={project.created_at}
+            onOpenTelegramSearch={() => setIsTelegramModalOpen(true)}
+            refreshTrigger={threadRefreshTrigger}
+            onThreadsLoaded={setThreads}
+          />
         </div>
 
         {/* RIGHT COLUMN: Utility, Reminders, Wallets & Accounts (35% width) */}
         <div className="lg:col-span-4 space-y-4">
           {/* Widget 1: Pengingat / Alarm Proyek */}
-          <CardBase className="p-4 space-y-3">
+          <div className="p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-3.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-accent" />
                 <h3 className="text-body-sm font-semibold text-text-primary">
                   Pengingat ({reminders.length})
@@ -350,7 +421,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                   setEditingReminder(null);
                   setIsReminderModalOpen(true);
                 }}
-                className="!py-0.5 !px-2 text-caption inline-flex items-center gap-1"
+                className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1 rounded-xl bg-white/[0.03] border-white/[0.08]"
               >
                 <Plus className="w-3 h-3" />
                 <span>Pasang</span>
@@ -375,10 +446,10 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                   return (
                     <div
                       key={rem.id}
-                      className={`p-2.5 rounded-md border text-caption flex items-center justify-between gap-2 ${
+                      className={`p-3 rounded-xl border text-caption flex items-center justify-between gap-2 transition-all ${
                         isPast
                           ? "bg-status-overdue/10 border-status-overdue/30 text-status-overdue"
-                          : "bg-bg-elevated-2 border-border-hairline text-text-primary"
+                          : "bg-white/[0.02] border-white/[0.06] text-text-primary"
                       }`}
                     >
                       <div className="space-y-0.5 min-w-0">
@@ -386,7 +457,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                           <Clock className="w-3 h-3 shrink-0" />
                           <span>{dateStr}</span>
                         </div>
-                        <span className="text-[10px] text-text-tertiary capitalize">
+                        <span className="text-[10px] text-text-tertiary capitalize font-mono">
                           {rem.frequency === "once"
                             ? "Sekali"
                             : rem.frequency === "daily"
@@ -404,7 +475,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                             setEditingReminder(rem);
                             setIsReminderModalOpen(true);
                           }}
-                          className="p-1 text-text-tertiary hover:text-text-primary rounded"
+                          className="p-1.5 text-text-tertiary hover:text-text-primary rounded-lg hover:bg-white/[0.05] transition-colors"
                           title="Ubah pengingat"
                         >
                           <Edit2 className="w-3 h-3" />
@@ -412,7 +483,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                         <button
                           type="button"
                           onClick={() => handleDeleteReminder(rem.id)}
-                          className="p-1 text-text-tertiary hover:text-status-overdue rounded"
+                          className="p-1.5 text-text-tertiary hover:text-status-overdue rounded-lg hover:bg-white/[0.05] transition-colors"
                           title="Hapus pengingat"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -427,12 +498,12 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                 Belum ada pengingat terjadwal untuk proyek ini.
               </p>
             )}
-          </CardBase>
+          </div>
 
           {/* Widget 2: Wallet Terhubung */}
-          <CardBase className="p-4 space-y-3">
+          <div className="p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-3.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-accent" />
                 <h3 className="text-body-sm font-semibold text-text-primary">
                   Wallet ({wallets.length})
@@ -440,7 +511,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               </div>
               <ButtonSecondary
                 onClick={() => setIsWalletModalOpen(true)}
-                className="!py-0.5 !px-2 text-caption inline-flex items-center gap-1"
+                className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1 rounded-xl bg-white/[0.03] border-white/[0.08]"
               >
                 <Plus className="w-3 h-3" />
                 <span>Atur</span>
@@ -456,7 +527,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                   return (
                     <div
                       key={w.id}
-                      className="p-2.5 rounded-md bg-bg-elevated-2 border border-border-hairline flex items-center justify-between gap-2"
+                      className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-2"
                     >
                       <div className="min-w-0">
                         <div className="text-caption font-semibold text-text-primary truncate">
@@ -470,7 +541,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                       <button
                         type="button"
                         onClick={() => handleCopyWallet(w.id, w.address)}
-                        className="p-1 rounded text-text-tertiary hover:text-text-primary transition-colors shrink-0"
+                        className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-white/[0.05] transition-colors shrink-0"
                         title="Salin Address"
                       >
                         {isCopied ? (
@@ -488,10 +559,10 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                 Belum ada wallet dipasangkan ke proyek ini.
               </p>
             )}
-          </CardBase>
+          </div>
 
           {/* Widget 3: Akun Terkait (Non-sensitif) */}
-          <CardBase className="p-4 space-y-3">
+          <div className="p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-3.5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
                 <AtSign className="w-3.5 h-3.5 text-accent shrink-0" />
@@ -666,7 +737,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                 </button>
               </div>
             ) : null}
-          </CardBase>
+          </div>
         </div>
       </div>
 

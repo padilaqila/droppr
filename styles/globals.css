@@ -29,6 +29,22 @@
       linear-gradient(to bottom, rgba(20, 24, 31, 0.045) 1px, transparent 1px);
   }
 
+  .no-scrollbar::-webkit-scrollbar {
+    display: none !important;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+
+  .bg-dot-grid-static {
+    background-size: 26px 26px;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1.2px, transparent 1.2px);
+  }
+  .light .bg-dot-grid-static {
+    background-image: radial-gradient(circle, rgba(20, 24, 31, 0.12) 1.2px, transparent 1.2px);
+  }
+
   .bg-dot-matrix {
     background-size: 24px 24px;
     background-image: radial-gradient(circle, rgba(255, 255, 255, 0.15) 1.25px, transparent 1.25px);
@@ -73,3 +89,19 @@ input:-webkit-autofill:active {
   caret-color: #F4F6F8 !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* Universal scrollbar removal for consistency across Chrome, Edge, Brave, and Firefox */
+*::-webkit-scrollbar,
+body::-webkit-scrollbar,
+div::-webkit-scrollbar,
+textarea::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+* {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+

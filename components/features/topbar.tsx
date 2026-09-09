@@ -18,12 +18,16 @@ const WalletConnectButton = dynamic(
   }
 );
 
+import { LanguageToggle } from "@/components/ui/language-toggle";
+import { useTranslation } from "@/lib/i18n/context";
+
 export interface TopbarProps {
   onOpenMobileNav?: () => void;
 }
 
 export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   return (
@@ -57,7 +61,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
               <Search className="w-4 h-4 text-text-tertiary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Cari task, project, wallet..."
+                placeholder={t("topbar.searchPlaceholder")}
                 className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-1.5 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent transition-colors placeholder:text-text-disabled"
               />
             </div>
@@ -66,7 +70,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
 
         {/* Right Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Quick Add Project & AI Button */}
+          {/* Quick Add Project Button */}
           <button
             type="button"
             onClick={() => setIsProjectModalOpen(true)}
@@ -74,8 +78,11 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
             className="inline-flex items-center gap-1 sm:gap-1.5 bg-bg-elevated text-text-primary border border-border-hairline text-body-sm font-semibold rounded-md px-2.5 sm:px-3 py-1.5 hover:bg-bg-elevated-2 transition-colors"
           >
             <Plus className="w-4 h-4 text-accent shrink-0" />
-            <span className="hidden sm:inline">Tambah</span>
+            <span className="hidden sm:inline">{t("topbar.addProject")}</span>
           </button>
+
+          {/* Language Switcher (ID / EN) */}
+          <LanguageToggle />
 
           {/* Theme Toggle (Light / Dark Mode) */}
           <ThemeToggle />
@@ -86,7 +93,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
             prefetch={false}
             aria-label="Notifikasi & Pengingat"
             className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 border border-border-hairline transition-colors relative shrink-0"
-            title="Buka Pengingat & Notifikasi"
+            title={t("topbar.notificationsTitle")}
           >
             <Bell className="w-4 h-4" />
             <span className="w-2 h-2 rounded-full bg-accent absolute top-1.5 right-1.5 sm:top-2 sm:right-2 ring-2 ring-bg-base" />

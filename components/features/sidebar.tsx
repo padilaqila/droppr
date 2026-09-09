@@ -10,7 +10,6 @@ import {
   FolderGit2,
   CheckSquare,
   Wallet,
-  Bell,
   Settings,
   Flame,
   ChevronRight,
@@ -20,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 
 interface NavItem {
   name: string;
@@ -37,22 +37,22 @@ export interface SidebarProps {
   onClose?: () => void;
 }
 
-const mainNavItems: NavItem[] = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Feed Airdrop", href: "/feed", icon: Rss },
-  { name: "Waitlist", href: "/waitlist", icon: Hourglass },
-  { name: "Projects & Folders", href: "/projects", icon: FolderGit2 },
-  { name: "Tasks", href: "/tasks", icon: CheckSquare },
-  { name: "Wallets & Accounts", href: "/wallets", icon: Wallet },
-  { name: "Reminders", href: "/reminders", icon: Bell },
-  { name: "Settings", href: "/settings", icon: Settings },
-];
-
 export function Sidebar({ isMobileOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useTranslation();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [projects, setProjects] = useState<QuickProject[]>([]);
+
+  const mainNavItems: NavItem[] = [
+    { name: t("nav.dashboard"), href: "/dashboard", icon: LayoutDashboard },
+    { name: t("nav.feed"), href: "/feed", icon: Rss },
+    { name: t("nav.waitlist"), href: "/waitlist", icon: Hourglass },
+    { name: t("nav.projects"), href: "/projects", icon: FolderGit2 },
+    { name: t("nav.tasks"), href: "/tasks", icon: CheckSquare },
+    { name: t("nav.wallets"), href: "/wallets", icon: Wallet },
+    { name: t("nav.settings"), href: "/settings", icon: Settings },
+  ];
 
   useEffect(() => {
     const supabase = createClient();

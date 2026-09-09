@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { 
   X, 
@@ -134,15 +135,35 @@ export function CommunityCreditsModal({
   onClose: () => void;
   initialPartner?: PartnerInfo | null;
 }) {
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
+
+  if (!isOpen || !mounted || typeof document === "undefined") return null;
+
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
-      onClick={onClose}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overscroll-contain animate-in fade-in duration-200"
     >
+      {/* Full-screen Backdrop overlay (covers topbar, sidebar, and entire viewport) */}
       <div
-        className="relative w-full max-w-lg rounded-2xl bg-[#141824] border border-white/15 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_50px_-10px_rgba(139,127,232,0.3)] p-6 text-left space-y-5 overflow-hidden"
+        className="fixed inset-0 bg-black/85 backdrop-blur-xl transition-opacity"
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 w-full max-w-lg rounded-2xl bg-[#141824] border border-white/15 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_50px_-10px_rgba(139,127,232,0.3)] p-6 text-left space-y-5 overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient Top Glow */}
@@ -240,6 +261,7 @@ export function CommunityCreditsModal({
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

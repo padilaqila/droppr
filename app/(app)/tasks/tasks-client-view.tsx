@@ -1,44 +1,129 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { CardBase } from "@/components/ui/card";
-import { ButtonPrimary } from "@/components/ui/button";
+import Image from "next/image";
 import { StatusBadge, type ProjectStatus } from "@/components/ui/status-badge";
 import {
-  CheckSquare,
-  Repeat,
-  Sparkles,
   ExternalLink,
   Layers,
   ArrowRight,
-  FolderGit2,
   Filter,
   Send,
+  Clock,
+  Newspaper,
+  BookOpen,
+  Folder,
+  Repeat,
+  Zap,
+  PauseCircle,
+  Gift,
+  CheckCircle2,
+  Calendar,
+  Bell,
+  Search,
+  Check,
+  RotateCcw,
 } from "lucide-react";
-import { InteractiveTaskList } from "@/components/features/interactive-task-list";
 import { TelegramUpdateModal } from "@/components/features/telegram-update-modal";
+import { cleanHtmlEntities } from "@/lib/supabase/thread-updates";
+import {
+  isProjectDailyDone,
+  toggleProjectDailyTask,
+  updateProjectTaskType,
+} from "@/lib/supabase/daily-tasks-helper";
 import type { Database } from "@/lib/supabase/database.types";
+import { useTranslation } from "@/lib/i18n/context";
 
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
-type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
 
 interface TasksClientViewProps {
   initialProjects: ProjectRow[];
-  initialTasks: TaskRow[];
+  initialTasks?: any[];
+  initialUpdates?: any[];
+  initialReminders?: any[];
+}
+
+// Operational task types for filtering & classification
+type OperationalFilter = "all" | "recurring" | "one_time" | "waiting" | "ready_to_claim";
+
+function getChannelLogo(channelOrUrl?: string | null) {
+  const text = (channelOrUrl || "").toLowerCase();
+  if (text.includes("dutacrypto")) {
+    return {
+      name: "Duta Crypto Airdrop",
+      handle: "@dutacryptoairdrop",
+      logo: "/images/credits/dutacrypto.webp",
+    };
+  }
+  if (text.includes("airdropfind")) {
+    return {
+      name: "Airdrop Finder",
+      handle: "@airdropfind",
+      logo: "/images/credits/airdropfinder.webp",
+    };
+  }
+  return {
+    name: "Airdrop Channel",
+    handle: "@telegram",
+    logo: null,
+  };
+}
+
+function formatTime(isoString?: string | null): string {
+  if (!isoString) return "";
+  try {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return "Baru saja";
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} mnt lalu`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours} jam lalu`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return "Kemarin";
+    if (diffDays < 7) return `${diffDays} hari lalu`;
+    return new Date(isoString).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+    });
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Determine operational category of a project:
+ * - "ready_to_claim": Status project is ready_to_claim
+ * - "waiting": Status project is waiting (closed / waiting for snapshot)
+ * - "one_time": social_links.task_type === "one_time"
+ * - "recurring": Default for active airdrops, or social_links.task_type === "recurring"
+ */
+function getProjectOperationalType(project: ProjectRow): "ready_to_claim" | "waiting" | "one_time" | "recurring" {
+  if (project.status === "ready_to_claim") return "ready_to_claim";
+  if (project.status === "waiting") return "waiting";
+  const rawSocial = (project.social_links as Record<string, any>) || {};
+  if (rawSocial.task_type === "one_time") return "one_time";
+  return "recurring";
 }
 
 export function TasksClientView({
   initialProjects,
-  initialTasks,
+  initialTasks = [],
+  initialUpdates = [],
+  initialReminders = [],
 }: TasksClientViewProps) {
+  const { t } = useTranslation();
   const [projects, setProjects] = useState<ProjectRow[]>(initialProjects);
-  const [tasks, setTasks] = useState<TaskRow[]>(initialTasks);
-  const [filter, setFilter] = useState<"all" | "pending" | "daily" | "done">("all");
-  const [selectedProjectFilter, setSelectedProjectFilter] = useState<string | null>(null);
-  const [telegramModalProject, setTelegramModalProject] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<any[]>(initialTasks);
+  const [updates, setUpdates] = useState<any[]>(initialUpdates);
+  const [reminders, setReminders] = useState<any[]>(initialReminders);
 
-  // Sync state if initial props change (per MEMORY.md)
+  const [activeTab, setActiveTab] = useState<OperationalFilter>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [telegramModalProject, setTelegramModalProject] = useState<string | null>(null);
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+
   useEffect(() => {
     setProjects(initialProjects);
   }, [initialProjects]);
@@ -47,268 +132,512 @@ export function TasksClientView({
     setTasks(initialTasks);
   }, [initialTasks]);
 
-  // Overall Task Statistics
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((t) => t.status === "done").length;
-  const pendingTasks = tasks.filter((t) => t.status !== "done").length;
-  const dailyTasks = tasks.filter((t) => t.type === "daily").length;
-  const dailyCompleted = tasks.filter((t) => t.type === "daily" && t.status === "done").length;
-  const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  useEffect(() => {
+    setUpdates(initialUpdates);
+  }, [initialUpdates]);
 
-  // Filter tasks
-  const filteredTasks = tasks.filter((t) => {
-    if (selectedProjectFilter && t.project_id !== selectedProjectFilter) return false;
-    if (filter === "pending") return t.status !== "done";
-    if (filter === "done") return t.status === "done";
-    if (filter === "daily") return t.type === "daily";
-    return true;
-  });
+  useEffect(() => {
+    setReminders(initialReminders);
+  }, [initialReminders]);
 
-  // Projects that have tasks under current filter
-  const projectsWithFilteredTasks = projects
-    .map((p) => {
-      const pTasks = filteredTasks.filter((t) => t.project_id === p.id);
-      const allPTasks = tasks.filter((t) => t.project_id === p.id);
-      const doneCount = allPTasks.filter((t) => t.status === "done").length;
-      return {
-        ...p,
-        filteredTasks: pTasks,
-        allTasks: allPTasks,
-        doneCount,
-        totalCount: allPTasks.length,
-      };
-    })
-    .filter((p) => (filter === "all" && !selectedProjectFilter ? p.allTasks.length > 0 : p.filteredTasks.length > 0));
+  // Counts for each operational category
+  const stats = useMemo(() => {
+    let recurring = 0;
+    let oneTime = 0;
+    let waiting = 0;
+    let readyToClaim = 0;
+
+    projects.forEach((p) => {
+      const type = getProjectOperationalType(p);
+      if (type === "recurring") recurring++;
+      else if (type === "one_time") oneTime++;
+      else if (type === "waiting") waiting++;
+      else if (type === "ready_to_claim") readyToClaim++;
+    });
+
+    return {
+      total: projects.length,
+      recurring,
+      oneTime,
+      waiting,
+      readyToClaim,
+    };
+  }, [projects]);
+
+  // Filter projects by operational tab and search query
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      const opType = getProjectOperationalType(project);
+
+      // Tab filter
+      if (activeTab !== "all" && opType !== activeTab) {
+        return false;
+      }
+
+      // Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = project.name.toLowerCase().includes(q);
+        const matchChain = (project.chain || "").toLowerCase().includes(q);
+        if (!matchName && !matchChain) return false;
+      }
+
+      return true;
+    });
+  }, [projects, activeTab, searchQuery]);
+
+  // Toggle Daily Completion (Reset 07:00 WIB)
+  const handleToggleDaily = async (project: ProjectRow) => {
+    const isDone = isProjectDailyDone(project, tasks.filter((t) => t.project_id === project.id));
+    const targetStatus = !isDone;
+    const nowIso = targetStatus ? new Date().toISOString() : null;
+
+    setUpdatingTaskId(project.id);
+
+    // Optimistic UI update
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== project.id) return p;
+        const currentSocial = (p.social_links as Record<string, any>) || {};
+        const updatedSocial = { ...currentSocial };
+        if (targetStatus) {
+          updatedSocial.last_daily_completed_at = nowIso;
+        } else {
+          delete updatedSocial.last_daily_completed_at;
+        }
+        return {
+          ...p,
+          social_links: updatedSocial,
+        };
+      })
+    );
+
+    // Synchronize to DB
+    const res = await toggleProjectDailyTask(project.id, targetStatus);
+    setUpdatingTaskId(null);
+
+    if (!res.success) {
+      // Revert if error
+      setProjects(initialProjects);
+    }
+  };
+
+  // Switch Task Type ("recurring" <-> "one_time")
+  const handleSwitchTaskType = async (project: ProjectRow, newType: "recurring" | "one_time") => {
+    setUpdatingTaskId(project.id);
+
+    // Optimistic UI update
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== project.id) return p;
+        const currentSocial = (p.social_links as Record<string, any>) || {};
+        return {
+          ...p,
+          social_links: {
+            ...currentSocial,
+            task_type: newType,
+          },
+        };
+      })
+    );
+
+    const res = await updateProjectTaskType(project.id, newType);
+    setUpdatingTaskId(null);
+
+    if (!res.success) {
+      setProjects(initialProjects);
+    }
+  };
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="space-y-6">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-heading-2 font-bold text-text-primary">
-            Daftar Tugas & Checklist Harian
-          </h1>
-          <p className="text-body-sm text-text-secondary">
-            Semua langkah garapan dari seluruh proyek airdrop dalam satu tempat.
+          <div className="flex items-center gap-2">
+            <h1 className="text-heading-2 font-bold text-text-primary tracking-tight">
+              {t("tasks.title")}
+            </h1>
+          </div>
+          <p className="text-body-sm text-text-secondary mt-1 max-w-2xl">
+            {t("tasks.subtitle")}
           </p>
         </div>
 
-        <Link href="/projects" prefetch={false}>
-          <ButtonPrimary className="inline-flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-on-accent" />
-            <span>Tambah Proyek Baru</span>
-          </ButtonPrimary>
-        </Link>
-      </div>
-
-      {/* Progress & Quick Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3 rounded-lg bg-bg-elevated border border-border-hairline space-y-1">
-          <span className="text-caption text-text-tertiary">Total Langkah</span>
-          <div className="text-heading-3 font-bold text-text-primary">
-            {totalTasks}
-          </div>
-        </div>
-
-        <div className="p-3 rounded-lg bg-bg-elevated border border-border-hairline space-y-1">
-          <span className="text-caption text-text-tertiary">Belum Selesai</span>
-          <div className="text-heading-3 font-bold text-accent">
-            {pendingTasks}
-          </div>
-        </div>
-
-        <div className="p-3 rounded-lg bg-bg-elevated border border-border-hairline space-y-1">
-          <span className="text-caption text-text-tertiary">Rutin Harian (🔁)</span>
-          <div className="text-heading-3 font-bold text-link-teal">
-            {dailyCompleted}/{dailyTasks}
-          </div>
-        </div>
-
-        <div className="p-3 rounded-lg bg-bg-elevated border border-border-hairline space-y-1">
-          <span className="text-caption text-text-tertiary">Progress Global</span>
-          <div className="text-heading-3 font-bold text-status-completed">
-            {overallProgress}%
-          </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/projects"
+            prefetch={false}
+            className="px-4 py-2 rounded-xl bg-white/[0.04] text-text-primary hover:bg-white/[0.08] border border-white/[0.1] text-caption font-semibold transition-all inline-flex items-center gap-2"
+          >
+            <Folder className="w-3.5 h-3.5 text-accent" />
+            <span>{t("tasks.manageFolders")}</span>
+          </Link>
         </div>
       </div>
 
-      {/* Filter Tabs Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-hairline pb-3">
-        <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1">
+      {/* FILTER TABS & SEARCH BAR */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-1 border-b border-white/[0.06]">
+        {/* Operational Category Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
           <button
             type="button"
-            onClick={() => setFilter("all")}
-            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors shrink-0 ${
-              filter === "all"
-                ? "bg-accent text-on-accent font-semibold"
-                : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
+            onClick={() => setActiveTab("all")}
+            className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+              activeTab === "all"
+                ? "bg-white/[0.1] text-text-primary border border-white/[0.2] shadow-xs"
+                : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            Semua ({totalTasks})
+            <span>{t("tasks.tabs.all")}</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-white/[0.06] text-[10px] font-mono">
+              {stats.total}
+            </span>
           </button>
+
           <button
             type="button"
-            onClick={() => setFilter("pending")}
-            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors shrink-0 ${
-              filter === "pending"
-                ? "bg-accent text-on-accent font-semibold"
-                : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
+            onClick={() => setActiveTab("recurring")}
+            className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+              activeTab === "recurring"
+                ? "bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-xs"
+                : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            Belum Selesai ({pendingTasks})
+            <Repeat className="w-3.5 h-3.5 text-amber-400" />
+            <span>{t("tasks.tabs.recurring")}</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/15 text-[10px] font-mono">
+              {stats.recurring}
+            </span>
           </button>
+
           <button
             type="button"
-            onClick={() => setFilter("daily")}
-            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors flex items-center gap-1 shrink-0 ${
-              filter === "daily"
-                ? "bg-accent text-on-accent font-semibold"
-                : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
+            onClick={() => setActiveTab("one_time")}
+            className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+              activeTab === "one_time"
+                ? "bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-xs"
+                : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <Repeat className="w-3 h-3" />
-            <span>Tugas Harian ({dailyTasks})</span>
+            <Zap className="w-3.5 h-3.5 text-sky-400" />
+            <span>{t("tasks.tabs.oneTime")}</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-sky-500/15 text-[10px] font-mono">
+              {stats.oneTime}
+            </span>
           </button>
+
           <button
             type="button"
-            onClick={() => setFilter("done")}
-            className={`px-3 py-1.5 rounded-md text-caption font-medium transition-colors shrink-0 ${
-              filter === "done"
-                ? "bg-status-completed text-white font-semibold"
-                : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
+            onClick={() => setActiveTab("waiting")}
+            className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+              activeTab === "waiting"
+                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-xs"
+                : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            Selesai ({completedTasks})
+            <PauseCircle className="w-3.5 h-3.5 text-indigo-300" />
+            <span>{t("tasks.tabs.waiting")}</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/15 text-[10px] font-mono">
+              {stats.waiting}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("ready_to_claim")}
+            className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+              activeTab === "ready_to_claim"
+                ? "bg-status-completed/20 text-status-completed border border-status-completed/40 shadow-xs"
+                : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+            }`}
+          >
+            <Gift className="w-3.5 h-3.5 text-status-completed" />
+            <span>{t("tasks.tabs.readyToClaim")}</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-status-completed/15 text-[10px] font-mono">
+              {stats.readyToClaim}
+            </span>
           </button>
         </div>
 
-        {/* Project Selector Dropdown filter */}
-        {projects.length > 0 && (
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-text-tertiary" />
-            <select
-              value={selectedProjectFilter || ""}
-              onChange={(e) => setSelectedProjectFilter(e.target.value || null)}
-              className="bg-bg-elevated text-caption text-text-secondary px-2.5 py-1 rounded-md border border-border-hairline focus:outline-none cursor-pointer"
+        {/* Search Filter */}
+        <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-1.5 shrink-0 max-w-xs w-full">
+          <Search className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("tasks.searchPlaceholder")}
+            className="bg-transparent text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none w-full"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="text-[11px] text-text-tertiary hover:text-text-primary px-1"
             >
-              <option value="">Semua Proyek</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Grouped Project Tasks */}
-      {projectsWithFilteredTasks.length === 0 ? (
-        <CardBase className="text-center py-12 space-y-3">
-          <div className="w-10 h-10 rounded-full bg-accent/10 text-accent flex items-center justify-center mx-auto">
-            <CheckSquare className="w-5 h-5" />
+      {/* PROJECT CARDS STREAM */}
+      {filteredProjects.length === 0 ? (
+        <div className="p-12 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-dashed border-white/[0.1] text-center space-y-3 shadow-xl shadow-black/20">
+          <div className="w-12 h-12 rounded-full bg-accent/15 text-accent flex items-center justify-center mx-auto border border-accent/25">
+            <BookOpen className="w-6 h-6" />
           </div>
           <h3 className="text-body-md font-semibold text-text-primary">
-            {totalTasks === 0
-              ? "Belum ada task aktif"
-              : "Tidak ada task pada filter ini"}
+            {t("tasks.card.emptyCategory")}
           </h3>
-          <p className="text-body-sm text-text-secondary max-w-md mx-auto">
-            {totalTasks === 0
-              ? "Buka proyekmu dan ketik langkah-langkah kerja untuk mulai melacak garapan airdrop harian."
-              : "Semua task pada kategori ini telah selesai atau belum ditambahkan."}
+          <p className="text-caption text-text-secondary max-w-md mx-auto">
+            {searchQuery
+              ? `Tidak ditemukan hasil untuk "${searchQuery}". Coba kata kunci lain.`
+              : "Semua status garapan akan muncul di sini sesuai klasifikasinya."}
           </p>
-        </CardBase>
+        </div>
       ) : (
         <div className="space-y-4">
-          {projectsWithFilteredTasks.map((proj) => {
-            const rawSocial = (proj.social_links as Record<string, any>) || {};
+          {filteredProjects.map((project) => {
+            const rawSocial = (project.social_links as Record<string, any>) || {};
             const dappUrl = rawSocial.dapp_url || rawSocial.website;
-            const badgeStatus = proj.status.replace("_", "-") as ProjectStatus;
+            const badgeStatus = project.status.replace("_", "-") as ProjectStatus;
+            const channelSource = getChannelLogo(rawSocial.telegram_post_url || rawSocial.channel);
+            const projectUpdates = updates.filter((u) => u.project_id === project.id);
+            const projectReminders = reminders.filter((r) => r.project_id === project.id && r.is_active);
+            const projectTasks = tasks.filter((t) => t.project_id === project.id);
+
+            const opType = getProjectOperationalType(project);
+            const isDailyDone = isProjectDailyDone(project, projectTasks);
+            const isUpdating = updatingTaskId === project.id;
+
+            // Clean guide snippet
+            let cleanSnippet = (project.guide_content || "").trim();
+            if (cleanSnippet.startsWith("📋 POSTINGAN ASLI SUMBER:")) {
+              cleanSnippet = cleanSnippet.replace("📋 POSTINGAN ASLI SUMBER:", "").trim();
+            }
+            if (cleanSnippet.startsWith("---")) {
+              cleanSnippet = cleanSnippet.replace(/^---+\s*/, "").trim();
+            }
+            const snippetLines = cleanSnippet.split("\n").filter((l) => l.trim()).slice(0, 3).join("\n");
 
             return (
-              <CardBase key={proj.id} className="p-4 space-y-3">
-                {/* Project Header Bar inside Task List */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-2.5 border-b border-border-hairline">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded bg-bg-elevated-2 border border-border-hairline flex items-center justify-center text-accent shrink-0">
-                      <FolderGit2 className="w-4 h-4" />
+              <div
+                key={project.id}
+                className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.18] transition-all shadow-xl shadow-black/20 space-y-4"
+              >
+                {/* Top Bar: Channel & Project Identification */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20 bg-white/[0.05] shrink-0 flex items-center justify-center shadow-md">
+                      {channelSource.logo ? (
+                        <Image
+                          src={channelSource.logo}
+                          alt={channelSource.name}
+                          width={40}
+                          height={40}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Send className="w-4 h-4 text-accent" />
+                      )}
                     </div>
+
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Link
-                          href={`/projects/${proj.id}`}
+                          href={`/projects/${project.id}`}
                           prefetch={false}
                           className="text-body-md font-bold text-text-primary hover:text-accent transition-colors truncate"
                         >
-                          {proj.name}
+                          {project.name}
                         </Link>
-                        {proj.chain && (
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-bg-elevated-2 border border-border-hairline text-text-secondary">
-                            {proj.chain}
+                        {project.chain && (
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-text-secondary">
+                            {project.chain}
                           </span>
                         )}
                         <StatusBadge status={badgeStatus} />
                       </div>
+                      <p className="text-[11px] text-text-tertiary font-mono">
+                        {channelSource.name} • Didaftarkan {formatTime(project.created_at)}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Direct Launch Buttons */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  {/* Actions Right */}
+                  <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
                     {dappUrl && (
                       <a
                         href={dappUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors text-caption font-semibold"
-                        title="Buka Web App DApp garapan"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] text-accent hover:bg-accent/15 hover:border-accent/30 border border-white/[0.08] transition-all text-caption font-semibold"
+                        title="Buka Website / DApp Resmi"
                       >
-                        <Layers className="w-3 h-3" />
-                        <span>Buka DApp</span>
-                        <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>{t("tasks.card.openDapp")}</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     )}
 
                     <button
                       type="button"
-                      onClick={() => setTelegramModalProject(proj.name)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-link-teal/15 text-link-teal hover:bg-link-teal/25 transition-colors text-caption font-semibold"
-                      title="Cek update Telegram proyek ini"
+                      onClick={() => setTelegramModalProject(project.name)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] text-link-teal hover:bg-link-teal/15 hover:border-link-teal/30 border border-white/[0.08] transition-all text-caption font-semibold"
                     >
-                      <Send className="w-3 h-3" />
-                      <span>Update TG</span>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{t("tasks.card.checkTG")}</span>
                     </button>
 
                     <Link
-                      href={`/projects/${proj.id}`}
+                      href={`/projects/${project.id}`}
                       prefetch={false}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-text-secondary hover:text-text-primary text-caption transition-colors"
-                      title="Buka Halaman Proyek"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-md shadow-accent/20"
                     >
-                      <span>Detail</span>
-                      <ArrowRight className="w-3 h-3" />
+                      <span>{t("tasks.card.timeline")}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>
                 </div>
 
-                {/* Interactive Task List for this Project */}
-                <InteractiveTaskList
-                  projectId={proj.id}
-                  initialTasks={proj.allTasks}
-                  showFilters={false}
-                  onTasksUpdated={() => {
-                    // Update trigger if needed
-                  }}
-                />
-              </CardBase>
+                {/* OPERATIONAL STATUS BANNER & SCHEDULE INFO */}
+                <div className="rounded-xl p-3.5 bg-white/[0.02] border border-white/[0.05] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {opType === "recurring" && (
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                        <Repeat className="w-4 h-4" />
+                      </div>
+                    )}
+                    {opType === "one_time" && (
+                      <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0">
+                        <Zap className="w-4 h-4" />
+                      </div>
+                    )}
+                    {opType === "waiting" && (
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 flex items-center justify-center shrink-0">
+                        <PauseCircle className="w-4 h-4" />
+                      </div>
+                    )}
+                    {opType === "ready_to_claim" && (
+                      <div className="w-8 h-8 rounded-lg bg-status-completed/15 border border-status-completed/30 text-status-completed flex items-center justify-center shrink-0">
+                        <Gift className="w-4 h-4" />
+                      </div>
+                    )}
+
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-caption font-bold text-text-primary">
+                          {opType === "recurring" && "Tugas Rutin Berulang (Daily/Periodic)"}
+                          {opType === "one_time" && "Tugas Sekali Selesai (Set & Forget)"}
+                          {opType === "waiting" && "Garapan Ditutup / Menunggu Snapshot"}
+                          {opType === "ready_to_claim" && "Siap Klaim Reward"}
+                        </span>
+
+                        {/* Switch type button for active projects */}
+                        {(opType === "recurring" || opType === "one_time") && (
+                          <button
+                            type="button"
+                            disabled={isUpdating}
+                            onClick={() =>
+                              handleSwitchTaskType(
+                                project,
+                                opType === "recurring" ? "one_time" : "recurring"
+                              )
+                            }
+                            className="text-[10px] font-mono text-text-tertiary hover:text-accent underline transition-colors"
+                            title="Ubah tipe operasional garapan ini"
+                          >
+                            {opType === "recurring" ? "Ubah ke Sekali Selesai" : "Ubah ke Rutin Berulang"}
+                          </button>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-text-secondary">
+                        {opType === "recurring" &&
+                          "Membutuhkan transaksi berkala, faucet, atau check-in harian (Reset 07:00 WIB)."}
+                        {opType === "one_time" &&
+                          "Cukup dikerjakan 1x (misal isi form waitlist, klaim OAT/role Discord)."}
+                        {opType === "waiting" &&
+                          "⛔ Fase testnet telah berakhir — Anda tidak perlu buang gas/waktu transaksi lagi."}
+                        {opType === "ready_to_claim" &&
+                          "🎉 Alokasi token telah diumumkan! Kunjungi portal klaim untuk menarik reward Anda."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Operational Action / Indicator Right */}
+                  <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                    {opType === "recurring" && (
+                      <button
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => handleToggleDaily(project)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-caption font-semibold transition-all border ${
+                          isDailyDone
+                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
+                            : "bg-white/[0.04] text-text-primary border-white/[0.1] hover:bg-white/[0.08]"
+                        }`}
+                      >
+                        {isDailyDone ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>{t("tasks.card.doneToday")}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            <span>{t("tasks.card.markDoneToday")}</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {projectReminders.length > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[11px] text-text-secondary font-mono">
+                        <Bell className="w-3 h-3 text-accent" />
+                        <span>{t("tasks.card.reminderActive")}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* POST CONTENT SNIPPET (Clean Natural Text) */}
+                {snippetLines ? (
+                  <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] text-body-sm text-text-secondary leading-relaxed line-clamp-3 whitespace-pre-line font-sans">
+                    {snippetLines}
+                  </div>
+                ) : (
+                  <p className="text-caption text-text-tertiary italic">
+                    Belum ada panduan atau catatan khusus tersimpan.
+                  </p>
+                )}
+
+                {/* LATEST TELEGRAM UPDATE IF ANY */}
+                {projectUpdates.length > 0 && (
+                  <div className="pt-2 border-t border-white/[0.04] flex items-center justify-between gap-2 text-caption">
+                    <span className="text-text-tertiary flex items-center gap-1.5 font-mono text-[11px] truncate">
+                      <Newspaper className="w-3 h-3 text-link-teal shrink-0" />
+                      <span className="truncate">
+                        Update Terkini: {cleanHtmlEntities(projectUpdates[0].title).slice(0, 70)}...
+                      </span>
+                    </span>
+                    <span className="text-text-tertiary text-[11px] font-mono shrink-0">
+                      {formatTime(projectUpdates[0].created_at)}
+                    </span>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
       )}
 
+      {/* MODAL SEARCH UPDATE TELEGRAM */}
       {telegramModalProject && (
         <TelegramUpdateModal
-          isOpen={Boolean(telegramModalProject)}
+          isOpen={true}
           onClose={() => setTelegramModalProject(null)}
           projectName={telegramModalProject}
         />

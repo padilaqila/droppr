@@ -16,19 +16,31 @@ import {
   Bell,
   ExternalLink,
   Layers,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
   Calendar,
   Check,
+  Compass,
+  BookOpen,
+  AlertCircle,
+  CalendarX,
+  RotateCcw,
+  Timer,
+  FastForward,
+  Flame,
 } from "lucide-react";
 import { SetReminderModal } from "@/components/features/set-reminder-modal";
+import { TodayTaskGuideModal } from "@/components/features/today-task-guide-modal";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   formatReminderSchedule,
   isReminderActiveToday,
 } from "@/lib/supabase/reminders-helper";
+import {
+  isProjectDailyDone,
+  toggleProjectDailyTask,
+} from "@/lib/supabase/daily-tasks-helper";
+import { useTranslation } from "@/lib/i18n/context";
 
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
@@ -45,16 +57,13 @@ interface DashboardClientViewProps {
   initialReminders: EnrichedReminder[];
 }
 
-/**
- * Extracts external URL from task string for dedicated click button
- */
-function extractFirstUrl(text: string): string | null {
-  const match = text.match(/(https?:\/\/[^\s]+)/);
-  return match ? match[0] : null;
-}
+export type TaskTabFilter = "ready" | "overdue" | "completed_today" | "upcoming" | "skipped" | "all";
 
 function cleanTaskTitle(text: string): string {
-  return text.replace(/(https?:\/\/[^\s]+)/g, "").trim();
+  return text
+    .replace(/(https?:\/\/[^\s]+)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .trim();
 }
 
 export function DashboardClientView({
@@ -63,20 +72,82 @@ export function DashboardClientView({
   initialReminders,
 }: DashboardClientViewProps) {
   const router = useRouter();
+  const { t } = useTranslation();
 
   const [projects, setProjects] = useState<ProjectRow[]>(initialProjects);
   const [tasks, setTasks] = useState<TaskRow[]>(initialTasks);
   const [reminders, setReminders] = useState<EnrichedReminder[]>(initialReminders);
 
-  // Filter state for today's project cards
-  const [activeProjectFilter, setActiveProjectFilter] = useState<
-    "today_and_active" | "all" | "completed"
-  >("today_and_active");
+  // Filter state for tasks tabs: ready | overdue | upcoming | skipped | all
+  const [activeProjectFilter, setActiveProjectFilter] = useState<TaskTabFilter>("ready");
 
-  // Track expanded cards (default all open)
-  const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
+  // Skipped/Snoozed projects state (persisted per day)
+  const [skippedProjectIds, setSkippedProjectIds] = useState<string[]>([]);
 
-  // Modal states
+  useEffect(() => {
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const stored = localStorage.getItem(`droppr_skipped_tasks_${todayKey}`);
+      if (stored) {
+        setSkippedProjectIds(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error("Error loading skipped tasks:", e);
+    }
+  }, []);
+
+  const handleSkipProject = (projectId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const next = [...skippedProjectIds.filter((id) => id !== projectId), projectId];
+    setSkippedProjectIds(next);
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      localStorage.setItem(`droppr_skipped_tasks_${todayKey}`, JSON.stringify(next));
+    } catch (e) {}
+  };
+
+  const handleRestoreProject = (projectId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const next = skippedProjectIds.filter((id) => id !== projectId);
+    setSkippedProjectIds(next);
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      localStorage.setItem(`droppr_skipped_tasks_${todayKey}`, JSON.stringify(next));
+    } catch (e) {}
+  };
+
+  // Live countdown timer to next daily reset (07:00 WIB / 00:00 UTC)
+  const [countdown, setCountdown] = useState<string>("");
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const nextUtcMidnight = new Date();
+      nextUtcMidnight.setUTCHours(24, 0, 0, 0);
+
+      const diff = nextUtcMidnight.getTime() - now.getTime();
+      if (diff <= 0) {
+        setCountdown("00:00:00");
+        return;
+      }
+      const h = Math.floor(diff / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+      setCountdown(
+        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+      );
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Today Task Guide Modal state
+  const [selectedGuideProject, setSelectedGuideProject] = useState<ProjectRow | null>(null);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+
+  // Reminder Modal states
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [selectedReminderProjectId, setSelectedReminderProjectId] = useState<string>("");
   const [editingReminder, setEditingReminder] = useState<ReminderRow | null>(null);
@@ -94,61 +165,79 @@ export function DashboardClientView({
     setReminders(initialReminders);
   }, [initialReminders]);
 
-  // Toggle card expansion
-  const toggleExpand = (projectId: string) => {
-    setExpandedProjects((prev) => ({
-      ...prev,
-      [projectId]: prev[projectId] === undefined ? false : !prev[projectId],
-    }));
+  const handleOpenGuideModal = (project: ProjectRow) => {
+    setSelectedGuideProject(project);
+    setIsGuideModalOpen(true);
   };
 
-  const isProjectExpanded = (projectId: string) => {
-    return expandedProjects[projectId] !== false; // Default true
-  };
-
-  // Safe task checkbox toggle with optimistic update & feedback
-  const handleToggleTask = async (
-    e: React.MouseEvent,
-    taskId: string,
-    currentStatus: string
-  ) => {
-    e.stopPropagation(); // Stop click from triggering parent card elements
-
-    const nextStatus = currentStatus === "done" ? "pending" : "done";
-    const nowIso = nextStatus === "done" ? new Date().toISOString() : null;
-
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId ? { ...t, status: nextStatus, completed_at: nowIso } : t
-      )
+  const handleGuideUpdated = (projectId: string, newGuide: string) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, guide_content: newGuide } : p))
     );
-
-    try {
-      const supabase = createClient() as any;
-      await supabase
-        .from("tasks")
-        .update({
-          status: nextStatus,
-          completed_at: nowIso,
-        })
-        .eq("id", taskId);
-    } catch (err) {
-      console.error("Failed to update task status:", err);
-      // Revert on error
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId ? { ...t, status: currentStatus as any } : t
-        )
-      );
+    if (selectedGuideProject && selectedGuideProject.id === projectId) {
+      setSelectedGuideProject((prev) => (prev ? { ...prev, guide_content: newGuide } : prev));
     }
   };
 
   // Quick Open Modal for a specific project
-  const handleOpenReminderForProject = (projectId: string) => {
+  const handleOpenReminderForProject = (projectId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setSelectedReminderProjectId(projectId);
     const existing = reminders.find((r) => r.project_id === projectId);
     setEditingReminder(existing || null);
     setIsReminderModalOpen(true);
+  };
+
+  const handleMarkProjectDone = async (projectId: string) => {
+    try {
+      const project = projects.find((p) => p.id === projectId);
+      if (!project) return;
+
+      const pTasks = tasks.filter((t) => t.project_id === projectId);
+      const isAlreadyDone = isProjectDailyDone(project, pTasks);
+      const nextState = !isAlreadyDone;
+      const nowIso = nextState ? new Date().toISOString() : null;
+
+      // Optimistic UI updates
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (p.id !== projectId) return p;
+          const s = (p.social_links as Record<string, any>) || {};
+          const nextS = { ...s };
+          if (nowIso) {
+            nextS.last_daily_completed_at = nowIso;
+          } else {
+            delete nextS.last_daily_completed_at;
+          }
+          return { ...p, social_links: nextS };
+        })
+      );
+
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.project_id === projectId
+            ? { ...t, status: nextState ? "done" : "pending", completed_at: nowIso }
+            : t
+        )
+      );
+
+      await toggleProjectDailyTask(projectId, nextState);
+      router.refresh();
+    } catch (err) {
+      console.error("Gagal mengubah status tugas hari ini:", err);
+    }
+  };
+
+  const handleDeleteReminder = async (reminderId: string) => {
+    try {
+      const supabase = createClient() as any;
+      const { error } = await supabase.from("reminders").delete().eq("id", reminderId);
+      if (error) throw error;
+      setReminders((prev) => prev.filter((r) => r.id !== reminderId));
+      router.refresh();
+    } catch (err) {
+      console.error("Gagal menghapus pengingat:", err);
+    }
   };
 
   // Map reminders to project ID for instant O(1) lookup
@@ -182,34 +271,85 @@ export function DashboardClientView({
       ? Math.round((completedTasksCount / totalTasksCount) * 100)
       : 0;
 
-  // Filter Projects for the main list
-  const displayedProjects = React.useMemo(() => {
-    if (activeProjectFilter === "all") {
-      return projects;
-    }
+  // Split projects into non-skipped and skipped
+  const nonSkippedProjects = React.useMemo(() => {
+    return projects.filter((p) => !skippedProjectIds.includes(p.id));
+  }, [projects, skippedProjectIds]);
 
-    if (activeProjectFilter === "completed") {
-      return projects.filter((p) => {
-        const pTasks = tasks.filter((t) => t.project_id === p.id);
-        return pTasks.length > 0 && pTasks.every((t) => t.status === "done");
-      });
-    }
+  const skippedProjects = React.useMemo(() => {
+    return projects.filter((p) => skippedProjectIds.includes(p.id));
+  }, [projects, skippedProjectIds]);
 
-    // Default: "today_and_active"
-    // Shows projects scheduled for today OR active projects that have pending tasks
+  // Completed Today: projects whose daily tasks are completed for the current day cycle
+  const completedTodayProjects = React.useMemo(() => {
     return projects.filter((p) => {
+      const pTasks = tasks.filter((t) => t.project_id === p.id);
+      return isProjectDailyDone(p, pTasks);
+    });
+  }, [projects, tasks]);
+
+  // Overdue: projects scheduled today where time is past 07:00 WIB and not completed today
+  const overdueProjects = React.useMemo(() => {
+    return nonSkippedProjects.filter((p) => {
+      const pTasks = tasks.filter((t) => t.project_id === p.id);
+      if (isProjectDailyDone(p, pTasks)) return false;
+
       const reminder = remindersByProjectId.get(p.id);
       const isTodayReminder = reminder
         ? isReminderActiveToday(reminder.frequency)
         : false;
-
-      const pTasks = tasks.filter((t) => t.project_id === p.id);
-      const hasPendingTasks = pTasks.some((t) => t.status !== "done");
-
-      // Prioritize: scheduled today or in_progress with pending tasks
-      return isTodayReminder || (p.status === "in_progress" && hasPendingTasks) || pTasks.length === 0;
+      return isTodayReminder;
     });
-  }, [projects, tasks, remindersByProjectId, activeProjectFilter]);
+  }, [nonSkippedProjects, tasks, remindersByProjectId]);
+
+  // Ready to work projects (Active and NOT yet completed today)
+  const readyProjects = React.useMemo(() => {
+    return nonSkippedProjects.filter((p) => {
+      const pTasks = tasks.filter((t) => t.project_id === p.id);
+      if (isProjectDailyDone(p, pTasks)) return false;
+
+      const reminder = remindersByProjectId.get(p.id);
+      const isToday = reminder ? isReminderActiveToday(reminder.frequency) : false;
+      return isToday || p.status === "in_progress" || pTasks.length > 0;
+    });
+  }, [nonSkippedProjects, tasks, remindersByProjectId]);
+
+  // Upcoming: projects waiting for next reset / scheduled
+  const upcomingProjects = React.useMemo(() => {
+    return nonSkippedProjects.filter((p) => {
+      const reminder = remindersByProjectId.get(p.id);
+      return Boolean(reminder);
+    });
+  }, [nonSkippedProjects, remindersByProjectId]);
+
+  // Filter Projects for the main list based on active tab
+  const displayedProjects = React.useMemo(() => {
+    if (activeProjectFilter === "all") {
+      return projects;
+    }
+    if (activeProjectFilter === "completed_today") {
+      return completedTodayProjects;
+    }
+    if (activeProjectFilter === "skipped") {
+      return skippedProjects;
+    }
+    if (activeProjectFilter === "overdue") {
+      return overdueProjects;
+    }
+    if (activeProjectFilter === "upcoming") {
+      return upcomingProjects;
+    }
+    // Default: "ready"
+    return readyProjects;
+  }, [
+    activeProjectFilter,
+    projects,
+    readyProjects,
+    completedTodayProjects,
+    overdueProjects,
+    upcomingProjects,
+    skippedProjects,
+  ]);
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -217,10 +357,10 @@ export function DashboardClientView({
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-heading-2 font-bold text-text-primary">
-            Command Center
+            {t("dashboard.title")}
           </h1>
           <p className="text-body-sm text-text-secondary">
-            Pantau dan garap tugas airdrop hari ini dengan checklist berbasis proyek dan jadwal pengingat aktif.
+            {t("dashboard.subtitle")}
           </p>
         </div>
 
@@ -234,13 +374,13 @@ export function DashboardClientView({
             className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm"
           >
             <Bell className="w-4 h-4 text-accent" />
-            <span>Pasang Pengingat</span>
+            <span>{t("dashboard.setReminder")}</span>
           </ButtonSecondary>
 
           <Link href="/projects" prefetch={false}>
             <ButtonPrimary className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm">
               <Plus className="w-4 h-4 text-on-accent" />
-              <span>Tambah Proyek</span>
+              <span>{t("dashboard.addProject")}</span>
             </ButtonPrimary>
           </Link>
         </div>
@@ -250,23 +390,23 @@ export function DashboardClientView({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <CardDashboardStat>
           <div className="flex items-center justify-between text-text-tertiary mb-1">
-            <span className="text-caption font-medium">Jadwal Hari Ini</span>
+            <span className="text-caption font-medium">{t("dashboard.stats.todaySchedule")}</span>
             <Calendar className="w-4 h-4 text-accent" />
           </div>
           <div className="text-heading-2 font-bold text-text-primary">
             {projectsWithTodayReminders.length}{" "}
             <span className="text-caption font-normal text-text-tertiary">
-              proyek
+              {t("dashboard.stats.todayProjectsUnit")}
             </span>
           </div>
           <div className="text-[11px] text-text-tertiary mt-0.5 font-mono">
-            Alarm default 07:00 WIB
+            {t("dashboard.stats.defaultAlarmTime")}
           </div>
         </CardDashboardStat>
 
         <CardDashboardStat>
           <div className="flex items-center justify-between text-text-tertiary mb-1">
-            <span className="text-caption font-medium">Progress Tugas</span>
+            <span className="text-caption font-medium">{t("dashboard.stats.taskProgress")}</span>
             <CheckSquare className="w-4 h-4 text-status-completed" />
           </div>
           <div className="text-heading-2 font-bold text-text-primary">
@@ -276,33 +416,33 @@ export function DashboardClientView({
             </span>
           </div>
           <div className="text-[11px] text-text-tertiary mt-0.5">
-            {overallTaskProgress}% selesai secara keseluruhan
+            {overallTaskProgress}% {t("dashboard.stats.overallComplete")}
           </div>
         </CardDashboardStat>
 
         <CardDashboardStat>
           <div className="flex items-center justify-between text-text-tertiary mb-1">
-            <span className="text-caption font-medium">Siap Klaim Reward</span>
+            <span className="text-caption font-medium">{t("dashboard.stats.readyToClaim")}</span>
             <Sparkles className="w-4 h-4 text-accent" />
           </div>
           <div className="text-heading-2 font-bold text-accent">
             {readyClaimCount}
           </div>
           <div className="text-[11px] text-text-tertiary mt-0.5">
-            {readyClaimCount > 0 ? "Fase klaim reward aktif!" : "Menunggu snapshot"}
+            {readyClaimCount > 0 ? t("dashboard.stats.claimPhaseActive") : t("dashboard.stats.waitingSnapshot")}
           </div>
         </CardDashboardStat>
 
         <CardDashboardStat>
           <div className="flex items-center justify-between text-text-tertiary mb-1">
-            <span className="text-caption font-medium">Total Proyek</span>
+            <span className="text-caption font-medium">{t("dashboard.stats.totalProjects")}</span>
             <FolderGit2 className="w-4 h-4 text-status-in-progress" />
           </div>
           <div className="text-heading-2 font-bold text-text-primary">
             {totalProjectsCount}
           </div>
           <div className="text-[11px] text-text-tertiary mt-0.5">
-            {reminders.length} proyek dengan pengingat
+            {reminders.length} {t("dashboard.stats.projectsWithReminders")}
           </div>
         </CardDashboardStat>
       </div>
@@ -311,88 +451,217 @@ export function DashboardClientView({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* LEFT COLUMN: Project-Based Workstation Cards (lg:col-span-8) */}
         <div className="lg:col-span-8 space-y-4">
-          {/* Header & Filter Tabs */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <FolderGit2 className="w-4 h-4 text-accent shrink-0" />
-              <h2 className="text-body-md font-bold text-text-primary">
-                Tugas Garapan Berbasis Proyek
-              </h2>
+          {/* Header & Filter Tabs Section */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Compass className="w-4 h-4 text-amber-400 shrink-0" />
+                  <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary tracking-tight">
+                    {t("dashboard.section.todayTasksTitle")}
+                  </h2>
+                </div>
+                <p className="text-[12px] text-text-secondary">
+                  {t("dashboard.section.todayTasksDesc")}
+                </p>
+              </div>
+
+              {/* Reset Info badge */}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-[11px] text-white/60 self-start sm:self-auto font-mono">
+                <Timer className="w-3 h-3 text-amber-400" />
+                <span>Reset: 07:00 WIB ({countdown})</span>
+              </div>
             </div>
 
-            {/* Quick Filter Pill Buttons */}
-            <div className="flex items-center gap-1 bg-bg-elevated p-1 rounded-lg border border-border-hairline self-start max-w-full overflow-x-auto">
+            {/* Responsive Filter Bar (Wide, Pure Glass, Zero Scrollbar) */}
+            <div className="p-1 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] flex items-center gap-1 overflow-x-auto no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+              {/* 1. Siap Dikerjakan */}
               <button
                 type="button"
-                onClick={() => setActiveProjectFilter("today_and_active")}
-                className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors shrink-0 ${
-                  activeProjectFilter === "today_and_active"
-                    ? "bg-accent text-on-accent font-semibold"
-                    : "text-text-secondary hover:text-text-primary"
+                onClick={() => setActiveProjectFilter("ready")}
+                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                  activeProjectFilter === "ready"
+                    ? "bg-amber-400 text-black font-semibold shadow-md shadow-amber-400/20"
+                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
                 }`}
               >
-                Hari Ini & Aktif
+                <Flame className={`w-3.5 h-3.5 ${activeProjectFilter === "ready" ? "text-black" : "text-amber-400"}`} />
+                <span>{t("dashboard.tabs.ready")}</span>
+                <span
+                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    activeProjectFilter === "ready"
+                      ? "bg-black/20 text-black"
+                      : "bg-white/[0.08] text-white/70"
+                  }`}
+                >
+                  {readyProjects.length}
+                </span>
               </button>
+
+              {/* 2. Telat */}
+              <button
+                type="button"
+                onClick={() => setActiveProjectFilter("overdue")}
+                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                  activeProjectFilter === "overdue"
+                    ? "bg-rose-500 text-white font-semibold shadow-md shadow-rose-500/25"
+                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                }`}
+              >
+                <AlertCircle className={`w-3.5 h-3.5 ${activeProjectFilter === "overdue" ? "text-white" : "text-rose-400"}`} />
+                <span>{t("dashboard.tabs.overdue")}</span>
+                <span
+                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    activeProjectFilter === "overdue"
+                      ? "bg-black/20 text-white"
+                      : overdueProjects.length > 0
+                      ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                      : "bg-white/[0.08] text-white/70"
+                  }`}
+                >
+                  {overdueProjects.length}
+                </span>
+              </button>
+
+              {/* 3. Selesai Hari Ini */}
+              <button
+                type="button"
+                onClick={() => setActiveProjectFilter("completed_today")}
+                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                  activeProjectFilter === "completed_today"
+                    ? "bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-500/25"
+                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                }`}
+              >
+                <CheckCircle2 className={`w-3.5 h-3.5 ${activeProjectFilter === "completed_today" ? "text-white" : "text-emerald-400"}`} />
+                <span>{t("dashboard.tabs.completedToday")}</span>
+                <span
+                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    activeProjectFilter === "completed_today"
+                      ? "bg-black/20 text-white"
+                      : completedTodayProjects.length > 0
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                      : "bg-white/[0.08] text-white/70"
+                  }`}
+                >
+                  {completedTodayProjects.length}
+                </span>
+              </button>
+
+              {/* 3. Akan Datang */}
+              <button
+                type="button"
+                onClick={() => setActiveProjectFilter("upcoming")}
+                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                  activeProjectFilter === "upcoming"
+                    ? "bg-amber-400 text-black font-semibold shadow-md shadow-amber-400/20"
+                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                }`}
+              >
+                <Clock className={`w-3.5 h-3.5 ${activeProjectFilter === "upcoming" ? "text-black" : "text-amber-400"}`} />
+                <span>{t("dashboard.tabs.upcoming")}</span>
+                <span
+                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    activeProjectFilter === "upcoming"
+                      ? "bg-black/20 text-black"
+                      : "bg-white/[0.08] text-white/70"
+                  }`}
+                >
+                  {upcomingProjects.length}
+                </span>
+              </button>
+
+              {/* 4. Dilewati / Ditunda */}
+              <button
+                type="button"
+                onClick={() => setActiveProjectFilter("skipped")}
+                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                  activeProjectFilter === "skipped"
+                    ? "bg-white/20 text-white font-semibold shadow-md"
+                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                }`}
+              >
+                <FastForward className={`w-3.5 h-3.5 ${activeProjectFilter === "skipped" ? "text-white" : "text-white/50"}`} />
+                <span>{t("dashboard.tabs.skipped")}</span>
+                <span
+                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    activeProjectFilter === "skipped"
+                      ? "bg-black/20 text-white"
+                      : "bg-white/[0.08] text-white/70"
+                  }`}
+                >
+                  {skippedProjects.length}
+                </span>
+              </button>
+
+              {/* 5. Semua */}
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("all")}
-                className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors shrink-0 ${
+                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "all"
-                    ? "bg-accent text-on-accent font-semibold"
-                    : "text-text-secondary hover:text-text-primary"
+                    ? "bg-white/20 text-white font-semibold shadow-md"
+                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
                 }`}
               >
-                Semua Proyek ({projects.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveProjectFilter("completed")}
-                className={`px-2.5 py-1 rounded text-[12px] font-medium transition-colors shrink-0 ${
-                  activeProjectFilter === "completed"
-                    ? "bg-status-completed text-white font-semibold"
-                    : "text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                Selesai
+                <span>{t("dashboard.tabs.all")}</span>
+                <span
+                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    activeProjectFilter === "all"
+                      ? "bg-black/20 text-white"
+                      : "bg-white/[0.08] text-white/70"
+                  }`}
+                >
+                  {projects.length}
+                </span>
               </button>
             </div>
           </div>
 
           {/* Project Cards List */}
           {displayedProjects.length === 0 ? (
-            <CardBase className="text-center py-12 space-y-3">
-              <CheckCircle2 className="w-10 h-10 text-status-completed mx-auto" />
+            <div className="p-8 sm:p-12 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] text-center space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)]">
+              <div className="w-12 h-12 rounded-full bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 mx-auto">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
               <h3 className="text-heading-3 font-semibold text-text-primary">
-                {activeProjectFilter === "completed"
-                  ? "Belum ada proyek yang semua tugasnya tuntas"
-                  : "Semua tugas garapan hari ini telah selesai!"}
+                {activeProjectFilter === "overdue"
+                  ? "Bagus! Tidak ada tugas yang telat"
+                  : activeProjectFilter === "completed_today"
+                  ? "Belum ada tugas yang diselesaikan hari ini"
+                  : activeProjectFilter === "skipped"
+                  ? "Tidak ada tugas yang sedang dilewati"
+                  : activeProjectFilter === "upcoming"
+                  ? "Belum ada jadwal tugas mendatang"
+                  : "Semua tugas beres atau belum dijadwalkan"}
               </h3>
               <p className="text-body-sm text-text-secondary max-w-md mx-auto">
-                Bagus sekali! Semua langkah pengerjaan untuk proyek aktif hari ini sudah kamu selesaikan dengan baik.
+                {activeProjectFilter === "overdue"
+                  ? "Semua garapan kamu masih tepat waktu atau sudah diselesaikan."
+                  : activeProjectFilter === "completed_today"
+                  ? "Tandai selesai tugas proyek setelah kamu menggarap daily task hari ini."
+                  : activeProjectFilter === "skipped"
+                  ? "Kamu bisa melewati tugas harian proyek tertentu dan memunculkannya kembali di tab ini."
+                  : "Kamu bisa mengatur pengingat berkala atau melihat seluruh daftar garapan proyek."}
               </p>
               <div className="pt-2 flex items-center justify-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveProjectFilter("all")}
-                  className="px-3 py-1.5 rounded-md bg-bg-elevated-2 border border-border-hairline text-text-primary text-caption font-medium hover:border-border-hairline-strong transition-colors"
+                  className="px-3.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-text-primary text-caption font-medium transition-colors"
                 >
-                  Tampilkan Semua Proyek
+                  Tampilkan Semua Proyek ({projects.length})
                 </button>
               </div>
-            </CardBase>
+            </div>
           ) : (
-            <div className="space-y-3.5">
+            <div className="space-y-3">
               {displayedProjects.map((proj) => {
                 const rawSocial = (proj.social_links as Record<string, any>) || {};
                 const dappUrl = rawSocial.dapp_url || rawSocial.website;
                 const faucetUrl = rawSocial.faucet_url;
-
+                const refLink = rawSocial.ref_link;
                 const pTasks = tasks.filter((t) => t.project_id === proj.id);
-                const doneCount = pTasks.filter((t) => t.status === "done").length;
-                const totalPTasks = pTasks.length;
-                const projectProgress =
-                  totalPTasks > 0 ? Math.round((doneCount / totalPTasks) * 100) : 0;
-                const isAllDone = totalPTasks > 0 && doneCount === totalPTasks;
 
                 const projectReminder = remindersByProjectId.get(proj.id);
                 const isTodayReminder = projectReminder
@@ -402,261 +671,223 @@ export function DashboardClientView({
                   ? formatReminderSchedule(projectReminder.frequency)
                   : null;
 
-                const isExpanded = isProjectExpanded(proj.id);
+                const isSkipped = skippedProjectIds.includes(proj.id);
+                const isDailyDone = isProjectDailyDone(proj, pTasks);
+
+                // Count available links
+                let linkCount = 0;
+                if (dappUrl) linkCount++;
+                if (faucetUrl) linkCount++;
+                if (refLink) linkCount++;
+                if (rawSocial.twitter) linkCount++;
+                if (rawSocial.telegram || rawSocial.telegram_post_url) linkCount++;
+                if (rawSocial.discord) linkCount++;
+                if (rawSocial.docs_url) linkCount++;
+                if (Array.isArray(rawSocial.custom_links)) linkCount += rawSocial.custom_links.length;
 
                 return (
                   <div
                     key={proj.id}
-                    className={`rounded-xl border transition-all duration-200 overflow-hidden ${
-                      isAllDone
-                        ? "bg-bg-elevated/70 border-status-completed/30"
-                        : isTodayReminder
-                        ? "bg-bg-elevated border-accent/40 shadow-sm"
-                        : "bg-bg-elevated border-border-hairline hover:border-border-hairline-strong"
-                    }`}
+                    onClick={() => handleOpenGuideModal(proj)}
+                    className="group rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.2] shadow-[0_8px_32px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.1)] transition-all duration-200 cursor-pointer p-4 sm:p-5 flex flex-col justify-between gap-3.5"
                   >
-                    {/* Card Header (Click to expand/collapse) */}
-                    <div
-                      onClick={() => toggleExpand(proj.id)}
-                      className="p-4 cursor-pointer select-none space-y-3 transition-colors hover:bg-bg-elevated-2/50"
-                    >
-                      {/* Top Row: Project Name, Badges & Direct Launch Links */}
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3">
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Link
-                              href={`/projects/${proj.id}`}
-                              prefetch={false}
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-body-md font-bold text-text-primary hover:text-accent transition-colors truncate"
-                              title="Buka detail proyek"
-                            >
-                              {proj.name}
-                            </Link>
+                    {/* Top Row: Project Name, Badges & Quick Links */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-body-md sm:text-base font-bold text-white group-hover:text-amber-400 transition-colors tracking-tight truncate">
+                            {proj.name}
+                          </span>
 
-                            {proj.chain && (
-                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-bg-elevated-2 border border-border-hairline text-text-secondary">
-                                {proj.chain}
-                              </span>
-                            )}
-
-                            <StatusBadge
-                              status={proj.status.replace("_", "-") as ProjectStatus}
-                            />
-
-                            {isTodayReminder && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/15 text-accent font-semibold border border-accent/30 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                <span>Jadwal Hari Ini</span>
-                              </span>
-                            )}
-
-                            {isAllDone && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-completed/15 text-status-completed font-semibold border border-status-completed/30 flex items-center gap-1">
-                                <Check className="w-3 h-3" />
-                                <span>Tuntas Hari Ini</span>
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Reminder Schedule Caption */}
-                          {scheduleLabel ? (
-                            <div className="flex items-center gap-1.5 text-caption text-accent font-medium pt-0.5">
-                              <Bell className="w-3.5 h-3.5" />
-                              <span>Pengingat: {scheduleLabel}</span>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenReminderForProject(proj.id);
-                              }}
-                              className="text-[11px] text-text-tertiary hover:text-accent flex items-center gap-1 pt-0.5 transition-colors"
-                            >
-                              <Plus className="w-3 h-3" />
-                              <span>Atur jam pengingat</span>
-                            </button>
+                          {proj.chain && (
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/10 text-white/70">
+                              {proj.chain}
+                            </span>
                           )}
+
+                          <StatusBadge
+                            status={proj.status.replace("_", "-") as ProjectStatus}
+                          />
+
+                          {/* Dynamic Daily Status Pill */}
+                          {isDailyDone ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1 shadow-xs">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span>Selesai Hari Ini</span>
+                            </span>
+                          ) : isSkipped ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.08] text-white/70 font-semibold border border-white/15 flex items-center gap-1">
+                              <FastForward className="w-3 h-3 text-white/50" />
+                              <span>Dilewati Hari Ini</span>
+                            </span>
+                          ) : activeProjectFilter === "overdue" ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 font-semibold border border-rose-500/30 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 text-rose-400" />
+                              <span>Telat • Jadwal 07:00 WIB</span>
+                            </span>
+                          ) : isTodayReminder ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 font-semibold border border-amber-400/30 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-amber-400" />
+                              <span>Jadwal Hari Ini</span>
+                            </span>
+                          ) : activeProjectFilter === "upcoming" ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 font-semibold border border-amber-400/25 flex items-center gap-1 font-mono">
+                              <Timer className="w-3 h-3 text-amber-400" />
+                              <span>Reset dlm {countdown}</span>
+                            </span>
+                          ) : null}
                         </div>
 
-                        {/* Direct Action Launch Buttons (Isolated from card expand) */}
-                        <div
-                          className="flex items-center gap-1.5 shrink-0 self-end sm:self-start flex-wrap"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {dappUrl && (
-                            <a
-                              href={dappUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors text-caption font-semibold"
-                              title="Buka Web App DApp Proyek Langsung"
-                            >
-                              <Layers className="w-3.5 h-3.5" />
-                              <span>Buka DApp</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
+                        {/* Reminder & Meta Info */}
+                        <div className="flex items-center gap-2 text-[11.5px] text-white/50 flex-wrap">
+                          {scheduleLabel ? (
+                            <span className="text-amber-400/90 font-medium flex items-center gap-1">
+                              <Bell className="w-3 h-3 text-amber-400" />
+                              <span>Pengingat: {scheduleLabel} @ 07:00 WIB</span>
+                            </span>
+                          ) : (
+                            <span>Tugas garapan aktif</span>
                           )}
-
-                          {faucetUrl && (
-                            <a
-                              href={faucetUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded bg-bg-elevated-2 border border-border-hairline text-accent hover:border-accent transition-colors text-[11px] font-medium"
-                              title="Buka Faucet Testnet"
-                            >
-                              <span>Faucet</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
+                          <span>•</span>
+                          <span>{pTasks.length} langkah pengerjaan</span>
+                          {linkCount > 0 && (
+                            <>
+                              <span>•</span>
+                              <span>{linkCount} tautan</span>
+                            </>
                           )}
-
-                          <Link
-                            href={`/projects/${proj.id}`}
-                            prefetch={false}
-                            className="p-1.5 text-text-tertiary hover:text-text-primary rounded hover:bg-bg-elevated-2 transition-colors"
-                            title="Workstation Detail"
-                          >
-                            <ArrowRight className="w-4 h-4" />
-                          </Link>
-
-                          {/* Expand/Collapse Chevron Icon */}
-                          <div className="p-1 text-text-tertiary">
-                            {isExpanded ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
-                          </div>
                         </div>
                       </div>
 
-                      {/* Animated Progress Bar Row */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-caption font-mono">
-                          <span className="text-text-secondary font-medium">
-                            {totalPTasks > 0
-                              ? `${doneCount} dari ${totalPTasks} tugas diselesaikan`
-                              : "Belum ada checklist tugas"}
-                          </span>
-                          <span
-                            className={`font-bold transition-colors ${
-                              isAllDone ? "text-status-completed" : "text-accent"
-                            }`}
+                      {/* Isolated Quick Actions: DApp & Full Project Link */}
+                      <div
+                        className="flex items-center gap-1.5 shrink-0 self-end sm:self-start"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {dappUrl && (
+                          <a
+                            href={dappUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/80 hover:text-white border border-white/10 text-caption font-medium transition-all"
+                            title="Buka Web App DApp Langsung"
                           >
-                            {projectProgress}%
-                          </span>
-                        </div>
+                            <Layers className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Buka DApp</span>
+                            <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                          </a>
+                        )}
 
-                        {/* Smooth Animated Progress Bar */}
-                        <div className="h-2 rounded-full bg-bg-elevated-2 overflow-hidden border border-border-hairline">
-                          <div
-                            className={`h-full transition-all duration-500 ease-out ${
-                              isAllDone
-                                ? "bg-status-completed"
-                                : "bg-accent"
-                            }`}
-                            style={{ width: `${projectProgress}%` }}
-                          />
-                        </div>
+                        <Link
+                          href={`/projects/${proj.id}`}
+                          prefetch={false}
+                          className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/[0.08] transition-colors"
+                          title="Halaman Proyek Lengkap"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </Link>
                       </div>
                     </div>
 
-                    {/* Expandable Task Checklist (Protected against accidental clicks) */}
-                    {isExpanded && (
-                      <div className="border-t border-border-hairline bg-bg-base/40 p-3.5 space-y-2">
-                        {pTasks.length === 0 ? (
-                          <div className="py-4 text-center space-y-2">
-                            <p className="text-body-sm text-text-tertiary">
-                              Proyek ini belum memiliki checklist tugas.
-                            </p>
-                            <Link
-                              href={`/projects/${proj.id}`}
-                              prefetch={false}
-                              className="inline-flex items-center gap-1 text-caption text-link-teal hover:underline"
+                    {/* Preview of Tasks Steps (Clean, Lightweight, No Checkbox) */}
+                    {pTasks.length > 0 ? (
+                      <div className="space-y-1.5 py-1">
+                        {pTasks.slice(0, 2).map((t, idx) => {
+                          const clean = cleanTaskTitle(t.title);
+                          return (
+                            <div
+                              key={t.id}
+                              className="flex items-center gap-2 text-[12px] text-white/75"
                             >
-                              <span>+ Tambah langkah tugas di halaman proyek</span>
-                            </Link>
-                          </div>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {pTasks.map((task) => {
-                              const isDone = task.status === "done";
-                              const directUrl = extractFirstUrl(task.title);
-                              const cleanTitle = cleanTaskTitle(task.title);
-
-                              return (
-                                <div
-                                  key={task.id}
-                                  className={`p-2.5 rounded-lg border transition-colors flex items-center justify-between gap-3 ${
-                                    isDone
-                                      ? "bg-bg-elevated/40 border-border-hairline/60 text-text-tertiary"
-                                      : "bg-bg-elevated border-border-hairline hover:border-border-hairline-strong text-text-primary"
-                                  }`}
-                                >
-                                  {/* Left: Safe isolated checkbox button */}
-                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                    <button
-                                      type="button"
-                                      onClick={(e) =>
-                                        handleToggleTask(e, task.id, task.status)
-                                      }
-                                      className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border transition-all ${
-                                        isDone
-                                          ? "bg-status-completed border-status-completed text-white"
-                                          : "bg-bg-elevated-2 border-border-hairline-strong hover:border-accent text-transparent hover:text-accent/40"
-                                      }`}
-                                      title={
-                                        isDone
-                                          ? "Klik untuk batalkan selesai"
-                                          : "Tandai tugas ini selesai"
-                                      }
-                                    >
-                                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                    </button>
-
-                                    <div className="min-w-0 flex-1">
-                                      <span
-                                        className={`text-body-sm font-medium block truncate ${
-                                          isDone
-                                            ? "line-through text-text-tertiary"
-                                            : "text-text-primary"
-                                        }`}
-                                      >
-                                        {cleanTitle || task.title}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* Right: Separate Direct Link Button (Anti-accidental click) */}
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {directUrl && (
-                                      <a
-                                        href={directUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-bg-elevated-2 hover:bg-accent/15 text-accent border border-border-hairline hover:border-accent text-[11px] font-medium transition-colors"
-                                        title="Buka Link Tugas"
-                                      >
-                                        <span>Link</span>
-                                        <ExternalLink className="w-2.5 h-2.5" />
-                                      </a>
-                                    )}
-
-                                    {task.type === "daily" && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent font-mono border border-accent/20">
-                                        Harian
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                              <span className="w-4 h-4 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {idx + 1}
+                              </span>
+                              <span className="truncate flex-1 font-sans">{clean || t.title}</span>
+                            </div>
+                          );
+                        })}
+                        {pTasks.length > 2 && (
+                          <span className="text-[11px] text-white/40 block pl-6">
+                            +{pTasks.length - 2} langkah lainnya...
+                          </span>
                         )}
                       </div>
-                    )}
+                    ) : proj.guide_content ? (
+                      <p className="text-[12px] text-white/60 line-clamp-2 leading-relaxed">
+                        {proj.guide_content}
+                      </p>
+                    ) : null}
+
+                    {/* Card Footer: CTA & Skip / Restore Controls */}
+                    <div
+                      className="flex items-center justify-between pt-1 flex-wrap gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleOpenGuideModal(proj)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-amber-400 hover:text-black border border-white/10 hover:border-amber-400 text-caption font-semibold text-white/90 transition-all duration-200 shadow-sm"
+                      >
+                        <Compass className="w-3.5 h-3.5 text-amber-400 hover:text-black transition-colors" />
+                        <span>{t("dashboard.card.openGuide")}</span>
+                        <ArrowRight className="w-3 h-3 hover:translate-x-0.5 transition-transform" />
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        {/* Quick Mark Done for Today button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkProjectDone(proj.id);
+                          }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-caption font-semibold transition-all shadow-xs ${
+                            isDailyDone
+                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                              : "bg-white/[0.04] text-white/70 hover:text-white hover:bg-white/[0.08] border-white/10"
+                          }`}
+                          title={
+                            isDailyDone
+                              ? t("dashboard.card.doneTooltip")
+                              : t("dashboard.card.undoneTooltip")
+                          }
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{isDailyDone ? t("dashboard.card.done") : t("dashboard.card.markDone")}</span>
+                        </button>
+
+                        {isSkipped ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => handleRestoreProject(proj.id, e)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border border-amber-400/30 text-[11px] font-medium transition-all"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>{t("dashboard.card.restoreToday")}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenReminderForProject(proj.id, e)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/10 text-[11px] font-medium transition-all"
+                            >
+                              <Bell className="w-3 h-3 text-amber-400" />
+                              <span>{t("dashboard.card.reRemind")}</span>
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => handleSkipProject(proj.id, e)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] text-white/50 hover:text-white/80 border border-white/10 text-[11px] font-medium transition-all"
+                            title={t("dashboard.card.skipTooltip")}
+                          >
+                            <FastForward className="w-3 h-3" />
+                            <span>{t("dashboard.card.skipToday")}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -666,13 +897,13 @@ export function DashboardClientView({
 
         {/* RIGHT COLUMN: Active Reminders Schedule Widget (lg:col-span-4) */}
         <div className="lg:col-span-4 space-y-4">
-          {/* Reminders Hub Widget */}
-          <div className="p-4 rounded-xl bg-bg-elevated border border-border-hairline space-y-3.5">
+          {/* Reminders Hub Widget - Frosted Glass Container */}
+          <div className="rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)] p-4 sm:p-5 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-accent" />
                 <h3 className="text-body-sm font-bold text-text-primary">
-                  Pengingat Proyek ({reminders.length})
+                  {t("dashboard.remindersWidget.title")} ({reminders.length})
                 </h3>
               </div>
               <Link
@@ -680,20 +911,20 @@ export function DashboardClientView({
                 prefetch={false}
                 className="text-caption text-link-teal hover:underline inline-flex items-center gap-0.5"
               >
-                <span>Kelola</span>
+                <span>{t("dashboard.remindersWidget.manage")}</span>
                 <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
 
             <p className="text-[12px] text-text-secondary leading-relaxed">
-              Jadwal alarm pengingat aktif yang dikirim setiap hari atau hari tertentu (default jam 07:00 pagi) untuk memastikan pengerjaan tepat waktu.
+              {t("dashboard.remindersWidget.desc")}
             </p>
 
             {reminders.length === 0 ? (
-              <div className="p-4 rounded-lg bg-bg-elevated-2 text-center space-y-2">
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] text-center space-y-2">
                 <Clock className="w-6 h-6 text-text-tertiary mx-auto" />
                 <p className="text-[12px] text-text-secondary">
-                  Belum ada pengingat proyek. Pasang pengingat pertama kamu!
+                  {t("dashboard.remindersWidget.emptyDesc")}
                 </p>
                 <ButtonPrimary
                   onClick={() => {
@@ -704,11 +935,11 @@ export function DashboardClientView({
                   className="!py-1.5 !px-3 text-caption inline-flex items-center gap-1.5 w-full justify-center"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Pasang Pengingat</span>
+                  <span>{t("dashboard.remindersWidget.setReminderBtn")}</span>
                 </ButtonPrimary>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[420px] overflow-y-auto no-scrollbar pr-1">
                 {reminders.map((rem) => {
                   const scheduleLabel = formatReminderSchedule(rem.frequency);
                   const isToday = isReminderActiveToday(rem.frequency);
@@ -717,10 +948,10 @@ export function DashboardClientView({
                   return (
                     <div
                       key={rem.id}
-                      className={`p-3 rounded-lg border transition-colors space-y-1.5 ${
+                      className={`p-3 rounded-xl border transition-colors space-y-1.5 ${
                         isToday
-                          ? "bg-accent/10 border-accent/30"
-                          : "bg-bg-elevated-2 border-border-hairline"
+                          ? "bg-amber-400/[0.08] border-amber-400/30"
+                          : "bg-white/[0.02] hover:bg-white/[0.04] border-white/[0.06]"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -757,24 +988,25 @@ export function DashboardClientView({
                 })}
 
                 <div className="pt-2">
-                  <ButtonSecondary
+                  <button
+                    type="button"
                     onClick={() => {
                       setSelectedReminderProjectId("");
                       setEditingReminder(null);
                       setIsReminderModalOpen(true);
                     }}
-                    className="!py-1.5 text-caption inline-flex items-center gap-1.5 w-full justify-center"
+                    className="w-full py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white/80 hover:text-white text-caption font-medium transition-colors inline-flex items-center justify-center gap-1.5"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-3.5 h-3.5 text-accent" />
                     <span>Tambah Pengingat Proyek Lain</span>
-                  </ButtonSecondary>
+                  </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Quick Guidance Box */}
-          <div className="p-3.5 rounded-xl bg-bg-elevated border border-border-hairline space-y-2">
+          {/* Quick Guidance Box - Frosted Glass Container */}
+          <div className="rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)] p-4 space-y-2">
             <div className="flex items-center gap-1.5 text-caption font-semibold text-text-primary">
               <Sparkles className="w-3.5 h-3.5 text-accent" />
               <span>Tips Garapan Rutin</span>
@@ -797,6 +1029,43 @@ export function DashboardClientView({
         defaultProjectId={selectedReminderProjectId}
         editingReminder={editingReminder}
         onReminderSaved={() => router.refresh()}
+      />
+
+      {/* Today Task Guide Modal (Landing Page Style popup without checkbox) */}
+      <TodayTaskGuideModal
+        isOpen={isGuideModalOpen}
+        onClose={() => {
+          setIsGuideModalOpen(false);
+          setSelectedGuideProject(null);
+        }}
+        project={selectedGuideProject}
+        tasks={
+          selectedGuideProject
+            ? tasks.filter((t) => t.project_id === selectedGuideProject.id)
+            : []
+        }
+        reminder={
+          selectedGuideProject
+            ? remindersByProjectId.get(selectedGuideProject.id) || null
+            : null
+        }
+        isSkipped={
+          selectedGuideProject
+            ? skippedProjectIds.includes(selectedGuideProject.id)
+            : false
+        }
+        onGuideUpdated={handleGuideUpdated}
+        onSkipProject={(id) => {
+          handleSkipProject(id);
+        }}
+        onRestoreProject={(id) => {
+          handleRestoreProject(id);
+        }}
+        onMarkComplete={handleMarkProjectDone}
+        onOpenReminderModal={(id) => {
+          handleOpenReminderForProject(id);
+        }}
+        onDeleteReminder={handleDeleteReminder}
       />
     </div>
   );

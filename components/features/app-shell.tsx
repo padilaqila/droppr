@@ -49,8 +49,8 @@ export function AppShell({ children }: AppShellProps) {
         onClose={() => setIsMobileNavOpen(false)}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 ml-0 md:ml-64 flex flex-col min-w-0">
+      {/* Main Content Area with Static Landing-Page Style Dot Grid */}
+      <div className="flex-1 ml-0 md:ml-64 flex flex-col min-w-0 bg-dot-grid-static relative">
         <Topbar onOpenMobileNav={() => setIsMobileNavOpen(true)} />
         <main className="flex-1 p-3.5 sm:p-6 md:p-8 max-w-7xl w-full mx-auto">
           {children}

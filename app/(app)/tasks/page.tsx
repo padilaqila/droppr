@@ -8,8 +8,13 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 export default async function TasksPage() {
   const supabase = await createClient();
 
-  // Fetch all projects and tasks in parallel
-  const [{ data: rawProjects }, { data: rawTasks }] = await Promise.all([
+  // Fetch all projects, tasks, project_updates, and reminders in parallel
+  const [
+    { data: rawProjects },
+    { data: rawTasks },
+    { data: rawUpdates },
+    { data: rawReminders },
+  ] = await Promise.all([
     supabase
       .from("projects")
       .select("*")
@@ -18,15 +23,27 @@ export default async function TasksPage() {
       .from("tasks")
       .select("*")
       .order("created_at", { ascending: true }),
+    supabase
+      .from("project_updates")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    (supabase as any)
+      .from("reminders")
+      .select("*")
+      .order("created_at", { ascending: false }),
   ]);
 
   const projects = (rawProjects as Project[]) || [];
   const tasks = (rawTasks as Task[]) || [];
+  const updates = (rawUpdates as any[]) || [];
+  const reminders = (rawReminders as any[]) || [];
 
   return (
     <TasksClientView
       initialProjects={projects}
       initialTasks={tasks}
+      initialUpdates={updates}
+      initialReminders={reminders}
     />
   );
 }
