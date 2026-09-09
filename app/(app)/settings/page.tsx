@@ -430,7 +430,7 @@ export default function SettingsPage() {
   const effectiveLang = getEffectiveLanguage(langPref);
 
   return (
-    <div className="space-y-6 max-w-4xl pb-16">
+    <div className="w-full space-y-6 max-w-5xl pb-16 font-sans">
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-white/[0.06]">
         <div>

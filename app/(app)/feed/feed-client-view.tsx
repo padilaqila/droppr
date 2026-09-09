@@ -505,7 +505,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const paidCostCount = useMemo(() => feeds.filter((f) => isFeedPaid(f)).length, [feeds]);
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-16">
+    <div className="w-full space-y-6 min-w-0 pb-16 font-sans">
       {/* HEADER SECTION */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
         <div>

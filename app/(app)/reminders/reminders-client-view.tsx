@@ -144,7 +144,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
   const todayCount = reminders.filter((r) => isReminderActiveToday(r.frequency)).length;
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="w-full space-y-6 min-w-0 pb-16 font-sans">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

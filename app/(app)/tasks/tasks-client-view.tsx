@@ -251,7 +251,7 @@ export function TasksClientView({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6 min-w-0 pb-16 font-sans">
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

@@ -38,7 +38,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   if (!rawProject) {
     return (
-      <div className="space-y-6 max-w-4xl">
+      <div className="w-full space-y-6 min-w-0 font-sans">
         <Link
           href="/projects"
           className="inline-flex items-center gap-1.5 text-body-sm text-text-secondary hover:text-text-primary transition-colors"

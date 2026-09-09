@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CardDashboardStat, CardBase } from "@/components/ui/card";
+import { CardDashboardStat } from "@/components/ui/card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { StatusBadge, type ProjectStatus } from "@/components/ui/status-badge";
 import {
@@ -20,13 +20,15 @@ import {
   Calendar,
   Check,
   Compass,
-  BookOpen,
   AlertCircle,
-  CalendarX,
   RotateCcw,
   Timer,
   FastForward,
   Flame,
+  Radio,
+  FileText,
+  Wallet,
+  ChevronRight,
 } from "lucide-react";
 import { SetReminderModal } from "@/components/features/set-reminder-modal";
 import { TodayTaskGuideModal } from "@/components/features/today-task-guide-modal";
@@ -150,20 +152,63 @@ export function DashboardClientView({
   // Reminder Modal states
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [selectedReminderProjectId, setSelectedReminderProjectId] = useState<string>("");
-  const [editingReminder, setEditingReminder] = useState<ReminderRow | null>(null);
+  const [editingReminder, setEditingReminder] = useState<EnrichedReminder | null>(null);
 
-  // Sync state when server re-renders after router.refresh() (per MEMORY.md)
-  useEffect(() => {
-    setProjects(initialProjects);
-  }, [initialProjects]);
+  // Notification Toast state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    setTasks(initialTasks);
-  }, [initialTasks]);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
-  useEffect(() => {
-    setReminders(initialReminders);
-  }, [initialReminders]);
+  // Toggle Project Daily Task Done
+  const handleMarkProjectDone = async (projectId: string) => {
+    const proj = projects.find((p) => p.id === projectId);
+    if (!proj) return;
+
+    const pTasks = tasks.filter((t) => t.project_id === projectId);
+    const currentlyDone = isProjectDailyDone(proj, pTasks);
+    const newStatus = !currentlyDone;
+
+    // Optimistic local state update
+    toggleProjectDailyTask(projectId, newStatus);
+    const today = new Date().toISOString().slice(0, 10);
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.project_id === projectId
+          ? {
+              ...t,
+              status: newStatus ? "done" : "pending",
+              updated_at: newStatus ? new Date().toISOString() : t.updated_at,
+            }
+          : t
+      )
+    );
+
+    showToast(
+      newStatus
+        ? (isEn ? `Tasks marked completed for ${proj.name}` : `Tugas selesai untuk ${proj.name}`)
+        : (isEn ? `Tasks reset for ${proj.name}` : `Tugas dibuka kembali untuk ${proj.name}`)
+    );
+
+    // Persist to database in background
+    try {
+      const supabase = createClient();
+      const taskIds = pTasks.map((t) => t.id);
+      if (taskIds.length > 0) {
+        await (supabase as any)
+          .from("tasks")
+          .update({
+            status: newStatus ? "done" : "pending",
+            updated_at: new Date().toISOString(),
+          })
+          .in("id", taskIds);
+      }
+    } catch (err) {
+      console.error("Error updating tasks in db:", err);
+    }
+  };
 
   const handleOpenGuideModal = (project: ProjectRow) => {
     setSelectedGuideProject(project);
@@ -174,211 +219,156 @@ export function DashboardClientView({
     setProjects((prev) =>
       prev.map((p) => (p.id === projectId ? { ...p, guide_content: newGuide } : p))
     );
-    if (selectedGuideProject && selectedGuideProject.id === projectId) {
-      setSelectedGuideProject((prev) => (prev ? { ...prev, guide_content: newGuide } : prev));
-    }
   };
 
-  // Quick Open Modal for a specific project
   const handleOpenReminderForProject = (projectId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    const existing = reminders.find((r) => r.project_id === projectId) || null;
     setSelectedReminderProjectId(projectId);
-    const existing = reminders.find((r) => r.project_id === projectId);
-    setEditingReminder(existing || null);
+    setEditingReminder(existing);
     setIsReminderModalOpen(true);
   };
 
-  const handleMarkProjectDone = async (projectId: string) => {
-    try {
-      const project = projects.find((p) => p.id === projectId);
-      if (!project) return;
-
-      const pTasks = tasks.filter((t) => t.project_id === projectId);
-      const isAlreadyDone = isProjectDailyDone(project, pTasks);
-      const nextState = !isAlreadyDone;
-      const nowIso = nextState ? new Date().toISOString() : null;
-
-      // Optimistic UI updates
-      setProjects((prev) =>
-        prev.map((p) => {
-          if (p.id !== projectId) return p;
-          const s = (p.social_links as Record<string, any>) || {};
-          const nextS = { ...s };
-          if (nowIso) {
-            nextS.last_daily_completed_at = nowIso;
-          } else {
-            delete nextS.last_daily_completed_at;
-          }
-          return { ...p, social_links: nextS };
-        })
-      );
-
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.project_id === projectId
-            ? { ...t, status: nextState ? "done" : "pending", completed_at: nowIso }
-            : t
-        )
-      );
-
-      await toggleProjectDailyTask(projectId, nextState);
-      router.refresh();
-    } catch (err) {
-      console.error("Gagal mengubah status tugas hari ini:", err);
-    }
-  };
-
   const handleDeleteReminder = async (reminderId: string) => {
+    setReminders((prev) => prev.filter((r) => r.id !== reminderId));
+    showToast(isEn ? "Reminder removed" : "Pengingat berhasil dihapus");
     try {
-      const supabase = createClient() as any;
-      const { error } = await supabase.from("reminders").delete().eq("id", reminderId);
-      if (error) throw error;
-      setReminders((prev) => prev.filter((r) => r.id !== reminderId));
-      router.refresh();
+      const supabase = createClient();
+      await (supabase as any).from("reminders").delete().eq("id", reminderId);
     } catch (err) {
-      console.error("Gagal menghapus pengingat:", err);
+      console.error("Delete reminder error:", err);
     }
   };
 
-  // Map reminders to project ID for instant O(1) lookup
-  const remindersByProjectId = React.useMemo(() => {
-    const map = new Map<string, EnrichedReminder>();
-    reminders.forEach((r) => {
-      if (r.project_id) {
-        map.set(r.project_id, r);
-      }
-    });
-    return map;
-  }, [reminders]);
+  // Map reminders by project id for quick O(1) lookup
+  const remindersByProjectId = new Map<string, EnrichedReminder>();
+  reminders.forEach((r) => {
+    if (r.project_id) {
+      remindersByProjectId.set(r.project_id, r);
+    }
+  });
 
-  // Derived Project Stats
+  // Calculate high-level summary statistics
   const totalProjectsCount = projects.length;
   const readyClaimCount = projects.filter((p) => p.status === "ready_to_claim").length;
-
-  // Identify projects with reminders scheduled for today
-  const projectsWithTodayReminders = React.useMemo(() => {
-    return projects.filter((p) => {
-      const reminder = remindersByProjectId.get(p.id);
-      return reminder ? isReminderActiveToday(reminder.frequency) : false;
-    });
-  }, [projects, remindersByProjectId]);
-
-  // Task Statistics
   const totalTasksCount = tasks.length;
   const completedTasksCount = tasks.filter((t) => t.status === "done").length;
   const overallTaskProgress =
-    totalTasksCount > 0
-      ? Math.round((completedTasksCount / totalTasksCount) * 100)
-      : 0;
+    totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
-  // Split projects into non-skipped and skipped
-  const nonSkippedProjects = React.useMemo(() => {
-    return projects.filter((p) => !skippedProjectIds.includes(p.id));
-  }, [projects, skippedProjectIds]);
+  // Derive categories for today's tasks
+  const projectsWithTodayReminders = projects.filter((p) => {
+    const r = remindersByProjectId.get(p.id);
+    return r ? isReminderActiveToday(r.frequency) : false;
+  });
 
-  const skippedProjects = React.useMemo(() => {
-    return projects.filter((p) => skippedProjectIds.includes(p.id));
-  }, [projects, skippedProjectIds]);
+  // 1. Ready to work today (has today reminder or active tasks, not done today, not skipped)
+  const readyProjects = projects.filter((p) => {
+    if (skippedProjectIds.includes(p.id)) return false;
+    const pTasks = tasks.filter((t) => t.project_id === p.id);
+    if (isProjectDailyDone(p, pTasks)) return false;
+    const r = remindersByProjectId.get(p.id);
+    const isToday = r ? isReminderActiveToday(r.frequency) : false;
+    return isToday || p.status === "in_progress";
+  });
 
-  // Completed Today: projects whose daily tasks are completed for the current day cycle
-  const completedTodayProjects = React.useMemo(() => {
-    return projects.filter((p) => {
-      const pTasks = tasks.filter((t) => t.project_id === p.id);
-      return isProjectDailyDone(p, pTasks);
-    });
-  }, [projects, tasks]);
+  // 2. Overdue tasks (projects with today reminder not yet completed past morning)
+  const overdueProjects = projects.filter((p) => {
+    if (skippedProjectIds.includes(p.id)) return false;
+    const pTasks = tasks.filter((t) => t.project_id === p.id);
+    if (isProjectDailyDone(p, pTasks)) return false;
+    const r = remindersByProjectId.get(p.id);
+    if (!r) return false;
+    return isReminderActiveToday(r.frequency);
+  });
 
-  // Overdue: projects scheduled today where time is past 07:00 WIB and not completed today
-  const overdueProjects = React.useMemo(() => {
-    return nonSkippedProjects.filter((p) => {
-      const pTasks = tasks.filter((t) => t.project_id === p.id);
-      if (isProjectDailyDone(p, pTasks)) return false;
+  // 3. Completed today
+  const completedTodayProjects = projects.filter((p) => {
+    const pTasks = tasks.filter((t) => t.project_id === p.id);
+    return isProjectDailyDone(p, pTasks);
+  });
 
-      const reminder = remindersByProjectId.get(p.id);
-      const isTodayReminder = reminder
-        ? isReminderActiveToday(reminder.frequency)
-        : false;
-      return isTodayReminder;
-    });
-  }, [nonSkippedProjects, tasks, remindersByProjectId]);
+  // 4. Upcoming / Tomorrow schedules
+  const upcomingProjects = projects.filter((p) => {
+    const r = remindersByProjectId.get(p.id);
+    if (!r) return false;
+    const isToday = isReminderActiveToday(r.frequency);
+    return !isToday;
+  });
 
-  // Ready to work projects (Active and NOT yet completed today)
-  const readyProjects = React.useMemo(() => {
-    return nonSkippedProjects.filter((p) => {
-      const pTasks = tasks.filter((t) => t.project_id === p.id);
-      if (isProjectDailyDone(p, pTasks)) return false;
+  // 5. Skipped / Postponed today
+  const skippedProjects = projects.filter((p) => skippedProjectIds.includes(p.id));
 
-      const reminder = remindersByProjectId.get(p.id);
-      const isToday = reminder ? isReminderActiveToday(reminder.frequency) : false;
-      return isToday || p.status === "in_progress" || pTasks.length > 0;
-    });
-  }, [nonSkippedProjects, tasks, remindersByProjectId]);
-
-  // Upcoming: projects waiting for next reset / scheduled
-  const upcomingProjects = React.useMemo(() => {
-    return nonSkippedProjects.filter((p) => {
-      const reminder = remindersByProjectId.get(p.id);
-      return Boolean(reminder);
-    });
-  }, [nonSkippedProjects, remindersByProjectId]);
-
-  // Filter Projects for the main list based on active tab
+  // Determine which projects to display based on active tab
   const displayedProjects = React.useMemo(() => {
-    if (activeProjectFilter === "all") {
-      return projects;
+    switch (activeProjectFilter) {
+      case "ready":
+        return readyProjects.length > 0 ? readyProjects : projects.slice(0, 5);
+      case "overdue":
+        return overdueProjects;
+      case "completed_today":
+        return completedTodayProjects;
+      case "upcoming":
+        return upcomingProjects;
+      case "skipped":
+        return skippedProjects;
+      case "all":
+      default:
+        return projects;
     }
-    if (activeProjectFilter === "completed_today") {
-      return completedTodayProjects;
-    }
-    if (activeProjectFilter === "skipped") {
-      return skippedProjects;
-    }
-    if (activeProjectFilter === "overdue") {
-      return overdueProjects;
-    }
-    if (activeProjectFilter === "upcoming") {
-      return upcomingProjects;
-    }
-    // Default: "ready"
-    return readyProjects;
   }, [
     activeProjectFilter,
-    projects,
     readyProjects,
-    completedTodayProjects,
+    projects,
     overdueProjects,
+    completedTodayProjects,
     upcomingProjects,
     skippedProjects,
   ]);
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      {/* Top Command Center Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <div className="w-full space-y-6 min-w-0 pb-20 font-sans">
+      {/* TOAST NOTIFICATION */}
+      {toastMessage && (
+        <div className="fixed top-20 right-6 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+          <div className="px-4 py-2.5 rounded-xl bg-[#14181F]/95 backdrop-blur-xl border border-accent/40 text-text-primary text-body-sm shadow-2xl flex items-center gap-2.5">
+            <Check className="w-4 h-4 text-accent shrink-0" />
+            <span className="font-medium">{toastMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 1. TOP COMMAND CENTER HEADER (EDGE-TO-EDGE FLUID) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/[0.08]">
         <div>
-          <h1 className="text-heading-2 font-bold text-text-primary">
+          <div className="flex items-center gap-1.5 text-[11px] font-mono text-text-tertiary mb-1">
+            <span>Workspace</span>
+            <span>/</span>
+            <span className="text-text-primary font-medium">Command Center</span>
+          </div>
+          <h1 className="text-heading-2 sm:text-heading-1 font-bold text-text-primary tracking-tight">
             {t("dashboard.title")}
           </h1>
-          <p className="text-body-sm text-text-secondary">
+          <p className="text-body-sm text-text-secondary mt-0.5">
             {t("dashboard.subtitle")}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <ButtonSecondary
             onClick={() => {
               setSelectedReminderProjectId("");
               setEditingReminder(null);
               setIsReminderModalOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm"
+            className="inline-flex items-center gap-1.5 text-caption font-semibold !py-2 !px-3.5"
           >
             <Bell className="w-4 h-4 text-accent" />
             <span>{t("dashboard.setReminder")}</span>
           </ButtonSecondary>
 
           <Link href="/projects" prefetch={false}>
-            <ButtonPrimary className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm">
+            <ButtonPrimary className="inline-flex items-center gap-1.5 text-caption font-semibold !py-2 !px-4 shadow-sm shadow-accent/20 active:scale-[0.98]">
               <Plus className="w-4 h-4 text-on-accent" />
               <span>{t("dashboard.addProject")}</span>
             </ButtonPrimary>
@@ -386,77 +376,81 @@ export function DashboardClientView({
         </div>
       </div>
 
-      {/* Top Stat Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <CardDashboardStat>
-          <div className="flex items-center justify-between text-text-tertiary mb-1">
+      {/* 2. TOP STAT SUMMARY CARDS (4 COLUMNS FLUID EDGE-TO-EDGE) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Stat 1: Jadwal Hari Ini */}
+        <CardDashboardStat className="!p-4 sm:!p-5 rounded-xl border border-white/[0.08] hover:border-white/[0.18] bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+          <div className="flex items-center justify-between text-text-tertiary mb-1.5">
             <span className="text-caption font-medium">{t("dashboard.stats.todaySchedule")}</span>
             <Calendar className="w-4 h-4 text-accent" />
           </div>
-          <div className="text-heading-2 font-bold text-text-primary">
+          <div className="text-heading-1 font-bold text-text-primary font-mono tracking-tight">
             {projectsWithTodayReminders.length}{" "}
-            <span className="text-caption font-normal text-text-tertiary">
+            <span className="text-caption font-sans font-normal text-text-tertiary">
               {t("dashboard.stats.todayProjectsUnit")}
             </span>
           </div>
-          <div className="text-[11px] text-text-tertiary mt-0.5 font-mono">
+          <div className="text-[11px] text-text-tertiary mt-1 font-mono">
             {t("dashboard.stats.defaultAlarmTime")}
           </div>
         </CardDashboardStat>
 
-        <CardDashboardStat>
-          <div className="flex items-center justify-between text-text-tertiary mb-1">
+        {/* Stat 2: Progress Tugas */}
+        <CardDashboardStat className="!p-4 sm:!p-5 rounded-xl border border-white/[0.08] hover:border-white/[0.18] bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+          <div className="flex items-center justify-between text-text-tertiary mb-1.5">
             <span className="text-caption font-medium">{t("dashboard.stats.taskProgress")}</span>
             <CheckSquare className="w-4 h-4 text-status-completed" />
           </div>
-          <div className="text-heading-2 font-bold text-text-primary">
+          <div className="text-heading-1 font-bold text-text-primary font-mono tracking-tight">
             {completedTasksCount}{" "}
-            <span className="text-caption font-normal text-text-tertiary">
+            <span className="text-caption font-sans font-normal text-text-tertiary">
               / {totalTasksCount}
             </span>
           </div>
-          <div className="text-[11px] text-text-tertiary mt-0.5">
+          <div className="text-[11px] text-text-tertiary mt-1 font-mono">
             {overallTaskProgress}% {t("dashboard.stats.overallComplete")}
           </div>
         </CardDashboardStat>
 
-        <CardDashboardStat>
-          <div className="flex items-center justify-between text-text-tertiary mb-1">
+        {/* Stat 3: Siap Klaim Reward */}
+        <CardDashboardStat className="!p-4 sm:!p-5 rounded-xl border border-white/[0.08] hover:border-white/[0.18] bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+          <div className="flex items-center justify-between text-text-tertiary mb-1.5">
             <span className="text-caption font-medium">{t("dashboard.stats.readyToClaim")}</span>
             <Sparkles className="w-4 h-4 text-accent" />
           </div>
-          <div className="text-heading-2 font-bold text-accent">
+          <div className="text-heading-1 font-bold text-accent font-mono tracking-tight">
             {readyClaimCount}
           </div>
-          <div className="text-[11px] text-text-tertiary mt-0.5">
+          <div className="text-[11px] text-text-tertiary mt-1">
             {readyClaimCount > 0 ? t("dashboard.stats.claimPhaseActive") : t("dashboard.stats.waitingSnapshot")}
           </div>
         </CardDashboardStat>
 
-        <CardDashboardStat>
-          <div className="flex items-center justify-between text-text-tertiary mb-1">
+        {/* Stat 4: Total Proyek */}
+        <CardDashboardStat className="!p-4 sm:!p-5 rounded-xl border border-white/[0.08] hover:border-white/[0.18] bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+          <div className="flex items-center justify-between text-text-tertiary mb-1.5">
             <span className="text-caption font-medium">{t("dashboard.stats.totalProjects")}</span>
             <FolderGit2 className="w-4 h-4 text-status-in-progress" />
           </div>
-          <div className="text-heading-2 font-bold text-text-primary">
+          <div className="text-heading-1 font-bold text-text-primary font-mono tracking-tight">
             {totalProjectsCount}
           </div>
-          <div className="text-[11px] text-text-tertiary mt-0.5">
+          <div className="text-[11px] text-text-tertiary mt-1 font-mono">
             {reminders.length} {t("dashboard.stats.projectsWithReminders")}
           </div>
         </CardDashboardStat>
       </div>
 
-      {/* Main Two-Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* LEFT COLUMN: Project-Based Workstation Cards (lg:col-span-8) */}
-        <div className="lg:col-span-8 space-y-4">
+      {/* 3. MAIN WORKSPACE: TWO-COLUMN FULL-WIDTH GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
+        {/* LEFT COLUMN: Project-Based Workstation Cards (lg:col-span-8 xl:col-span-8 2xl:col-span-9) */}
+        <div className="lg:col-span-8 xl:col-span-8 2xl:col-span-9 space-y-4">
           {/* Header & Filter Tabs Section */}
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <Compass className="w-4 h-4 text-amber-400 shrink-0" />
+                  <Compass className="w-4 h-4 text-accent shrink-0" />
                   <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary tracking-tight">
                     {t("dashboard.section.todayTasksTitle")}
                   </h2>
@@ -467,31 +461,31 @@ export function DashboardClientView({
               </div>
 
               {/* Reset Info badge */}
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-[11px] text-white/60 self-start sm:self-auto font-mono">
-                <Timer className="w-3 h-3 text-amber-400" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-[11px] text-text-secondary self-start sm:self-auto font-mono">
+                <Timer className="w-3.5 h-3.5 text-accent" />
                 <span>Reset: 07:00 WIB ({countdown})</span>
               </div>
             </div>
 
-            {/* Responsive Filter Bar (Wide, Pure Glass, Zero Scrollbar) */}
-            <div className="p-1 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] flex items-center gap-1 overflow-x-auto no-scrollbar shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+            {/* Responsive Filter Bar (Wide, Minimal Glass, Zero Scrollbar) */}
+            <div className="p-1 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center gap-1 overflow-x-auto no-scrollbar shadow-xs">
               {/* 1. Siap Dikerjakan */}
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("ready")}
-                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "ready"
-                    ? "bg-amber-400 text-black font-semibold shadow-md shadow-amber-400/20"
-                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                    ? "bg-accent text-on-accent font-semibold shadow-xs"
+                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
                 }`}
               >
-                <Flame className={`w-3.5 h-3.5 ${activeProjectFilter === "ready" ? "text-black" : "text-amber-400"}`} />
+                <Flame className={`w-3.5 h-3.5 ${activeProjectFilter === "ready" ? "text-on-accent" : "text-accent"}`} />
                 <span>{t("dashboard.tabs.ready")}</span>
                 <span
-                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                  className={`ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold ${
                     activeProjectFilter === "ready"
-                      ? "bg-black/20 text-black"
-                      : "bg-white/[0.08] text-white/70"
+                      ? "bg-black/20 text-on-accent"
+                      : "bg-white/[0.06] text-text-secondary"
                   }`}
                 >
                   {readyProjects.length}
@@ -502,21 +496,21 @@ export function DashboardClientView({
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("overdue")}
-                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "overdue"
-                    ? "bg-rose-500 text-white font-semibold shadow-md shadow-rose-500/25"
-                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                    ? "bg-status-overdue text-white font-semibold shadow-xs"
+                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
                 }`}
               >
-                <AlertCircle className={`w-3.5 h-3.5 ${activeProjectFilter === "overdue" ? "text-white" : "text-rose-400"}`} />
+                <AlertCircle className={`w-3.5 h-3.5 ${activeProjectFilter === "overdue" ? "text-white" : "text-status-overdue"}`} />
                 <span>{t("dashboard.tabs.overdue")}</span>
                 <span
-                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                  className={`ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold ${
                     activeProjectFilter === "overdue"
                       ? "bg-black/20 text-white"
                       : overdueProjects.length > 0
-                      ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                      : "bg-white/[0.08] text-white/70"
+                      ? "bg-status-overdue/20 text-status-overdue border border-status-overdue/30"
+                      : "bg-white/[0.06] text-text-secondary"
                   }`}
                 >
                   {overdueProjects.length}
@@ -527,91 +521,73 @@ export function DashboardClientView({
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("completed_today")}
-                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "completed_today"
-                    ? "bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-500/25"
-                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                    ? "bg-status-completed text-white font-semibold shadow-xs"
+                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
                 }`}
               >
-                <CheckCircle2 className={`w-3.5 h-3.5 ${activeProjectFilter === "completed_today" ? "text-white" : "text-emerald-400"}`} />
+                <CheckCircle2 className={`w-3.5 h-3.5 ${activeProjectFilter === "completed_today" ? "text-white" : "text-status-completed"}`} />
                 <span>{t("dashboard.tabs.completedToday")}</span>
                 <span
-                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                  className={`ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold ${
                     activeProjectFilter === "completed_today"
                       ? "bg-black/20 text-white"
                       : completedTodayProjects.length > 0
-                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                      : "bg-white/[0.08] text-white/70"
+                      ? "bg-status-completed/20 text-status-completed border border-status-completed/30"
+                      : "bg-white/[0.06] text-text-secondary"
                   }`}
                 >
                   {completedTodayProjects.length}
                 </span>
               </button>
 
-              {/* 3. Akan Datang */}
+              {/* 4. Akan Datang */}
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("upcoming")}
-                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "upcoming"
-                    ? "bg-amber-400 text-black font-semibold shadow-md shadow-amber-400/20"
-                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                    ? "bg-white/[0.12] text-text-primary font-semibold"
+                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
                 }`}
               >
-                <Clock className={`w-3.5 h-3.5 ${activeProjectFilter === "upcoming" ? "text-black" : "text-amber-400"}`} />
+                <Clock className="w-3.5 h-3.5 text-text-tertiary" />
                 <span>{t("dashboard.tabs.upcoming")}</span>
-                <span
-                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-                    activeProjectFilter === "upcoming"
-                      ? "bg-black/20 text-black"
-                      : "bg-white/[0.08] text-white/70"
-                  }`}
-                >
+                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-white/[0.06] text-text-secondary">
                   {upcomingProjects.length}
                 </span>
               </button>
 
-              {/* 4. Dilewati / Ditunda */}
+              {/* 5. Dilewati / Ditunda */}
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("skipped")}
-                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "skipped"
-                    ? "bg-white/20 text-white font-semibold shadow-md"
-                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                    ? "bg-white/[0.12] text-text-primary font-semibold"
+                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
                 }`}
               >
-                <FastForward className={`w-3.5 h-3.5 ${activeProjectFilter === "skipped" ? "text-white" : "text-white/50"}`} />
+                <FastForward className="w-3.5 h-3.5 text-text-tertiary" />
                 <span>{t("dashboard.tabs.skipped")}</span>
-                <span
-                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-                    activeProjectFilter === "skipped"
-                      ? "bg-black/20 text-white"
-                      : "bg-white/[0.08] text-white/70"
-                  }`}
-                >
+                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-white/[0.06] text-text-secondary">
                   {skippedProjects.length}
                 </span>
               </button>
 
-              {/* 5. Semua */}
+              {/* 6. Semua */}
               <button
                 type="button"
                 onClick={() => setActiveProjectFilter("all")}
-                className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "all"
-                    ? "bg-white/20 text-white font-semibold shadow-md"
-                    : "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                    ? "bg-white/[0.12] text-text-primary font-semibold"
+                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
                 }`}
               >
                 <span>{t("dashboard.tabs.all")}</span>
-                <span
-                  className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-                    activeProjectFilter === "all"
-                      ? "bg-black/20 text-white"
-                      : "bg-white/[0.08] text-white/70"
-                  }`}
-                >
+                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-white/[0.06] text-text-secondary">
                   {projects.length}
                 </span>
               </button>
@@ -620,11 +596,11 @@ export function DashboardClientView({
 
           {/* Project Cards List */}
           {displayedProjects.length === 0 ? (
-            <div className="p-8 sm:p-12 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] text-center space-y-3 shadow-[0_8px_30px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)]">
-              <div className="w-12 h-12 rounded-full bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 mx-auto">
+            <div className="p-8 sm:p-12 rounded-xl bg-white/[0.02] border border-dashed border-white/[0.08] text-center space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mx-auto">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h3 className="text-heading-3 font-semibold text-text-primary">
+              <h3 className="text-body-md font-semibold text-text-primary">
                 {activeProjectFilter === "overdue"
                   ? (isEn ? "Great! No overdue tasks" : "Bagus! Tidak ada tugas yang telat")
                   : activeProjectFilter === "completed_today"
@@ -635,7 +611,7 @@ export function DashboardClientView({
                   ? (isEn ? "No upcoming task schedules" : "Belum ada jadwal tugas mendatang")
                   : (isEn ? "All tasks done or not yet scheduled" : "Semua tugas beres atau belum dijadwalkan")}
               </h3>
-              <p className="text-body-sm text-text-secondary max-w-md mx-auto">
+              <p className="text-caption text-text-secondary max-w-md mx-auto">
                 {activeProjectFilter === "overdue"
                   ? (isEn ? "All your projects are on time or already completed." : "Semua garapan kamu masih tepat waktu atau sudah diselesaikan.")
                   : activeProjectFilter === "completed_today"
@@ -648,7 +624,7 @@ export function DashboardClientView({
                 <button
                   type="button"
                   onClick={() => setActiveProjectFilter("all")}
-                  className="px-3.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-text-primary text-caption font-medium transition-colors"
+                  className="px-3.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-text-primary text-caption font-semibold transition-colors"
                 >
                   {isEn ? "Show All Projects" : "Tampilkan Semua Proyek"} ({projects.length})
                 </button>
@@ -689,18 +665,22 @@ export function DashboardClientView({
                   <div
                     key={proj.id}
                     onClick={() => handleOpenGuideModal(proj)}
-                    className="group rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.2] shadow-[0_8px_32px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.1)] transition-all duration-200 cursor-pointer p-4 sm:p-5 flex flex-col justify-between gap-3.5"
+                    className="group rounded-xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.18] transition-all duration-150 cursor-pointer p-4 sm:p-5 flex flex-col justify-between gap-3.5 shadow-sm"
                   >
                     {/* Top Row: Project Name, Badges & Quick Links */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
                       <div className="space-y-1.5 min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-body-md sm:text-base font-bold text-white group-hover:text-amber-400 transition-colors tracking-tight truncate">
+                          <div className="w-7 h-7 rounded-md bg-white/[0.04] border border-white/[0.08] text-accent font-bold font-mono text-[11px] flex items-center justify-center shrink-0">
+                            {proj.name.slice(0, 2).toUpperCase()}
+                          </div>
+
+                          <span className="text-body-sm sm:text-base font-bold text-text-primary group-hover:text-accent transition-colors tracking-tight truncate">
                             {proj.name}
                           </span>
 
                           {proj.chain && (
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/10 text-white/70">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-text-secondary">
                               {proj.chain}
                             </span>
                           )}
@@ -711,38 +691,38 @@ export function DashboardClientView({
 
                           {/* Dynamic Daily Status Pill */}
                           {isDailyDone ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1 shadow-xs">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-status-completed/15 text-status-completed font-semibold border border-status-completed/30 flex items-center gap-1 shadow-xs">
+                              <CheckCircle2 className="w-3 h-3 text-status-completed" />
                               <span>{t("dashboard.tabs.completedToday")}</span>
                             </span>
                           ) : isSkipped ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.08] text-white/70 font-semibold border border-white/15 flex items-center gap-1">
-                              <FastForward className="w-3 h-3 text-white/50" />
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-white/[0.06] text-text-secondary font-semibold border border-white/[0.1] flex items-center gap-1">
+                              <FastForward className="w-3 h-3 text-text-tertiary" />
                               <span>{isEn ? "Skipped Today" : "Dilewati Hari Ini"}</span>
                             </span>
                           ) : activeProjectFilter === "overdue" ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 font-semibold border border-rose-500/30 flex items-center gap-1">
-                              <AlertCircle className="w-3 h-3 text-rose-400" />
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-status-overdue/15 text-status-overdue font-semibold border border-status-overdue/30 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 text-status-overdue" />
                               <span>{isEn ? "Overdue • 07:00 Schedule" : "Telat • Jadwal 07:00 WIB"}</span>
                             </span>
                           ) : isTodayReminder ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 font-semibold border border-amber-400/30 flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-amber-400" />
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 text-accent font-semibold border border-accent/30 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-accent" />
                               <span>{t("dashboard.stats.todaySchedule")}</span>
                             </span>
                           ) : activeProjectFilter === "upcoming" ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 font-semibold border border-amber-400/25 flex items-center gap-1 font-mono">
-                              <Timer className="w-3 h-3 text-amber-400" />
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-accent/10 text-accent font-semibold border border-accent/25 flex items-center gap-1 font-mono">
+                              <Timer className="w-3 h-3 text-accent" />
                               <span>{isEn ? `Reset in ${countdown}` : `Reset dlm ${countdown}`}</span>
                             </span>
                           ) : null}
                         </div>
 
                         {/* Reminder & Meta Info */}
-                        <div className="flex items-center gap-2 text-[11.5px] text-white/50 flex-wrap">
+                        <div className="flex items-center gap-2 text-[11.5px] text-text-tertiary flex-wrap">
                           {scheduleLabel ? (
-                            <span className="text-amber-400/90 font-medium flex items-center gap-1">
-                              <Bell className="w-3 h-3 text-amber-400" />
+                            <span className="text-accent font-medium flex items-center gap-1">
+                              <Bell className="w-3 h-3 text-accent" />
                               <span>{isEn ? `Reminder: ${scheduleLabel} @ 07:00` : `Pengingat: ${scheduleLabel} @ 07:00 WIB`}</span>
                             </span>
                           ) : (
@@ -769,10 +749,10 @@ export function DashboardClientView({
                             href={dappUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/80 hover:text-white border border-white/10 text-caption font-medium transition-all"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] text-text-secondary hover:text-text-primary border border-white/[0.08] text-caption font-medium transition-all"
                             title="Buka Web App DApp Langsung"
                           >
-                            <Layers className="w-3.5 h-3.5 text-amber-400" />
+                            <Layers className="w-3.5 h-3.5 text-accent" />
                             <span>{t("common.openDapp")}</span>
                             <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                           </a>
@@ -781,7 +761,7 @@ export function DashboardClientView({
                         <Link
                           href={`/projects/${proj.id}`}
                           prefetch={false}
-                          className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/[0.08] transition-colors"
+                          className="p-1.5 text-text-tertiary hover:text-text-primary rounded-lg hover:bg-white/[0.06] transition-colors"
                           title="Halaman Proyek Lengkap"
                         >
                           <ArrowRight className="w-4 h-4" />
@@ -797,9 +777,9 @@ export function DashboardClientView({
                           return (
                             <div
                               key={t.id}
-                              className="flex items-center gap-2 text-[12px] text-white/75"
+                              className="flex items-center gap-2 text-[12px] text-text-secondary"
                             >
-                              <span className="w-4 h-4 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                              <span className="w-4 h-4 rounded bg-accent/15 border border-accent/30 text-accent font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
                                 {idx + 1}
                               </span>
                               <span className="truncate flex-1 font-sans">{clean || t.title}</span>
@@ -807,30 +787,30 @@ export function DashboardClientView({
                           );
                         })}
                         {pTasks.length > 2 && (
-                          <span className="text-[11px] text-white/40 block pl-6">
+                          <span className="text-[11px] text-text-tertiary block pl-6 font-mono">
                             +{pTasks.length - 2} {t("dashboard.card.moreSteps")}
                           </span>
                         )}
                       </div>
                     ) : proj.guide_content ? (
-                      <p className="text-[12px] text-white/60 line-clamp-2 leading-relaxed">
+                      <p className="text-[12px] text-text-tertiary line-clamp-2 leading-relaxed">
                         {proj.guide_content}
                       </p>
                     ) : null}
 
                     {/* Card Footer: CTA & Skip / Restore Controls */}
                     <div
-                      className="flex items-center justify-between pt-1 flex-wrap gap-2"
+                      className="flex items-center justify-between pt-1 flex-wrap gap-2 border-t border-white/[0.04]"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
                         type="button"
                         onClick={() => handleOpenGuideModal(proj)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-amber-400 hover:text-black border border-white/10 hover:border-amber-400 text-caption font-semibold text-white/90 transition-all duration-200 shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.03] hover:bg-accent hover:text-on-accent border border-white/[0.08] hover:border-accent text-caption font-semibold text-text-primary transition-all duration-150"
                       >
-                        <Compass className="w-3.5 h-3.5 text-amber-400 hover:text-black transition-colors" />
+                        <Compass className="w-3.5 h-3.5 text-accent group-hover:text-on-accent transition-colors" />
                         <span>{t("dashboard.card.openGuide")}</span>
-                        <ArrowRight className="w-3 h-3 hover:translate-x-0.5 transition-transform" />
+                        <ArrowRight className="w-3 h-3" />
                       </button>
 
                       <div className="flex items-center gap-2">
@@ -841,10 +821,10 @@ export function DashboardClientView({
                             e.stopPropagation();
                             handleMarkProjectDone(proj.id);
                           }}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-caption font-semibold transition-all shadow-xs ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-caption font-semibold transition-all shadow-xs ${
                             isDailyDone
-                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
-                              : "bg-white/[0.04] text-white/70 hover:text-white hover:bg-white/[0.08] border-white/10"
+                              ? "bg-status-completed/15 text-status-completed border-status-completed/30 hover:bg-status-completed/25"
+                              : "bg-white/[0.03] text-text-secondary hover:text-text-primary hover:bg-white/[0.06] border-white/[0.08]"
                           }`}
                           title={
                             isDailyDone
@@ -861,7 +841,7 @@ export function DashboardClientView({
                             <button
                               type="button"
                               onClick={(e) => handleRestoreProject(proj.id, e)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border border-amber-400/30 text-[11px] font-medium transition-all"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-[11px] font-medium transition-all"
                             >
                               <RotateCcw className="w-3 h-3" />
                               <span>{t("dashboard.card.restoreToday")}</span>
@@ -869,9 +849,9 @@ export function DashboardClientView({
                             <button
                               type="button"
                               onClick={(e) => handleOpenReminderForProject(proj.id, e)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/10 text-[11px] font-medium transition-all"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] text-text-secondary hover:text-text-primary border border-white/[0.08] text-[11px] font-medium transition-all"
                             >
-                              <Bell className="w-3 h-3 text-amber-400" />
+                              <Bell className="w-3 h-3 text-accent" />
                               <span>{t("dashboard.card.reRemind")}</span>
                             </button>
                           </>
@@ -879,7 +859,7 @@ export function DashboardClientView({
                           <button
                             type="button"
                             onClick={(e) => handleSkipProject(proj.id, e)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] text-white/50 hover:text-white/80 border border-white/10 text-[11px] font-medium transition-all"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.02] hover:bg-white/[0.06] text-text-tertiary hover:text-text-secondary border border-white/[0.08] text-[11px] font-medium transition-all"
                             title={t("dashboard.card.skipTooltip")}
                           >
                             <FastForward className="w-3 h-3" />
@@ -895,10 +875,10 @@ export function DashboardClientView({
           )}
         </div>
 
-        {/* RIGHT COLUMN: Active Reminders Schedule Widget (lg:col-span-4) */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Reminders Hub Widget - Frosted Glass Container */}
-          <div className="rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)] p-4 sm:p-5 space-y-3.5">
+        {/* RIGHT COLUMN: Active Reminders Schedule Widget (lg:col-span-4 xl:col-span-4 2xl:col-span-3 space-y-5) */}
+        <div className="lg:col-span-4 xl:col-span-4 2xl:col-span-3 space-y-5">
+          {/* Reminders Hub Widget */}
+          <div className="rounded-xl bg-white/[0.02] border border-white/[0.08] p-4 sm:p-5 space-y-3.5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-accent" />
@@ -921,7 +901,7 @@ export function DashboardClientView({
             </p>
 
             {reminders.length === 0 ? (
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] text-center space-y-2">
+              <div className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.05] text-center space-y-2">
                 <Clock className="w-6 h-6 text-text-tertiary mx-auto" />
                 <p className="text-[12px] text-text-secondary">
                   {t("dashboard.remindersWidget.emptyDesc")}
@@ -932,14 +912,14 @@ export function DashboardClientView({
                     setEditingReminder(null);
                     setIsReminderModalOpen(true);
                   }}
-                  className="!py-1.5 !px-3 text-caption inline-flex items-center gap-1.5 w-full justify-center"
+                  className="!py-1.5 !px-3 text-caption inline-flex items-center gap-1.5 w-full justify-center shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{t("dashboard.remindersWidget.setReminderBtn")}</span>
                 </ButtonPrimary>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[420px] overflow-y-auto no-scrollbar pr-1">
+              <div className="space-y-2 max-h-[420px] overflow-y-auto no-scrollbar pr-0.5">
                 {reminders.map((rem) => {
                   const scheduleLabel = formatReminderSchedule(rem.frequency);
                   const isToday = isReminderActiveToday(rem.frequency);
@@ -948,9 +928,9 @@ export function DashboardClientView({
                   return (
                     <div
                       key={rem.id}
-                      className={`p-3 rounded-xl border transition-colors space-y-1.5 ${
+                      className={`p-3 rounded-lg border transition-colors space-y-1.5 ${
                         isToday
-                          ? "bg-amber-400/[0.08] border-amber-400/30"
+                          ? "bg-accent/[0.06] border-accent/30"
                           : "bg-white/[0.02] hover:bg-white/[0.04] border-white/[0.06]"
                       }`}
                     >
@@ -959,7 +939,7 @@ export function DashboardClientView({
                           {projectName}
                         </span>
                         {isToday && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-accent text-on-accent font-bold uppercase tracking-wider">
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-accent text-on-accent font-bold uppercase tracking-wider">
                             Hari Ini
                           </span>
                         )}
@@ -995,7 +975,7 @@ export function DashboardClientView({
                       setEditingReminder(null);
                       setIsReminderModalOpen(true);
                     }}
-                    className="w-full py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white/80 hover:text-white text-caption font-medium transition-colors inline-flex items-center justify-center gap-1.5"
+                    className="w-full py-2 px-3 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] text-text-secondary hover:text-text-primary text-caption font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5 text-accent" />
                     <span>
@@ -1007,13 +987,13 @@ export function DashboardClientView({
             )}
           </div>
 
-          {/* Quick Guidance Box - Frosted Glass Container */}
-          <div className="rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)] p-4 space-y-2">
+          {/* Quick Guidance Box */}
+          <div className="rounded-xl bg-white/[0.02] border border-white/[0.08] p-4 space-y-2 shadow-sm">
             <div className="flex items-center gap-1.5 text-caption font-semibold text-text-primary">
               <Sparkles className="w-3.5 h-3.5 text-accent" />
               <span>{isEn ? "Routine Farming Tips" : "Tips Garapan Rutin"}</span>
             </div>
-            <p className="text-[12px] text-text-tertiary leading-relaxed">
+            <p className="text-[12px] text-text-secondary leading-relaxed">
               {isEn ? (
                 <>
                   Most testnet snapshots & daily check-in resets happen at <strong>00:00 UTC</strong> (07:00 WIB). Schedule project reminders to maintain your daily streak.
@@ -1024,6 +1004,62 @@ export function DashboardClientView({
                 </>
               )}
             </p>
+          </div>
+
+          {/* Quick Workspace Navigation Box (Fills Wide Screen Vertically) */}
+          <div className="rounded-xl bg-white/[0.02] border border-white/[0.08] p-4 space-y-2.5 shadow-sm">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-text-tertiary font-semibold block">
+              {isEn ? "Quick Navigation" : "Akses Cepat Workspace"}
+            </span>
+            <div className="space-y-1.5">
+              <Link
+                href="/projects"
+                prefetch={false}
+                className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] text-caption text-text-secondary hover:text-text-primary transition-colors group"
+              >
+                <div className="flex items-center gap-2">
+                  <FolderGit2 className="w-3.5 h-3.5 text-accent" />
+                  <span>{isEn ? "Project Directory" : "Direktori Proyek"}</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-text-disabled group-hover:text-text-primary transition-colors" />
+              </Link>
+
+              <Link
+                href="/feed"
+                prefetch={false}
+                className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] text-caption text-text-secondary hover:text-text-primary transition-colors group"
+              >
+                <div className="flex items-center gap-2">
+                  <Radio className="w-3.5 h-3.5 text-link-teal" />
+                  <span>{isEn ? "Live Airdrop Feed" : "Feed Airdrop Terkini"}</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-text-disabled group-hover:text-text-primary transition-colors" />
+              </Link>
+
+              <Link
+                href="/waitlist"
+                prefetch={false}
+                className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] text-caption text-text-secondary hover:text-text-primary transition-colors group"
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5 text-status-waiting" />
+                  <span>{isEn ? "Waitlist Tracker" : "Pelacak Waitlist"}</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-text-disabled group-hover:text-text-primary transition-colors" />
+              </Link>
+
+              <Link
+                href="/wallets"
+                prefetch={false}
+                className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] text-caption text-text-secondary hover:text-text-primary transition-colors group"
+              >
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-3.5 h-3.5 text-status-in-progress" />
+                  <span>{isEn ? "Wallets & Accounts" : "Dompet & Akun Garapan"}</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-text-disabled group-hover:text-text-primary transition-colors" />
+              </Link>
+            </div>
           </div>
         </div>
       </div>

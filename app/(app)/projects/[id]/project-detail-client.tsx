@@ -258,7 +258,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
   const telegramPostUrl = rawSocial.telegram_post_url as string | undefined;
 
   return (
-    <div className="space-y-4 max-w-6xl">
+    <div className="w-full space-y-4 min-w-0 pb-16 font-sans">
       {/* Top Navigation & Back Link */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
@@ -400,9 +400,9 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
       </div>
 
       {/* Dual-Column Workstation Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
         {/* LEFT COLUMN: Main Execution Hub (Threads / Thread X Timeline) */}
-        <div className="lg:col-span-8 space-y-4">
+        <div className="lg:col-span-8 xl:col-span-8 2xl:col-span-9 space-y-4">
           <ProjectThreadView
             projectId={project.id}
             projectName={project.name}
@@ -416,8 +416,8 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
           />
         </div>
 
-        {/* RIGHT COLUMN: Utility, Reminders, Wallets & Accounts (35% width) */}
-        <div className="lg:col-span-4 space-y-4">
+        {/* RIGHT COLUMN: Utility, Reminders, Wallets & Accounts */}
+        <div className="lg:col-span-4 xl:col-span-4 2xl:col-span-3 space-y-4">
           {/* Widget 1: Pengingat / Alarm Proyek */}
           <div className="p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-3.5">
             <div className="flex items-center justify-between">
