@@ -48,7 +48,7 @@ export function ProjectsClientView({
   initialFolders,
 }: ProjectsClientViewProps) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, isEn } = useTranslation();
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [folders, setFolders] = useState<FolderType[]>(initialFolders);
 
@@ -102,40 +102,33 @@ export function ProjectsClientView({
 
       // Search filter
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchName = p.name.toLowerCase().includes(q);
-        const matchChain = (p.chain || "").toLowerCase().includes(q);
-        if (!matchName && !matchChain) return false;
+        const query = searchQuery.toLowerCase();
+        const matchesName = p.name.toLowerCase().includes(query);
+        const matchesChain = p.chain?.toLowerCase().includes(query);
+        return matchesName || matchesChain;
       }
 
       return true;
     });
   }, [projects, selectedFolderFilter, searchQuery]);
 
-  // Current folder details
+  // Active folder object
   const activeFolder = useMemo(() => {
-    if (selectedFolderFilter === null) return { id: null, name: t("projects.allProjects") };
-    if (selectedFolderFilter === "root") return { id: "root", name: t("projects.unorganized") };
-    const f = folders.find((item) => item.id === selectedFolderFilter);
-    return f ? { id: f.id, name: f.name } : { id: null, name: t("projects.allProjects") };
-  }, [folders, selectedFolderFilter, t]);
+    if (selectedFolderFilter === null) return { name: t("projects.allProjects"), id: null };
+    if (selectedFolderFilter === "root") return { name: t("projects.unorganized"), id: "root" };
+    return folders.find((f) => f.id === selectedFolderFilter) || { name: t("projects.allProjects"), id: null };
+  }, [selectedFolderFilter, folders, t]);
 
-  // Toggle selection for a single project
-  const toggleSelectProject = (projectId: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  // Multi-select toggle functions
+  const toggleSelectProject = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setSelectedProjectIds((prev) =>
-      prev.includes(projectId)
-        ? prev.filter((id) => id !== projectId)
-        : [...prev, projectId]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
-  // Select all or deselect all in current view
   const toggleSelectAll = () => {
-    if (selectedProjectIds.length === filteredProjects.length && filteredProjects.length > 0) {
+    if (selectedProjectIds.length === filteredProjects.length) {
       setSelectedProjectIds([]);
     } else {
       setSelectedProjectIds(filteredProjects.map((p) => p.id));
@@ -149,8 +142,8 @@ export function ProjectsClientView({
     const count = projectIds.length;
     const targetFolderName =
       targetFolderId === null
-        ? "Tanpa Folder (Root)"
-        : folders.find((f) => f.id === targetFolderId)?.name || "Folder Baru";
+        ? (isEn ? "Unorganized" : "Tanpa Folder (Root)")
+        : folders.find((f) => f.id === targetFolderId)?.name || (isEn ? "New Folder" : "Folder Baru");
 
     // 1. Optimistic update local state immediately (0ms lag)
     setProjects((prev) =>
@@ -160,7 +153,11 @@ export function ProjectsClientView({
     // Clear selection
     setSelectedProjectIds((prev) => prev.filter((id) => !projectIds.includes(id)));
 
-    showToast(`Berhasil memindahkan ${count} proyek ke "${targetFolderName}"`);
+    showToast(
+      isEn
+        ? `Moved ${count} project(s) to "${targetFolderName}"`
+        : `Berhasil memindahkan ${count} proyek ke "${targetFolderName}"`
+    );
 
     // 2. Persist to Supabase in background
     try {
@@ -176,7 +173,12 @@ export function ProjectsClientView({
       if (error) throw error;
     } catch (err) {
       console.error("Move projects error:", err);
-      showToast("Gagal menyimpan pemindahan folder ke database", "info");
+      showToast(
+        isEn
+          ? "Failed to save folder changes to database"
+          : "Gagal menyimpan pemindahan folder ke database",
+        "info"
+      );
       // Revert if error
       setProjects(initialProjects);
     }
@@ -257,7 +259,11 @@ export function ProjectsClientView({
 
     const idsToArchive = [...selectedProjectIds];
     setSelectedProjectIds([]);
-    showToast(`Berhasil mengarsipkan ${count} proyek ke status 'Menunggu Snapshot'`);
+    showToast(
+      isEn
+        ? `Archived ${count} project(s) to 'Waiting for Snapshot'`
+        : `Berhasil mengarsipkan ${count} proyek ke status 'Menunggu Snapshot'`
+    );
 
     try {
       const supabase = createClient();
@@ -272,7 +278,12 @@ export function ProjectsClientView({
       if (error) throw error;
     } catch (err) {
       console.error("Bulk archive error:", err);
-      showToast("Gagal mengarsipkan proyek di database", "info");
+      showToast(
+        isEn
+          ? "Failed to archive projects in database"
+          : "Gagal mengarsipkan proyek di database",
+        "info"
+      );
       setProjects(initialProjects);
     }
   };
@@ -286,7 +297,11 @@ export function ProjectsClientView({
     // Optimistic update
     setProjects((prev) => prev.filter((p) => !idsToDelete.includes(p.id)));
     setSelectedProjectIds([]);
-    showToast(`${count} proyek berhasil dihapus.`);
+    showToast(
+      isEn
+        ? `${count} project(s) deleted successfully.`
+        : `${count} proyek berhasil dihapus.`
+    );
 
     try {
       const supabase = createClient();
@@ -299,7 +314,12 @@ export function ProjectsClientView({
       router.refresh();
     } catch (err) {
       console.error("Bulk delete error:", err);
-      showToast("Gagal menghapus proyek dari database.", "info");
+      showToast(
+        isEn
+          ? "Failed to delete projects from database."
+          : "Gagal menghapus proyek dari database.",
+        "info"
+      );
       setProjects(initialProjects);
     }
   };
@@ -307,7 +327,10 @@ export function ProjectsClientView({
   // DELETE FOLDER
   const handleDeleteFolder = async (folder: FolderType, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Hapus folder "${folder.name}"? Proyek di dalamnya akan dipindahkan ke "Tanpa Folder".`)) {
+    const confirmPrompt = isEn
+      ? `Delete folder "${folder.name}"? Projects inside will be moved to "Unorganized".`
+      : `Hapus folder "${folder.name}"? Proyek di dalamnya akan dipindahkan ke "Tanpa Folder".`;
+    if (!confirm(confirmPrompt)) {
       return;
     }
 
@@ -320,7 +343,11 @@ export function ProjectsClientView({
       setSelectedFolderFilter(null);
     }
 
-    showToast(`Folder "${folder.name}" berhasil dihapus`);
+    showToast(
+      isEn
+        ? `Folder "${folder.name}" deleted successfully`
+        : `Folder "${folder.name}" berhasil dihapus`
+    );
 
     try {
       const supabase = createClient();
@@ -333,7 +360,12 @@ export function ProjectsClientView({
       router.refresh();
     } catch (err) {
       console.error("Delete folder error:", err);
-      showToast("Gagal menghapus folder di database", "info");
+      showToast(
+        isEn
+          ? "Failed to delete folder in database"
+          : "Gagal menghapus folder di database",
+        "info"
+      );
       setFolders(initialFolders);
     }
   };
@@ -496,7 +528,7 @@ export function ProjectsClientView({
                             type="button"
                             onClick={(e) => handleDeleteFolder(f, e)}
                             className="w-5 h-5 rounded hover:bg-white/[0.1] text-text-tertiary hover:text-status-overdue flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Hapus Folder (Proyek tidak dihapus)"
+                            title={isEn ? "Delete Folder (Projects will not be deleted)" : "Hapus Folder (Proyek tidak dihapus)"}
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -613,9 +645,9 @@ export function ProjectsClientView({
               <p className="text-caption text-text-secondary max-w-md mx-auto">
                 {selectedFolderFilter
                   ? t("projects.emptyHint")
-                  : (t("common.details") === "Detail"
-                      ? "Tambahkan proyek airdrop pertamamu untuk mulai melacak."
-                      : "Add your first airdrop project to start tracking.")}
+                  : (isEn
+                      ? "Add your first airdrop project to start tracking."
+                      : "Tambahkan proyek airdrop pertamamu untuk mulai melacak.")}
               </p>
               <div className="pt-2">
                 <button
@@ -657,7 +689,7 @@ export function ProjectsClientView({
                           type="button"
                           onClick={(e) => toggleSelectProject(proj.id, e)}
                           className="p-1 -m-1 rounded-md text-text-tertiary hover:text-accent transition-colors"
-                          title={isSelected ? "Batal pilih" : "Pilih proyek"}
+                          title={isSelected ? (isEn ? "Deselect" : "Batal pilih") : (isEn ? "Select project" : "Pilih proyek")}
                         >
                           {isSelected ? (
                             <CheckSquare className="w-4 h-4 text-accent" />
@@ -673,7 +705,10 @@ export function ProjectsClientView({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5" title="Tarik (drag) untuk memindahkan ke folder">
+                      <div
+                        className="flex items-center gap-1.5"
+                        title={isEn ? "Drag to move to folder" : "Tarik (drag) untuk memindahkan ke folder"}
+                      >
                         <GripVertical className="w-3.5 h-3.5 text-white/30 group-hover:text-white/70 transition-colors" />
                       </div>
                     </div>
@@ -684,7 +719,7 @@ export function ProjectsClientView({
                         {proj.name}
                       </div>
                       <p className="text-[11px] text-text-tertiary font-mono mt-0.5">
-                        Folder: {folder ? folder.name : "Tanpa Folder"}
+                        Folder: {folder ? folder.name : (isEn ? "Unorganized" : "Tanpa Folder")}
                       </p>
                     </div>
 
@@ -693,7 +728,7 @@ export function ProjectsClientView({
                       <StatusBadge status={badgeStatus} />
                       <div
                         className="p-1 rounded-lg text-text-tertiary group-hover:text-accent transition-colors"
-                        title="Buka Linimasa Proyek"
+                        title={isEn ? "Open Project Timeline" : "Buka Linimasa Proyek"}
                       >
                         <ArrowRight className="w-3.5 h-3.5" />
                       </div>
@@ -726,14 +761,14 @@ export function ProjectsClientView({
                       } ${isDragging ? "opacity-35 border-dashed border-accent" : ""}`}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div title="Tarik (drag) untuk memindahkan ke folder">
+                        <div title={isEn ? "Drag to move to folder" : "Tarik (drag) untuk memindahkan ke folder"}>
                           <GripVertical className="w-3.5 h-3.5 text-white/30 group-hover:text-white/70 shrink-0" />
                         </div>
                         <button
                           type="button"
                           onClick={(e) => toggleSelectProject(proj.id, e)}
                           className="p-1 -m-1 text-text-tertiary hover:text-accent transition-colors shrink-0"
-                          title={isSelected ? "Batal pilih" : "Pilih proyek"}
+                          title={isSelected ? (isEn ? "Deselect" : "Batal pilih") : (isEn ? "Select project" : "Pilih proyek")}
                         >
                           {isSelected ? (
                             <CheckSquare className="w-4 h-4 text-accent" />
@@ -757,7 +792,7 @@ export function ProjectsClientView({
                           </span>
                         )}
                         <span className="text-[11px] font-mono text-text-tertiary w-32 truncate text-right">
-                          {folder ? folder.name : "Tanpa Folder"}
+                          {folder ? folder.name : (isEn ? "Unorganized" : "Tanpa Folder")}
                         </span>
                       </div>
 
@@ -784,14 +819,14 @@ export function ProjectsClientView({
             {/* Left: Count */}
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 rounded-lg bg-accent/20 border border-accent/40 text-accent text-caption font-mono font-bold">
-                {selectedProjectIds.length} Terpilih
+                {selectedProjectIds.length} {isEn ? "Selected" : "Terpilih"}
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedProjectIds([])}
                 className="text-[11px] text-text-tertiary hover:text-text-primary px-1 underline"
               >
-                Batal
+                {isEn ? "Cancel" : "Batal"}
               </button>
             </div>
 

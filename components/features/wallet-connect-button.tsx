@@ -4,8 +4,10 @@ import React, { useState } from "react";
 import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 import { Wallet, LogOut, ChevronDown } from "lucide-react";
 import { ButtonSecondary } from "@/components/ui/button";
+import { useTranslation } from "@/lib/i18n/context";
 
 export function WalletConnectButton() {
+  const { t } = useTranslation();
   const { address, isConnected, chain } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
@@ -42,7 +44,7 @@ export function WalletConnectButton() {
         {dropdownOpen && (
           <div className="absolute right-0 mt-1 w-56 p-2 rounded-lg bg-bg-elevated border border-border-hairline shadow-xl z-50 text-body-sm space-y-2">
             <div className="px-2 py-1 border-b border-border-hairline">
-              <div className="text-[11px] text-text-tertiary">Jaringan On-chain</div>
+              <div className="text-[11px] text-text-tertiary">{t("common.onchainNetwork")}</div>
               <div className="text-text-primary font-medium">{chain?.name || "EVM"}</div>
             </div>
             <div className="px-2 py-1 border-b border-border-hairline font-mono text-[11px] text-text-secondary break-all">
@@ -57,7 +59,7 @@ export function WalletConnectButton() {
               className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-caption text-status-overdue hover:bg-bg-elevated-2 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Putuskan Koneksi</span>
+              <span>{t("common.disconnect")}</span>
             </button>
           </div>
         )}
@@ -72,7 +74,7 @@ export function WalletConnectButton() {
       className="!py-1.5 !px-2.5 sm:!px-3 text-caption sm:text-body-sm inline-flex items-center gap-1.5"
     >
       <Wallet className="w-4 h-4 text-accent shrink-0" />
-      <span className="hidden sm:inline">{isPending ? "Menghubungkan..." : "Connect Wallet"}</span>
+      <span className="hidden sm:inline">{isPending ? t("common.connecting") : t("common.connectWallet")}</span>
       <span className="sm:hidden">{isPending ? "..." : "Connect"}</span>
     </ButtonSecondary>
   );

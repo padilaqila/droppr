@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { SetReminderModal } from "@/components/features/set-reminder-modal";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   formatReminderSchedule,
@@ -46,6 +47,7 @@ interface RemindersClientViewProps {
 
 export function RemindersClientView({ initialReminders }: RemindersClientViewProps) {
   const router = useRouter();
+  const { isEn } = useTranslation();
   const [reminders, setReminders] = useState<EnrichedReminder[]>(initialReminders);
   const [activeFilter, setActiveFilter] = useState<"all" | "daily" | "weekly" | "once" | "today">("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,7 +59,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
   }, [initialReminders]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Hapus jadwal pengingat untuk proyek ini?")) return;
+    if (!confirm(isEn ? "Delete reminder schedule for this project?" : "Hapus jadwal pengingat untuk proyek ini?")) return;
     try {
       const supabase = createClient() as any;
       await supabase.from("reminders").delete().eq("id", id);
@@ -81,7 +83,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
   // Helper formatting human-readable next trigger dates
   const formatTriggerTime = (isoString: string | null) => {
     if (!isoString) {
-      return { formattedDate: "Belum diatur", relativeText: "-", isPast: false };
+      return { formattedDate: isEn ? "Not set" : "Belum diatur", relativeText: "-", isPast: false };
     }
     const date = new Date(isoString);
     const now = new Date();
@@ -92,23 +94,23 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
     let relativeText = "";
     if (diffMs < 0) {
       if (Math.abs(diffHours) < 24) {
-        relativeText = `${Math.abs(diffHours)} jam yang lalu`;
+        relativeText = isEn ? `${Math.abs(diffHours)}h ago` : `${Math.abs(diffHours)} jam yang lalu`;
       } else {
-        relativeText = `${Math.abs(diffDays)} hari yang lalu`;
+        relativeText = isEn ? `${Math.abs(diffDays)}d ago` : `${Math.abs(diffDays)} hari yang lalu`;
       }
     } else {
       if (diffHours < 1) {
-        relativeText = "sebentar lagi";
+        relativeText = isEn ? "soon" : "sebentar lagi";
       } else if (diffHours < 24) {
-        relativeText = `dalam ${diffHours} jam`;
+        relativeText = isEn ? `in ${diffHours}h` : `dalam ${diffHours} jam`;
       } else if (diffDays === 1) {
-        relativeText = "besok";
+        relativeText = isEn ? "tomorrow" : "besok";
       } else {
-        relativeText = `dalam ${diffDays} hari`;
+        relativeText = isEn ? `in ${diffDays}d` : `dalam ${diffDays} hari`;
       }
     }
 
-    const formattedDate = date.toLocaleDateString("id-ID", {
+    const formattedDate = date.toLocaleDateString(isEn ? "en-US" : "id-ID", {
       day: "numeric",
       month: "short",
       hour: "2-digit",
@@ -147,10 +149,12 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-heading-2 font-bold text-text-primary">
-            Pengingat Proyek Airdrop
+            {isEn ? "Airdrop Project Reminders" : "Pengingat Proyek Airdrop"}
           </h1>
           <p className="text-body-sm text-text-secondary">
-            Atur jadwal notifikasi rutin (Setiap Hari, Hari Tertentu, atau Tanggal Khusus pada default 07:00 pagi) untuk setiap proyek airdrop kamu.
+            {isEn
+              ? "Set regular notification schedules (Daily, Specific Days, or Custom Date at default 07:00 AM) for each of your airdrop projects."
+              : "Atur jadwal notifikasi rutin (Setiap Hari, Hari Tertentu, atau Tanggal Khusus pada default 07:00 pagi) untuk setiap proyek airdrop kamu."}
           </p>
         </div>
         <div>
@@ -162,7 +166,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
             className="inline-flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4 text-on-accent" />
-            <span>Pasang Pengingat Proyek</span>
+            <span>{isEn ? "Set Project Reminder" : "Pasang Pengingat Proyek"}</span>
           </ButtonPrimary>
         </div>
       </div>
@@ -178,7 +182,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
               : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
           }`}
         >
-          Semua Pengingat ({reminders.length})
+          {isEn ? `All Reminders (${reminders.length})` : `Semua Pengingat (${reminders.length})`}
         </button>
         <button
           type="button"
@@ -189,7 +193,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
               : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
           }`}
         >
-          Jadwal Hari Ini ({todayCount})
+          {isEn ? `Today's Schedule (${todayCount})` : `Jadwal Hari Ini (${todayCount})`}
         </button>
         <button
           type="button"
@@ -200,7 +204,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
               : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
           }`}
         >
-          Setiap Hari ({dailyCount})
+          {isEn ? `Daily (${dailyCount})` : `Setiap Hari (${dailyCount})`}
         </button>
         <button
           type="button"
@@ -211,7 +215,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
               : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
           }`}
         >
-          Hari Tertentu ({weeklyCount})
+          {isEn ? `Specific Days (${weeklyCount})` : `Hari Tertentu (${weeklyCount})`}
         </button>
         <button
           type="button"
@@ -222,7 +226,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
               : "bg-bg-elevated text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
           }`}
         >
-          Tanggal Spesifik ({onceCount})
+          {isEn ? `Specific Date (${onceCount})` : `Tanggal Spesifik (${onceCount})`}
         </button>
       </div>
 
@@ -232,11 +236,13 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
           <Bell className="w-10 h-10 text-text-tertiary mx-auto mb-1" />
           <h3 className="text-heading-3 font-semibold text-text-primary">
             {activeFilter === "today"
-              ? "Tidak ada pengingat proyek untuk hari ini"
-              : "Belum ada pengingat proyek yang diatur"}
+              ? (isEn ? "No project reminders for today" : "Tidak ada pengingat proyek untuk hari ini")
+              : (isEn ? "No project reminders set yet" : "Belum ada pengingat proyek yang diatur")}
           </h3>
           <p className="text-body-sm text-text-secondary max-w-md mx-auto">
-            Pasang alarm pengingat harian atau mingguan agar kamu selalu siap menggarap check-in, transaksi harian, atau snapshot reward tepat waktu.
+            {isEn
+              ? "Set daily or weekly alarms so you're always ready for daily check-ins, transactions, or snapshot rewards on time."
+              : "Pasang alarm pengingat harian atau mingguan agar kamu selalu siap menggarap check-in, transaksi harian, atau snapshot reward tepat waktu."}
           </p>
           <div className="pt-2">
             <ButtonPrimary
@@ -247,7 +253,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
               className="inline-flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4 text-on-accent" />
-              <span>Atur Pengingat Pertama</span>
+              <span>{isEn ? "Set First Reminder" : "Atur Pengingat Pertama"}</span>
             </ButtonPrimary>
           </div>
         </CardBase>
@@ -255,7 +261,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
         <div className="grid grid-cols-1 gap-3.5">
           {filteredReminders.map((r) => {
             const timeInfo = formatTriggerTime(r.next_trigger_at);
-            const projectName = r.projects?.name || "Proyek Tidak Diketahui";
+            const projectName = r.projects?.name || (isEn ? "Unknown Project" : "Proyek Tidak Diketahui");
             const projectStatus = (r.projects?.status?.replace("_", "-") as ProjectStatus) || "in-progress";
             const rawSocial = (r.projects?.social_links as Record<string, any>) || {};
             const dappUrl = rawSocial.dapp_url || rawSocial.website;
@@ -314,7 +320,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
 
                       {isToday && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-completed/15 text-status-completed font-semibold border border-status-completed/30">
-                          Jadwal Hari Ini
+                          {isEn ? "Today's Schedule" : "Jadwal Hari Ini"}
                         </span>
                       )}
                     </div>
@@ -329,7 +335,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
 
                     {/* Next trigger timestamp */}
                     <div className="flex items-center gap-2 text-caption text-text-tertiary font-mono">
-                      <span>Pemicu berikutnya:</span>
+                      <span>{isEn ? "Next trigger:" : "Pemicu berikutnya:"}</span>
                       <span className="text-text-primary font-medium">
                         {timeInfo.formattedDate}
                       </span>
@@ -374,7 +380,7 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
                         href={`/projects/${r.projects.id}`}
                         prefetch={false}
                         className="p-1.5 text-text-tertiary hover:text-text-primary rounded hover:bg-bg-elevated-2 transition-colors"
-                        title="Buka Workstation Proyek"
+                        title={isEn ? "Open Project Workstation" : "Buka Workstation Proyek"}
                       >
                         <ArrowRight className="w-4 h-4" />
                       </Link>
@@ -388,13 +394,13 @@ export function RemindersClientView({ initialReminders }: RemindersClientViewPro
                       className="!py-1.5 !px-2.5 text-caption inline-flex items-center gap-1"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
-                      <span>Ubah</span>
+                      <span>{isEn ? "Edit" : "Ubah"}</span>
                     </ButtonSecondary>
                     <button
                       type="button"
                       onClick={() => handleDelete(r.id)}
                       className="p-1.5 rounded hover:bg-bg-elevated-2 text-text-tertiary hover:text-status-overdue transition-colors"
-                      title="Hapus Pengingat"
+                      title={isEn ? "Delete Reminder" : "Hapus Pengingat"}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

@@ -585,7 +585,7 @@ export function TodayTaskGuideModal({
   onOpenReminderModal,
   onDeleteReminder,
 }: TodayTaskGuideModalProps) {
-  const { locale } = useTranslation();
+  const { locale, isEn } = useTranslation();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -729,7 +729,7 @@ export function TodayTaskGuideModal({
 
   const handleDeleteReminderClick = async () => {
     if (!reminder || isDeletingReminder) return;
-    if (!confirm("Hapus jadwal pengingat untuk proyek ini?")) return;
+    if (!confirm(isEn ? "Delete reminder schedule for this project?" : "Hapus jadwal pengingat untuk proyek ini?")) return;
     setIsDeletingReminder(true);
     try {
       if (onDeleteReminder) {
@@ -841,7 +841,7 @@ export function TodayTaskGuideModal({
                 {scheduleText && (
                   <span className="inline-flex items-center gap-1.5 text-amber-300/90 font-medium">
                     <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Jadwal: {scheduleText} (07:00 WIB)</span>
+                    <span>{isEn ? `Schedule: ${scheduleText} (07:00 WIB)` : `Jadwal: ${scheduleText} (07:00 WIB)`}</span>
                   </span>
                 )}
               </div>
@@ -851,7 +851,7 @@ export function TodayTaskGuideModal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Tutup"
+              aria-label={isEn ? "Close" : "Tutup"}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
             >
               <X className="w-4 h-4" />
@@ -872,7 +872,7 @@ export function TodayTaskGuideModal({
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>Panduan Rapi</span>
+                <span>{isEn ? "Clean Guide" : "Panduan Rapi"}</span>
               </button>
 
               <button
@@ -885,7 +885,7 @@ export function TodayTaskGuideModal({
                 }`}
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Postingan Asli</span>
+                <span>{isEn ? "Original Post" : "Postingan Asli"}</span>
               </button>
             </div>
 
@@ -897,10 +897,10 @@ export function TodayTaskGuideModal({
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/80 hover:text-white border border-white/10 text-caption font-medium transition-all"
-                  title="Buka Postingan Telegram"
+                  title={isEn ? "Open Telegram Post" : "Buka Postingan Telegram"}
                 >
                   <Send className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Buka di TG</span>
+                  <span>{isEn ? "Open in TG" : "Buka di TG"}</span>
                   <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                 </a>
               )}
@@ -913,7 +913,7 @@ export function TodayTaskGuideModal({
                   className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-semibold text-caption sm:text-body-sm shadow-[0_0_20px_-3px_rgba(240,169,59,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0"
                 >
                   <Flame className="w-3.5 h-3.5 fill-black" />
-                  <span>Mulai Garap {dappUrl ? "di DApp" : "di Web"}</span>
+                  <span>{isEn ? `Start Farming ${dappUrl ? "on DApp" : "on Web"}` : `Mulai Garap ${dappUrl ? "di DApp" : "di Web"}`}</span>
                   <ExternalLink className="w-3 h-3 stroke-[2.5]" />
                 </a>
               )}
@@ -929,7 +929,7 @@ export function TodayTaskGuideModal({
               <div className="flex items-center justify-between">
                 <h3 className="text-body-sm font-bold text-white font-sans flex items-center gap-2">
                   <span className="w-1.5 h-4 rounded-full bg-amber-400" />
-                  <span>Catatan & Panduan Lengkap</span>
+                  <span>{isEn ? "Complete Notes & Guide" : "Catatan & Panduan Lengkap"}</span>
                 </h3>
 
                 {!isEditingGuide && (
@@ -942,7 +942,7 @@ export function TodayTaskGuideModal({
                     className="text-[11px] text-white/60 hover:text-amber-300 flex items-center gap-1 transition-colors"
                   >
                     <Edit2 className="w-3 h-3" />
-                    <span>{formattedGuide ? "Edit Tutorial" : "+ Tulis Tutorial"}</span>
+                    <span>{formattedGuide ? (isEn ? "Edit Tutorial" : "Edit Tutorial") : (isEn ? "+ Write Tutorial" : "+ Tulis Tutorial")}</span>
                   </button>
                 )}
               </div>
@@ -953,12 +953,12 @@ export function TodayTaskGuideModal({
                     value={guideInput}
                     onChange={(e) => setGuideInput(e.target.value)}
                     rows={8}
-                    placeholder="Tulis tutorial atau langkah pengerjaan di sini...&#10;Contoh:&#10;1. Klaim faucet harian di https://faucet.xyz&#10;2. Masuk ke web testnet dan lakukan swap/mint"
+                    placeholder={isEn ? "Write tutorial or step-by-step guide here...\nExample:\n1. Claim daily faucet at https://faucet.xyz\n2. Open testnet and swap/mint" : "Tulis tutorial atau langkah pengerjaan di sini...\nContoh:\n1. Klaim faucet harian di https://faucet.xyz\n2. Masuk ke web testnet dan lakukan swap/mint"}
                     className="w-full rounded-xl bg-white/[0.04] border border-white/20 p-3 text-body-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all font-sans leading-relaxed resize-y no-scrollbar"
                   />
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[11px] text-white/40">
-                      Mendukung tautan URL web otomatis & [Format Markdown](https://link.com)
+                      {isEn ? "Supports automatic web URLs & [Markdown Links](https://link.com)" : "Mendukung tautan URL web otomatis & [Format Markdown](https://link.com)"}
                     </span>
                     <div className="flex items-center gap-2">
                       <button
@@ -969,7 +969,7 @@ export function TodayTaskGuideModal({
                         }}
                         className="px-3 py-1.5 rounded-lg text-caption text-white/60 hover:text-white transition-colors"
                       >
-                        Batal
+                        {isEn ? "Cancel" : "Batal"}
                       </button>
                       <button
                         type="button"
@@ -978,7 +978,7 @@ export function TodayTaskGuideModal({
                         className="px-3.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-semibold text-caption transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
                         <Save className="w-3.5 h-3.5" />
-                        <span>{isSavingGuide ? "Menyimpan..." : "Simpan Tutorial"}</span>
+                        <span>{isSavingGuide ? (isEn ? "Saving..." : "Menyimpan...") : (isEn ? "Save Tutorial" : "Simpan Tutorial")}</span>
                       </button>
                     </div>
                   </div>
@@ -990,7 +990,7 @@ export function TodayTaskGuideModal({
               ) : (
                 <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] text-center space-y-3">
                   <p className="text-body-sm text-white/60 max-w-md mx-auto">
-                    Belum ada tutorial pengerjaan rapi khusus yang disimpan untuk proyek ini. Kamu bisa menulis panduan sendiri atau langsung melihat postingan sumber di tab sebelah.
+                    {isEn ? "No structured step-by-step tutorial saved for this project yet. You can write your own guide or read the original source post in the next tab." : "Belum ada tutorial pengerjaan rapi khusus yang disimpan untuk proyek ini. Kamu bisa menulis panduan sendiri atau langsung melihat postingan sumber di tab sebelah."}
                   </p>
                   <div className="flex items-center justify-center gap-2 pt-1">
                     <button
@@ -1002,7 +1002,7 @@ export function TodayTaskGuideModal({
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/15 text-amber-300 border border-amber-400/30 text-caption font-semibold hover:bg-amber-400/25 transition-colors"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
-                      <span>Tulis Catatan / Panduan</span>
+                      <span>{isEn ? "Write Notes / Guide" : "Tulis Catatan / Panduan"}</span>
                     </button>
                     <button
                       type="button"
@@ -1010,7 +1010,7 @@ export function TodayTaskGuideModal({
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] text-white/80 border border-white/10 text-caption font-medium hover:bg-white/[0.08] transition-colors"
                     >
                       <Send className="w-3.5 h-3.5 text-sky-400" />
-                      <span>Buka Postingan Asli</span>
+                      <span>{isEn ? "Open Original Post" : "Buka Postingan Asli"}</span>
                     </button>
                   </div>
                 </div>
@@ -1023,7 +1023,7 @@ export function TodayTaskGuideModal({
                 <div className="flex items-center gap-2">
                   <span className="w-1.5 h-4 rounded-full bg-sky-400" />
                   <h3 className="text-body-sm font-bold text-white font-sans">
-                    Postingan Asli Kanal Telegram
+                    {isEn ? "Original Telegram Channel Post" : "Postingan Asli Kanal Telegram"}
                   </h3>
                 </div>
 
@@ -1039,7 +1039,7 @@ export function TodayTaskGuideModal({
                           ? "bg-amber-400/20 text-amber-300 border-amber-400/40"
                           : "bg-white/[0.05] hover:bg-white/[0.1] text-white/75 hover:text-white border-white/10"
                       }`}
-                      title="Terjemahkan teks postingan"
+                      title={isEn ? "Translate post text" : "Terjemahkan teks postingan"}
                     >
                       <Languages className={`w-3.5 h-3.5 ${isTranslatingOriginal ? "animate-spin text-amber-400" : ""}`} />
                       <span>
@@ -1060,17 +1060,17 @@ export function TodayTaskGuideModal({
                         handleCopyOriginal(textToCopy);
                       }}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-caption text-white/75 hover:text-white transition-colors"
-                      title="Salin isi postingan ke clipboard"
+                      title={isEn ? "Copy post content to clipboard" : "Salin isi postingan ke clipboard"}
                     >
                       {isCopied ? (
                         <>
                           <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400 font-medium">Tersalin!</span>
+                          <span className="text-emerald-400 font-medium">{isEn ? "Copied!" : "Tersalin!"}</span>
                         </>
                       ) : (
                         <>
                           <Copy className="w-3 h-3 text-sky-400" />
-                          <span>Salin Postingan</span>
+                          <span>{isEn ? "Copy Post" : "Salin Postingan"}</span>
                         </>
                       )}
                     </button>
@@ -1099,10 +1099,10 @@ export function TodayTaskGuideModal({
 
                   <div className="min-w-0 flex-1">
                     <span className="text-body-sm font-bold text-white block truncate">
-                      {channelSource?.name || "Telegram Channel"}
+                      {channelSource?.name || (isEn ? "Telegram Channel" : "Kanal Telegram")}
                     </span>
                     <span className="text-[11px] text-sky-400/80 font-mono block truncate">
-                      {channelSource?.handle || "Kanal Telegram"}
+                      {channelSource?.handle || (isEn ? "Telegram Channel" : "Kanal Telegram")}
                     </span>
                   </div>
 
@@ -1113,7 +1113,7 @@ export function TodayTaskGuideModal({
                       rel="noreferrer"
                       className="text-caption text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 font-medium shrink-0"
                     >
-                      <span>Buka di Telegram</span>
+                      <span>{isEn ? "Open in Telegram" : "Buka di Telegram"}</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -1136,7 +1136,7 @@ export function TodayTaskGuideModal({
                       )
                     ) : (
                       <span className="text-white/40 italic">
-                        Postingan asli belum tersimpan atau tidak ditemukan untuk proyek ini.
+                        {isEn ? "Original post not yet saved or not found for this project." : "Postingan asli belum tersimpan atau tidak ditemukan untuk proyek ini."}
                       </span>
                     )}
                   </div>
@@ -1162,7 +1162,7 @@ export function TodayTaskGuideModal({
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{isDoneState ? "✓ Tugas Selesai Hari Ini (Buka Kembali)" : "Tandai Selesai Hari Ini"}</span>
+              <span>{isDoneState ? (isEn ? "✓ Task Done Today (Reopen)" : "✓ Tugas Selesai Hari Ini (Buka Kembali)") : (isEn ? "Mark Done Today" : "Tandai Selesai Hari Ini")}</span>
             </button>
 
             {/* Skip / Restore button */}
@@ -1174,17 +1174,17 @@ export function TodayTaskGuideModal({
                   ? "bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border-amber-400/30"
                   : "bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border-white/10"
               }`}
-              title={isSkipped ? "Kembalikan proyek ke daftar aktif hari ini" : "Lewati / tunda pengerjaan hari ini"}
+              title={isSkipped ? (isEn ? "Restore project to today's active list" : "Kembalikan proyek ke daftar aktif hari ini") : (isEn ? "Skip / postpone today's work" : "Lewati / tunda pengerjaan hari ini")}
             >
               {isSkipped ? (
                 <>
                   <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Kembalikan ke Hari Ini</span>
+                  <span>{isEn ? "Restore to Today" : "Kembalikan ke Hari Ini"}</span>
                 </>
               ) : (
                 <>
                   <FastForward className="w-3.5 h-3.5 text-white/50" />
-                  <span>Lewati Hari Ini</span>
+                  <span>{isEn ? "Skip Today" : "Lewati Hari Ini"}</span>
                 </>
               )}
             </button>
@@ -1198,17 +1198,17 @@ export function TodayTaskGuideModal({
                   type="button"
                   onClick={() => onOpenReminderModal?.(project.id)}
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/25 text-caption font-medium transition-all"
-                  title="Ubah jam / jadwal pengingat"
+                  title={isEn ? "Change reminder time / schedule" : "Ubah jam / jadwal pengingat"}
                 >
                   <Bell className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Ubah Jadwal</span>
+                  <span>{isEn ? "Change Schedule" : "Ubah Jadwal"}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleDeleteReminderClick}
                   disabled={isDeletingReminder}
                   className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/25 text-caption transition-all"
-                  title="Hapus Pengingat Proyek Ini"
+                  title={isEn ? "Delete Reminder for This Project" : "Hapus Pengingat Proyek Ini"}
                 >
                   <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                 </button>
@@ -1220,7 +1220,7 @@ export function TodayTaskGuideModal({
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/10 text-caption font-medium transition-all"
               >
                 <Bell className="w-3.5 h-3.5 text-amber-400" />
-                <span>Pasang Pengingat</span>
+                <span>{isEn ? "Set Reminder" : "Pasang Pengingat"}</span>
               </button>
             )}
 
@@ -1228,7 +1228,7 @@ export function TodayTaskGuideModal({
               href={`/projects/${project.id}`}
               prefetch={false}
               className="p-1.5 text-white/40 hover:text-amber-300 rounded-xl hover:bg-white/[0.08] transition-colors"
-              title="Buka Workstation Proyek Penuh"
+              title={isEn ? "Open Full Project Workstation" : "Buka Workstation Proyek Penuh"}
             >
               <ArrowRight className="w-4 h-4" />
             </Link>
@@ -1238,7 +1238,7 @@ export function TodayTaskGuideModal({
               onClick={onClose}
               className="px-3.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white border border-white/10 text-caption font-medium transition-all"
             >
-              Tutup
+              {isEn ? "Close" : "Tutup"}
             </button>
           </div>
         </div>

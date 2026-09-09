@@ -37,6 +37,7 @@ import { GuideViewer } from "@/components/features/guide-viewer";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import type { ThreadItem } from "@/lib/supabase/thread-updates";
+import { useTranslation } from "@/lib/i18n/context";
 
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
 type ProjectStatusEnum = Database["public"]["Enums"]["project_status"];
@@ -58,6 +59,7 @@ interface ProjectDetailClientViewProps {
 
 export function ProjectDetailClientView({ project }: ProjectDetailClientViewProps) {
   const router = useRouter();
+  const { t, isEn } = useTranslation();
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
@@ -225,7 +227,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
       setCustomPlatform("");
     } catch (err: any) {
       console.error("Failed to add account:", err);
-      setAccountError(err?.message || "Gagal menyimpan akun.");
+      setAccountError(err?.message || (isEn ? "Failed to save account." : "Gagal menyimpan akun."));
     } finally {
       setIsSavingAccount(false);
     }
@@ -265,7 +267,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
           className="inline-flex items-center gap-1.5 text-caption font-medium text-text-secondary hover:text-text-primary transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Kembali ke daftar project</span>
+          <span>{isEn ? "Back to projects list" : "Kembali ke daftar project"}</span>
         </Link>
 
         <div className="flex items-center gap-2">
@@ -273,19 +275,19 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
             type="button"
             onClick={() => setIsTelegramModalOpen(true)}
             className="!py-1 !px-2.5 text-caption rounded-md bg-link-teal/15 border border-link-teal/30 text-link-teal hover:bg-link-teal/25 transition-colors font-medium inline-flex items-center gap-1.5 shadow-sm"
-            title="Cari update proyek ini di Telegram (Airdrop Finder & Duta Crypto)"
+            title={isEn ? "Search updates for this project on Telegram" : "Cari update proyek ini di Telegram (Airdrop Finder & Duta Crypto)"}
           >
             <Send className="w-3 h-3" />
-            <span>Cari Update TG</span>
+            <span>{isEn ? "Search TG Updates" : "Cari Update TG"}</span>
           </button>
 
           <ButtonSecondary
             onClick={() => setIsEditProjectModalOpen(true)}
             className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1"
-            title="Edit Detail & Tautan Proyek"
+            title={isEn ? "Edit Project Details & Links" : "Edit Detail & Tautan Proyek"}
           >
             <Edit2 className="w-3.5 h-3.5 text-text-secondary" />
-            <span>Edit Info</span>
+            <span>{isEn ? "Edit Info" : "Edit Info"}</span>
           </ButtonSecondary>
         </div>
       </div>
@@ -300,7 +302,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
             <p className="text-caption text-text-secondary font-mono mt-1 flex items-center gap-1.5">
               <span>Network/Chain:</span>
               <span className="text-text-primary font-semibold px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08]">
-                {project.chain || "Belum ditentukan"}
+                {project.chain || (isEn ? "Not specified" : "Belum ditentukan")}
               </span>
             </p>
           </div>
@@ -308,7 +310,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
           {/* 1-Click Status Pills */}
           <div className="flex flex-col sm:items-end gap-1.5 w-full sm:w-auto overflow-hidden">
             <span className="text-[11px] font-medium text-text-tertiary">
-              Status Proyek (1-Klik):
+              {isEn ? "Project Status (1-Click):" : "Status Proyek (1-Klik):"}
             </span>
             <ProjectStatusPills
               currentStatus={currentStatus}
@@ -332,15 +334,19 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               }`}
               title={
                 isTodayDone
-                  ? "Tugas hari ini sudah selesai dikerjakan! Klik jika ingin membuka kembali."
-                  : "Tandai tugas hari ini sudah dikerjakan (sinkron dengan Dashboard & reset besok jam 07:00 WIB)"
+                  ? (isEn
+                      ? "Today's tasks completed! Click if you want to reopen."
+                      : "Tugas hari ini sudah selesai dikerjakan! Klik jika ingin membuka kembali.")
+                  : (isEn
+                      ? "Mark today's tasks as done (syncs with Dashboard & resets at 07:00 WIB tomorrow)"
+                      : "Tandai tugas hari ini sudah dikerjakan (sinkron dengan Dashboard & reset besok jam 07:00 WIB)")
               }
             >
               <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>
                 {isTodayDone
-                  ? "✓ Tugas Hari Ini Selesai (Buka Kembali)"
-                  : "Tandai Selesai Hari Ini"}
+                  ? (isEn ? "✓ Today Done (Reopen)" : "✓ Tugas Hari Ini Selesai (Buka Kembali)")
+                  : (isEn ? "Mark Done Today" : "Tandai Selesai Hari Ini")}
               </span>
             </button>
 
@@ -366,15 +372,20 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               <Bell className="w-3.5 h-3.5 text-accent" />
               <span>
                 {reminders.length > 0
-                  ? `Pengingat Aktif (${reminders.length})`
-                  : "+ Pasang Pengingat"}
+                  ? (isEn ? `Active Reminders (${reminders.length})` : `Pengingat Aktif (${reminders.length})`)
+                  : (isEn ? "+ Set Reminder" : "+ Pasang Pengingat")}
               </span>
             </button>
           </div>
 
           <div className="flex items-center gap-2 text-caption text-text-tertiary">
             <span className="text-[11px] font-mono">
-              Terakhir diperbarui: {new Date(project.updated_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+              {isEn ? "Last updated: " : "Terakhir diperbarui: "}
+              {new Date(project.updated_at).toLocaleDateString(isEn ? "en-US" : "id-ID", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
             </span>
           </div>
         </div>
@@ -413,7 +424,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-accent" />
                 <h3 className="text-body-sm font-semibold text-text-primary">
-                  Pengingat ({reminders.length})
+                  {isEn ? "Reminders" : "Pengingat"} ({reminders.length})
                 </h3>
               </div>
               <ButtonSecondary
@@ -424,7 +435,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                 className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1 rounded-xl bg-white/[0.03] border-white/[0.08]"
               >
                 <Plus className="w-3 h-3" />
-                <span>Pasang</span>
+                <span>{isEn ? "Set" : "Pasang"}</span>
               </ButtonSecondary>
             </div>
 
@@ -432,13 +443,13 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               <div className="space-y-2">
                 {reminders.map((rem) => {
                   const dateStr = rem.next_trigger_at
-                    ? new Date(rem.next_trigger_at).toLocaleDateString("id-ID", {
+                    ? new Date(rem.next_trigger_at).toLocaleDateString(isEn ? "en-US" : "id-ID", {
                         day: "numeric",
                         month: "short",
                         hour: "2-digit",
                         minute: "2-digit",
                       })
-                    : "Belum diatur";
+                    : (isEn ? "Not set" : "Belum diatur");
                   const isPast = rem.next_trigger_at
                     ? new Date(rem.next_trigger_at).getTime() < Date.now()
                     : false;
@@ -459,11 +470,11 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                         </div>
                         <span className="text-[10px] text-text-tertiary capitalize font-mono">
                           {rem.frequency === "once"
-                            ? "Sekali"
+                            ? (isEn ? "Once" : "Sekali")
                             : rem.frequency === "daily"
-                            ? "Harian"
+                            ? (isEn ? "Daily" : "Harian")
                             : rem.frequency === "weekly"
-                            ? "Mingguan"
+                            ? (isEn ? "Weekly" : "Mingguan")
                             : rem.frequency}
                         </span>
                       </div>
@@ -476,7 +487,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                             setIsReminderModalOpen(true);
                           }}
                           className="p-1.5 text-text-tertiary hover:text-text-primary rounded-lg hover:bg-white/[0.05] transition-colors"
-                          title="Ubah pengingat"
+                          title={isEn ? "Edit reminder" : "Ubah pengingat"}
                         >
                           <Edit2 className="w-3 h-3" />
                         </button>
@@ -484,7 +495,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                           type="button"
                           onClick={() => handleDeleteReminder(rem.id)}
                           className="p-1.5 text-text-tertiary hover:text-status-overdue rounded-lg hover:bg-white/[0.05] transition-colors"
-                          title="Hapus pengingat"
+                          title={isEn ? "Delete reminder" : "Hapus pengingat"}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -495,7 +506,9 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               </div>
             ) : (
               <p className="text-caption text-text-tertiary">
-                Belum ada pengingat terjadwal untuk proyek ini.
+                {isEn
+                  ? "No scheduled reminders for this project."
+                  : "Belum ada pengingat terjadwal untuk proyek ini."}
               </p>
             )}
           </div>
@@ -506,7 +519,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-accent" />
                 <h3 className="text-body-sm font-semibold text-text-primary">
-                  Wallet ({wallets.length})
+                  {isEn ? "Wallets" : "Wallet"} ({wallets.length})
                 </h3>
               </div>
               <ButtonSecondary
@@ -514,7 +527,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                 className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1 rounded-xl bg-white/[0.03] border-white/[0.08]"
               >
                 <Plus className="w-3 h-3" />
-                <span>Atur</span>
+                <span>{isEn ? "Manage" : "Atur"}</span>
               </ButtonSecondary>
             </div>
 
@@ -542,7 +555,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                         type="button"
                         onClick={() => handleCopyWallet(w.id, w.address)}
                         className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-white/[0.05] transition-colors shrink-0"
-                        title="Salin Address"
+                        title={isEn ? "Copy Address" : "Salin Address"}
                       >
                         {isCopied ? (
                           <Check className="w-3.5 h-3.5 text-status-completed" />
@@ -556,7 +569,9 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               </div>
             ) : (
               <p className="text-caption text-text-tertiary">
-                Belum ada wallet dipasangkan ke proyek ini.
+                {isEn
+                  ? "No wallets assigned to this project."
+                  : "Belum ada wallet dipasangkan ke proyek ini."}
               </p>
             )}
           </div>
@@ -566,7 +581,9 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
                 <AtSign className="w-3.5 h-3.5 text-accent shrink-0" />
-                <span className="font-semibold text-text-primary">Akun Terkait</span>
+                <span className="font-semibold text-text-primary">
+                  {isEn ? "Linked Accounts" : "Akun Terkait"}
+                </span>
               </div>
 
               {!isAddingAccount ? (
@@ -577,10 +594,10 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                     setAccountError(null);
                   }}
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-caption font-medium bg-bg-elevated hover:bg-bg-elevated-2 text-accent border border-border-hairline transition-colors"
-                  title="Tambah catatan akun yang digunakan untuk airdrop ini"
+                  title={isEn ? "Add account notes used for this airdrop" : "Tambah catatan akun yang digunakan untuk airdrop ini"}
                 >
                   <Plus className="w-3 h-3" />
-                  <span>Tambah</span>
+                  <span>{isEn ? "Add" : "Tambah"}</span>
                 </button>
               ) : (
                 <button
@@ -590,7 +607,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                     setAccountError(null);
                   }}
                   className="p-1 rounded text-text-tertiary hover:text-text-primary transition-colors"
-                  title="Batal"
+                  title={isEn ? "Cancel" : "Batal"}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -601,7 +618,9 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
             {isAddingAccount && (
               <form onSubmit={handleAddAccount} className="p-3 rounded-lg bg-bg-elevated-2 border border-border-hairline space-y-2.5">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-mono text-text-secondary uppercase">Platform / Label</label>
+                  <label className="text-[11px] font-mono text-text-secondary uppercase">
+                    {isEn ? "Platform / Label" : "Platform / Label"}
+                  </label>
                   <select
                     value={accountPlatform}
                     onChange={(e) => setAccountPlatform(e.target.value)}
@@ -614,37 +633,44 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                     <option value="GitHub">GitHub</option>
                     <option value="Google">Google</option>
                     <option value="TikTok">TikTok</option>
-                    <option value="Lainnya">Lainnya...</option>
+                    <option value="Lainnya">{isEn ? "Other..." : "Lainnya..."}</option>
                   </select>
                 </div>
 
                 {accountPlatform === "Lainnya" && (
                   <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-text-secondary uppercase">Nama Platform</label>
+                    <label className="text-[11px] font-mono text-text-secondary uppercase">
+                      {isEn ? "Platform Name" : "Nama Platform"}
+                    </label>
                     <input
                       type="text"
                       value={customPlatform}
                       onChange={(e) => setCustomPlatform(e.target.value)}
-                      placeholder="Misal: Reddit, Medium, Galxe"
+                      placeholder={isEn ? "e.g. Reddit, Medium, Galxe" : "Misal: Reddit, Medium, Galxe"}
                       className="w-full px-2.5 py-1.5 rounded-md bg-bg-elevated border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
                     />
                   </div>
                 )}
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-mono text-text-secondary uppercase">Username / Email</label>
+                  <label className="text-[11px] font-mono text-text-secondary uppercase">
+                    Username / Email
+                  </label>
                   <input
                     type="text"
                     value={accountValue}
                     onChange={(e) => setAccountValue(e.target.value)}
-                    placeholder="@handle atau user@email.com"
+                    placeholder={isEn ? "@handle or user@email.com" : "@handle atau user@email.com"}
                     className="w-full px-2.5 py-1.5 rounded-md bg-bg-elevated border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent font-mono"
                     autoFocus
                   />
                 </div>
 
                 <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-400 leading-tight">
-                  ⚠️ <strong>Non-sensitif:</strong> Hanya simpan username/email. Dilarang memasukkan password atau seed phrase.
+                  ⚠️ <strong>{isEn ? "Non-sensitive:" : "Non-sensitif:"}</strong>{" "}
+                  {isEn
+                    ? "Only save username/email. Never enter passwords or seed phrases."
+                    : "Hanya simpan username/email. Dilarang memasukkan password atau seed phrase."}
                 </div>
 
                 {accountError && (
@@ -660,14 +686,16 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                     }}
                     className="px-2.5 py-1 rounded text-caption text-text-tertiary hover:text-text-primary transition-colors"
                   >
-                    Batal
+                    {isEn ? "Cancel" : "Batal"}
                   </button>
                   <button
                     type="submit"
                     disabled={isSavingAccount}
                     className="px-3 py-1 rounded bg-accent text-on-accent text-caption font-semibold hover:bg-accent-pressed transition-colors disabled:opacity-50"
                   >
-                    {isSavingAccount ? "Menyimpan..." : "Simpan Akun"}
+                    {isSavingAccount
+                      ? (isEn ? "Saving..." : "Menyimpan...")
+                      : (isEn ? "Save Account" : "Simpan Akun")}
                   </button>
                 </div>
               </form>
@@ -699,7 +727,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                           type="button"
                           onClick={() => handleCopyAccount(acc.id, acc.username_email)}
                           className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-elevated transition-colors"
-                          title="Salin username / email"
+                          title={isEn ? "Copy username / email" : "Salin username / email"}
                         >
                           {isCopied ? (
                             <Check className="w-3.5 h-3.5 text-status-completed" />
@@ -713,7 +741,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                           onClick={() => handleDeleteAccount(acc.id)}
                           disabled={isDeleting}
                           className="p-1 rounded text-text-tertiary hover:text-status-danger hover:bg-bg-elevated transition-colors disabled:opacity-40"
-                          title="Hapus akun ini"
+                          title={isEn ? "Delete this account" : "Hapus akun ini"}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -725,7 +753,9 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
             ) : !isAddingAccount ? (
               <div className="py-2 text-center space-y-1.5">
                 <p className="text-caption text-text-tertiary leading-relaxed">
-                  Belum ada akun tersimpan. Catat username Discord, X, atau email yang Anda gunakan untuk garapan ini agar tidak lupa.
+                  {isEn
+                    ? "No linked accounts saved. Note down Discord, X, or email usernames used for this airdrop so you don't forget."
+                    : "Belum ada akun tersimpan. Catat username Discord, X, atau email yang Anda gunakan untuk garapan ini agar tidak lupa."}
                 </p>
                 <button
                   type="button"
@@ -733,7 +763,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-caption font-medium bg-bg-elevated hover:bg-bg-elevated-2 text-accent border border-border-hairline transition-colors"
                 >
                   <Plus className="w-3 h-3" />
-                  <span>Tambah Akun</span>
+                  <span>{isEn ? "Add Account" : "Tambah Akun"}</span>
                 </button>
               </div>
             ) : null}

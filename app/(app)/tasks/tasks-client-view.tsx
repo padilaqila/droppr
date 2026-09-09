@@ -24,6 +24,7 @@ import {
   Search,
   Check,
   RotateCcw,
+  Circle,
 } from "lucide-react";
 import { TelegramUpdateModal } from "@/components/features/telegram-update-modal";
 import { cleanHtmlEntities } from "@/lib/supabase/thread-updates";
@@ -70,20 +71,20 @@ function getChannelLogo(channelOrUrl?: string | null) {
   };
 }
 
-function formatTime(isoString?: string | null): string {
+function formatTime(isoString?: string | null, isEn = false): string {
   if (!isoString) return "";
   try {
     const diffMs = Date.now() - new Date(isoString).getTime();
     const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 60) return "Baru saja";
+    if (diffSec < 60) return isEn ? "Just now" : "Baru saja";
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} mnt lalu`;
+    if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} mnt lalu`;
     const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return `${diffHours} jam lalu`;
+    if (diffHours < 24) return isEn ? `${diffHours}h ago` : `${diffHours} jam lalu`;
     const diffDays = Math.floor(diffHours / 24);
-    if (diffDays === 1) return "Kemarin";
-    if (diffDays < 7) return `${diffDays} hari lalu`;
-    return new Date(isoString).toLocaleDateString("id-ID", {
+    if (diffDays === 1) return isEn ? "Yesterday" : "Kemarin";
+    if (diffDays < 7) return isEn ? `${diffDays}d ago` : `${diffDays} hari lalu`;
+    return new Date(isoString).toLocaleDateString(isEn ? "en-US" : "id-ID", {
       day: "numeric",
       month: "short",
     });
@@ -113,7 +114,7 @@ export function TasksClientView({
   initialUpdates = [],
   initialReminders = [],
 }: TasksClientViewProps) {
-  const { t } = useTranslation();
+  const { t, isEn } = useTranslation();
   const [projects, setProjects] = useState<ProjectRow[]>(initialProjects);
   const [tasks, setTasks] = useState<any[]>(initialTasks);
   const [updates, setUpdates] = useState<any[]>(initialUpdates);
@@ -529,10 +530,10 @@ export function TasksClientView({
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <span className="text-caption font-bold text-text-primary">
-                          {opType === "recurring" && "Tugas Rutin Berulang (Daily/Periodic)"}
-                          {opType === "one_time" && "Tugas Sekali Selesai (Set & Forget)"}
-                          {opType === "waiting" && "Garapan Ditutup / Menunggu Snapshot"}
-                          {opType === "ready_to_claim" && "Siap Klaim Reward"}
+                          {opType === "recurring" && (isEn ? "Recurring Tasks (Daily/Periodic)" : "Tugas Rutin Berulang (Daily/Periodic)")}
+                          {opType === "one_time" && (isEn ? "One-Time Task (Set & Forget)" : "Tugas Sekali Selesai (Set & Forget)")}
+                          {opType === "waiting" && (isEn ? "Airdrop Ended / Waiting Snapshot" : "Garapan Ditutup / Menunggu Snapshot")}
+                          {opType === "ready_to_claim" && (isEn ? "Ready to Claim Reward" : "Siap Klaim Reward")}
                         </span>
 
                         {/* Switch type button for active projects */}
@@ -547,22 +548,32 @@ export function TasksClientView({
                               )
                             }
                             className="text-[10px] font-mono text-text-tertiary hover:text-accent underline transition-colors"
-                            title="Ubah tipe operasional garapan ini"
+                            title={isEn ? "Change operational type for this project" : "Ubah tipe operasional garapan ini"}
                           >
-                            {opType === "recurring" ? "Ubah ke Sekali Selesai" : "Ubah ke Rutin Berulang"}
+                            {opType === "recurring"
+                              ? (isEn ? "Switch to One-Time" : "Ubah ke Sekali Selesai")
+                              : (isEn ? "Switch to Recurring" : "Ubah ke Rutin Berulang")}
                           </button>
                         )}
                       </div>
 
                       <p className="text-[11px] text-text-secondary">
                         {opType === "recurring" &&
-                          "Membutuhkan transaksi berkala, faucet, atau check-in harian (Reset 07:00 WIB)."}
+                          (isEn
+                            ? "Requires periodic transactions, faucet, or daily check-in (Reset 07:00 WIB)."
+                            : "Membutuhkan transaksi berkala, faucet, atau check-in harian (Reset 07:00 WIB).")}
                         {opType === "one_time" &&
-                          "Cukup dikerjakan 1x (misal isi form waitlist, klaim OAT/role Discord)."}
+                          (isEn
+                            ? "Completed once (e.g. fill waitlist form, claim OAT/Discord role)."
+                            : "Cukup dikerjakan 1x (misal isi form waitlist, klaim OAT/role Discord).")}
                         {opType === "waiting" &&
-                          "⛔ Fase testnet telah berakhir — Anda tidak perlu buang gas/waktu transaksi lagi."}
+                          (isEn
+                            ? "⛔ Testnet phase has ended — no need to spend further gas or transaction time."
+                            : "⛔ Fase testnet telah berakhir — Anda tidak perlu buang gas/waktu transaksi lagi.")}
                         {opType === "ready_to_claim" &&
-                          "🎉 Alokasi token telah diumumkan! Kunjungi portal klaim untuk menarik reward Anda."}
+                          (isEn
+                            ? "🎉 Token allocation announced! Visit the claim portal to withdraw your reward."
+                            : "🎉 Alokasi token telah diumumkan! Kunjungi portal klaim untuk menarik reward Anda.")}
                       </p>
                     </div>
                   </div>
@@ -587,7 +598,7 @@ export function TasksClientView({
                           </>
                         ) : (
                           <>
-                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            <Circle className="w-3.5 h-3.5 text-text-tertiary" />
                             <span>{t("tasks.card.markDoneToday")}</span>
                           </>
                         )}
@@ -610,7 +621,7 @@ export function TasksClientView({
                   </div>
                 ) : (
                   <p className="text-caption text-text-tertiary italic">
-                    Belum ada panduan atau catatan khusus tersimpan.
+                    {isEn ? "No guide or special notes saved yet." : "Belum ada panduan atau catatan khusus tersimpan."}
                   </p>
                 )}
 
@@ -620,11 +631,11 @@ export function TasksClientView({
                     <span className="text-text-tertiary flex items-center gap-1.5 font-mono text-[11px] truncate">
                       <Newspaper className="w-3 h-3 text-link-teal shrink-0" />
                       <span className="truncate">
-                        Update Terkini: {cleanHtmlEntities(projectUpdates[0].title).slice(0, 70)}...
+                        {isEn ? "Latest Update: " : "Update Terkini: "}{cleanHtmlEntities(projectUpdates[0].title).slice(0, 70)}...
                       </span>
                     </span>
                     <span className="text-text-tertiary text-[11px] font-mono shrink-0">
-                      {formatTime(projectUpdates[0].created_at)}
+                      {formatTime(projectUpdates[0].created_at, isEn)}
                     </span>
                   </div>
                 )}

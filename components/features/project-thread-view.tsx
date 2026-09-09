@@ -92,20 +92,20 @@ function getChannelSource(
 }
 
 // Format relative or date time
-function formatTime(isoString?: string | null): string {
+function formatTime(isoString?: string | null, isEn?: boolean): string {
   if (!isoString) return "";
   try {
     const diffMs = Date.now() - new Date(isoString).getTime();
     const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 60) return "Baru saja";
+    if (diffSec < 60) return isEn ? "Just now" : "Baru saja";
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} mnt lalu`;
+    if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} mnt lalu`;
     const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return `${diffHours} jam lalu`;
+    if (diffHours < 24) return isEn ? `${diffHours}h ago` : `${diffHours} jam lalu`;
     const diffDays = Math.floor(diffHours / 24);
-    if (diffDays === 1) return "Kemarin";
-    if (diffDays < 7) return `${diffDays} hari lalu`;
-    return new Date(isoString).toLocaleDateString("id-ID", {
+    if (diffDays === 1) return isEn ? "Yesterday" : "Kemarin";
+    if (diffDays < 7) return isEn ? `${diffDays}d ago` : `${diffDays} hari lalu`;
+    return new Date(isoString).toLocaleDateString(isEn ? "en-US" : "id-ID", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -259,7 +259,7 @@ export function ProjectThreadView({
   refreshTrigger = 0,
   onThreadsLoaded,
 }: ProjectThreadViewProps) {
-  const { locale } = useTranslation();
+  const { locale, isEn } = useTranslation();
   const [threads, setThreads] = useState<ThreadItem[]>([]);
   const [filter, setFilter] = useState<"all" | "news">("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -409,10 +409,12 @@ export function ProjectThreadView({
             </div>
             <div>
               <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary tracking-tight">
-                Linimasa Garapan & Update
+                {isEn ? "Airdrop Timeline & Updates" : "Linimasa Garapan & Update"}
               </h2>
               <p className="text-caption text-text-secondary mt-0.5">
-                Postingan asli panduan garapan dan kabar terbaru proyek secara kronologis.
+                {isEn
+                  ? "Original guide posts and latest project updates in chronological order."
+                  : "Postingan asli panduan garapan dan kabar terbaru proyek secara kronologis."}
               </p>
             </div>
           </div>
@@ -422,10 +424,14 @@ export function ProjectThreadView({
               type="button"
               onClick={onOpenTelegramSearch}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-link-teal/10 border border-link-teal/30 hover:border-link-teal/60 text-link-teal hover:bg-link-teal/20 text-caption font-semibold transition-all shadow-xs"
-              title="Cari update tentang proyek ini di Telegram (Duta Crypto & Airdrop Finder)"
+              title={
+                isEn
+                  ? "Search updates about this project on Telegram (Duta Crypto & Airdrop Finder)"
+                  : "Cari update tentang proyek ini di Telegram (Duta Crypto & Airdrop Finder)"
+              }
             >
               <Send className="w-3.5 h-3.5" />
-              <span>Cek Update TG</span>
+              <span>{isEn ? "Check TG Updates" : "Cek Update TG"}</span>
             </button>
           </div>
         </div>
@@ -441,7 +447,7 @@ export function ProjectThreadView({
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            Semua Alur ({1 + threads.length})
+            {isEn ? `All Threads (${1 + threads.length})` : `Semua Alur (${1 + threads.length})`}
           </button>
 
           <button
@@ -454,7 +460,7 @@ export function ProjectThreadView({
             }`}
           >
             <Newspaper className="w-3.5 h-3.5" />
-            <span>📢 Update Info ({totalNews})</span>
+            <span>{isEn ? `📢 Info Updates (${totalNews})` : `📢 Update Info (${totalNews})`}</span>
           </button>
         </div>
       </div>
@@ -503,14 +509,14 @@ export function ProjectThreadView({
                 <span className="text-white/20 text-caption">•</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-accent/20 text-accent border border-accent/30 flex items-center gap-1 shadow-xs">
                   <Pin className="w-2.5 h-2.5" />
-                  <span>Post Utama</span>
+                  <span>{isEn ? "Main Post" : "Post Utama"}</span>
                 </span>
                 {projectCreatedAt && (
                   <>
                     <span className="text-white/20 text-caption">•</span>
                     <span className="text-[11px] font-mono text-text-tertiary flex items-center gap-1">
                       <Clock className="w-3 h-3 text-text-tertiary/70" />
-                      <span>{formatTime(projectCreatedAt)}</span>
+                      <span>{formatTime(projectCreatedAt, isEn)}</span>
                     </span>
                   </>
                 )}
@@ -528,7 +534,7 @@ export function ProjectThreadView({
                         ? "bg-status-completed/20 text-status-completed border border-status-completed/40"
                         : "bg-white/[0.03] text-text-secondary hover:text-text-primary border border-white/[0.08]"
                     }`}
-                    title="Terjemahkan teks postingan"
+                    title={isEn ? "Translate post text" : "Terjemahkan teks postingan"}
                   >
                     <Languages className={`w-3 h-3 ${isTranslating ? "animate-spin text-accent" : ""}`} />
                     <span>
@@ -549,7 +555,7 @@ export function ProjectThreadView({
                     className="inline-flex items-center gap-1 text-[11px] text-link-teal hover:underline font-medium"
                   >
                     <Send className="w-3 h-3" />
-                    <span>Buka di TG</span>
+                    <span>{isEn ? "Open in TG" : "Buka di TG"}</span>
                     <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
                   </a>
                 )}
@@ -573,7 +579,9 @@ export function ProjectThreadView({
               </div>
             ) : (
               <p className="text-caption text-text-tertiary italic p-3 text-center">
-                Belum ada teks panduan atau postingan asli untuk proyek ini.
+                {isEn
+                  ? "No guide text or original post for this project yet."
+                  : "Belum ada teks panduan atau postingan asli untuk proyek ini."}
               </p>
             )}
           </div>
@@ -608,13 +616,13 @@ export function ProjectThreadView({
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-link-teal/20 text-link-teal border border-link-teal/30 flex items-center gap-1 shadow-xs">
                       <Newspaper className="w-2.5 h-2.5" />
-                      <span>Update Info</span>
+                      <span>{isEn ? "Info Update" : "Update Info"}</span>
                     </span>
 
                     <span className="text-white/20 text-caption">•</span>
                     <span className="text-[11px] font-mono text-text-tertiary flex items-center gap-1">
                       <Clock className="w-3 h-3 text-text-tertiary/70" />
-                      <span>{formatTime(item.created_at)}</span>
+                      <span>{formatTime(item.created_at, isEn)}</span>
                     </span>
                   </div>
 
@@ -626,7 +634,7 @@ export function ProjectThreadView({
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[11px] text-link-teal hover:underline font-medium"
                       >
-                        <span>Sumber</span>
+                        <span>{isEn ? "Source" : "Sumber"}</span>
                         <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     )}
@@ -635,7 +643,7 @@ export function ProjectThreadView({
                       type="button"
                       onClick={() => handleDeleteThread(item.id)}
                       className="p-1 rounded text-text-tertiary hover:text-status-danger hover:bg-white/[0.05] transition-colors"
-                      title="Hapus catatan update ini"
+                      title={isEn ? "Delete this update note" : "Hapus catatan update ini"}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -670,7 +678,7 @@ export function ProjectThreadView({
         <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/[0.06]">
           <span className="text-caption font-semibold text-text-secondary flex items-center gap-1.5">
             <Newspaper className="w-3.5 h-3.5 text-link-teal" />
-            <span>Tambah Catatan / Pembaruan Proyek</span>
+            <span>{isEn ? "Add Note / Project Update" : "Tambah Catatan / Pembaruan Proyek"}</span>
           </span>
 
           <button
@@ -683,7 +691,11 @@ export function ProjectThreadView({
             }`}
           >
             <LinkIcon className="w-3.5 h-3.5" />
-            <span>{inputSourceUrl ? "Link Terpasang" : "+ Link Sumber (Opsional)"}</span>
+            <span>
+              {inputSourceUrl
+                ? (isEn ? "Link Attached" : "Link Terpasang")
+                : (isEn ? "+ Source Link (Optional)" : "+ Link Sumber (Opsional)")}
+            </span>
           </button>
         </div>
 
@@ -693,7 +705,11 @@ export function ProjectThreadView({
             type="url"
             value={inputSourceUrl}
             onChange={(e) => setInputSourceUrl(e.target.value)}
-            placeholder="https://t.me/... atau link pengumuman resmi..."
+            placeholder={
+              isEn
+                ? "https://t.me/... or official announcement link..."
+                : "https://t.me/... atau link pengumuman resmi..."
+            }
             className="w-full px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-link-teal/50"
           />
         )}
@@ -705,7 +721,11 @@ export function ProjectThreadView({
             type="text"
             value={inputTitle}
             onChange={(e) => setInputTitle(e.target.value)}
-            placeholder={`Tulis catatan atau info update baru untuk ${projectName}...`}
+            placeholder={
+              isEn
+                ? `Write note or new update info for ${projectName}...`
+                : `Tulis catatan atau info update baru untuk ${projectName}...`
+            }
             className="flex-1 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
           />
 
@@ -715,11 +735,15 @@ export function ProjectThreadView({
               type="button"
               onClick={onOpenTelegramSearch}
               className="px-3.5 py-2.5 rounded-xl bg-link-teal/15 text-link-teal border border-link-teal/30 hover:bg-link-teal/25 font-semibold text-caption transition-all shrink-0 flex items-center gap-1.5 shadow-sm"
-              title="Cek update Telegram terbaru untuk proyek ini"
+              title={
+                isEn
+                  ? "Check latest Telegram updates for this project"
+                  : "Cek update Telegram terbaru untuk proyek ini"
+              }
             >
               <Send className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Cek Update TG</span>
-              <span className="sm:hidden">Update TG</span>
+              <span className="hidden sm:inline">{isEn ? "Check TG Updates" : "Cek Update TG"}</span>
+              <span className="sm:hidden">{isEn ? "TG Updates" : "Update TG"}</span>
             </button>
 
             {/* Tombol Submit Simpan Catatan */}
@@ -728,7 +752,7 @@ export function ProjectThreadView({
               disabled={!inputTitle.trim() || isSubmitting}
               className="px-4 py-2.5 rounded-xl font-semibold text-caption bg-accent text-on-accent hover:bg-accent-pressed disabled:opacity-40 transition-all shrink-0 shadow-lg shadow-accent/20"
             >
-              + Simpan Catatan
+              {isEn ? "+ Save Note" : "+ Simpan Catatan"}
             </button>
           </div>
         </div>

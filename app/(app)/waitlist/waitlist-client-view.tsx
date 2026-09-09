@@ -31,6 +31,7 @@ import { Modal } from "@/components/ui/modal";
 import { ButtonSecondary } from "@/components/ui/button";
 import { ProjectReviewModal } from "@/components/features/project-review-modal";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 import {
   type WaitlistItem,
   fetchWaitlists,
@@ -70,6 +71,7 @@ function getChannelInfo(channelId: string) {
 
 export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps) {
   const router = useRouter();
+  const { isEn } = useTranslation();
   const [waitlists, setWaitlists] = useState<WaitlistItem[]>(initialWaitlists);
   const [activeTab, setActiveTab] = useState<"joined" | "pending">("joined");
   const [searchQuery, setSearchQuery] = useState("");
@@ -422,13 +424,15 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             </div>
             <div>
               <h1 className="text-heading-2 font-bold text-text-primary tracking-tight flex items-center gap-2">
-                <span>Waitlist Airdrop</span>
+                <span>{isEn ? "Airdrop Waitlist" : "Waitlist Airdrop"}</span>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-accent/15 text-accent border border-accent/30 shadow-xs">
-                  Rentang 90 Hari
+                  {isEn ? "90-Day Range" : "Rentang 90 Hari"}
                 </span>
               </h1>
               <p className="text-body-sm text-text-secondary mt-0.5">
-                Kelola proyek waitlist yang kamu ikuti, catat akun terdaftar, dan pantau update terbaru langsung dari Telegram.
+                {isEn
+                  ? "Manage waitlists you joined, track registered identities, and monitor updates directly from Telegram."
+                  : "Kelola proyek waitlist yang kamu ikuti, catat akun terdaftar, dan pantau update terbaru langsung dari Telegram."}
               </p>
             </div>
           </div>
@@ -439,10 +443,10 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             onClick={handleSyncTelegram}
             disabled={isSyncing}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-on-accent font-semibold text-caption sm:text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-all shadow-lg shadow-accent/20"
-            title="Pindai postingan waitlist dari Telegram 3 bulan terakhir"
+            title={isEn ? "Scan waitlist posts from Telegram in the last 3 months" : "Pindai postingan waitlist dari Telegram 3 bulan terakhir"}
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
-            <span>{isSyncing ? "Memindai 90 Hari..." : "Sinkronkan Telegram 90 Hari"}</span>
+            <span>{isSyncing ? (isEn ? "Scanning 90 Days..." : "Memindai 90 Hari...") : (isEn ? "Sync Telegram (90 Days)" : "Sinkronkan Telegram 90 Hari")}</span>
           </button>
         </div>
       </div>
@@ -469,7 +473,11 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           <div className="flex items-center gap-2.5 min-w-0">
             <Check className="w-5 h-5 text-status-completed shrink-0 stroke-[3]" />
             <div className="text-body-sm text-text-primary">
-              Berhasil memindahkan <strong>{transferSuccessNotification.count} tugas</strong> ke proyek <strong>{transferSuccessNotification.name}</strong>!
+              {isEn ? (
+                <>Successfully moved <strong>{transferSuccessNotification.count} tasks</strong> to project <strong>{transferSuccessNotification.name}</strong>!</>
+              ) : (
+                <>Berhasil memindahkan <strong>{transferSuccessNotification.count} tugas</strong> ke proyek <strong>{transferSuccessNotification.name}</strong>!</>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -477,7 +485,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               onClick={() => router.push(`/projects/${transferSuccessNotification.projectId}`)}
               className="px-3 py-1.5 rounded-lg bg-status-completed text-white text-caption font-semibold hover:opacity-90 transition-opacity"
             >
-              Buka Proyek →
+              {isEn ? "Open Project →" : "Buka Proyek →"}
             </button>
             <button
               onClick={() => setTransferSuccessNotification(null)}
@@ -502,7 +510,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             }`}
           >
             <UserCheck className="w-4 h-4 text-status-completed shrink-0" />
-            <span>Waitlist yang Saya Ikuti</span>
+            <span>{isEn ? "Waitlists I Joined" : "Waitlist yang Saya Ikuti"}</span>
             <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-status-completed/20 text-status-completed font-bold">
               {joinedCount}
             </span>
@@ -517,7 +525,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             }`}
           >
             <Sparkles className="w-4 h-4 text-accent shrink-0" />
-            <span>Eksplorasi Waitlist Baru</span>
+            <span>{isEn ? "Explore New Waitlists" : "Eksplorasi Waitlist Baru"}</span>
             <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-accent/20 text-accent font-bold">
               {pendingCount}
             </span>
@@ -534,7 +542,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               onChange={(e) => setChannelFilter(e.target.value as any)}
               className="bg-transparent text-caption text-text-primary focus:outline-none cursor-pointer pr-1"
             >
-              <option value="all" className="bg-[#0e131b] text-text-primary">Semua Channel</option>
+              <option value="all" className="bg-[#0e131b] text-text-primary">{isEn ? "All Channels" : "Semua Channel"}</option>
               <option value="dutacryptoairdrop" className="bg-[#0e131b] text-text-primary">Duta Crypto</option>
               <option value="airdropfind" className="bg-[#0e131b] text-text-primary">Airdrop Finder</option>
             </select>
@@ -547,7 +555,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari proyek / email terdaftar..."
+              placeholder={isEn ? "Search project / registered email..." : "Cari proyek / email terdaftar..."}
               className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
             />
           </div>
@@ -560,13 +568,13 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           <Hourglass className="w-10 h-10 text-text-tertiary mx-auto opacity-50 stroke-1" />
           <p className="text-body-md text-text-secondary font-medium">
             {activeTab === "joined"
-              ? "Belum ada proyek waitlist yang kamu ikuti."
-              : "Tidak ada data waitlist baru yang cocok dengan filter pencarian."}
+              ? (isEn ? "No waitlist projects joined yet." : "Belum ada proyek waitlist yang kamu ikuti.")
+              : (isEn ? "No new waitlist matches search filter." : "Tidak ada data waitlist baru yang cocok dengan filter pencarian.")}
           </p>
           <p className="text-caption text-text-tertiary max-w-md mx-auto">
             {activeTab === "joined"
-              ? "Buka tab 'Eksplorasi Waitlist Baru' di atas lalu klik [+ Tandai Sudah Join] pada proyek yang telah kamu daftarkan."
-              : "Klik tombol 'Sinkronkan Telegram 90 Hari' di kanan atas untuk memindai postingan waitlist terbaru dari channel Telegram."}
+              ? (isEn ? "Go to 'Explore New Waitlists' tab above and click [+ Mark as Joined] on projects you registered." : "Buka tab 'Eksplorasi Waitlist Baru' di atas lalu klik [+ Tandai Sudah Join] pada proyek yang telah kamu daftarkan.")
+              : (isEn ? "Click 'Sync Telegram (90 Days)' on top right to scan the latest waitlists from Telegram." : "Klik tombol 'Sinkronkan Telegram 90 Hari' di kanan atas untuk memindai postingan waitlist terbaru dari channel Telegram.")}
           </p>
         </div>
       ) : (
@@ -694,9 +702,9 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                             type="button"
                             onClick={() => setDetailModalTarget(item)}
                             className="text-[11px] text-accent hover:text-accent-hover font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
-                            title="Klik untuk membuka popup seluruh langkah pendaftaran lengkap"
+                            title={isEn ? "Click to open popup of all full registration steps" : "Klik untuk membuka popup seluruh langkah pendaftaran lengkap"}
                           >
-                            <span>+{item.tasks.length - 3} langkah lainnya (Lihat Semua)</span>
+                            <span>{isEn ? `+${item.tasks.length - 3} more steps (View All)` : `+${item.tasks.length - 3} langkah lainnya (Lihat Semua)`}</span>
                             <ExternalLink className="w-2.5 h-2.5" />
                           </button>
                         </div>
@@ -732,10 +740,10 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           type="button"
                           onClick={() => handleOpenTgSearch(item)}
                           className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:border-link-teal/40 text-link-teal hover:bg-link-teal/10 text-caption font-semibold transition-all shadow-xs"
-                          title="Cari perkembangan terbaru dari Telegram untuk proyek ini"
+                          title={isEn ? "Search latest developments on Telegram for this project" : "Cari perkembangan terbaru dari Telegram untuk proyek ini"}
                         >
                           <Search className="w-3.5 h-3.5" />
-                          <span>Update TG</span>
+                          <span>{isEn ? "TG Update" : "Update TG"}</span>
                         </button>
 
                         {/* + PROYEK REVIEW MODAL */}
@@ -743,10 +751,10 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           type="button"
                           onClick={() => setReviewingWaitlist(item)}
                           className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-lg shadow-accent/20"
-                          title="Review dan buat proyek Droppr"
+                          title={isEn ? "Review and convert to Droppr project" : "Review dan buat proyek Droppr"}
                         >
                           <FolderPlus className="w-3.5 h-3.5" />
-                          <span>+ Proyek</span>
+                          <span>{isEn ? "+ Project" : "+ Proyek"}</span>
                         </button>
                       </div>
 
@@ -756,18 +764,18 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           type="button"
                           onClick={() => handleRevertToPending(item.id)}
                           className="text-text-tertiary hover:text-text-secondary text-[11px] transition-colors"
-                          title="Kembalikan ke tab Eksplorasi"
+                          title={isEn ? "Return to Explore tab" : "Kembalikan ke tab Eksplorasi"}
                         >
-                          Batal Join
+                          {isEn ? "Cancel Join" : "Batal Join"}
                         </button>
                         <span>•</span>
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
                           className="text-text-tertiary hover:text-status-overdue text-[11px] transition-colors"
-                          title="Hapus waitlist"
+                          title={isEn ? "Delete waitlist" : "Hapus waitlist"}
                         >
-                          Hapus
+                          {isEn ? "Delete" : "Hapus"}
                         </button>
                       </div>
                     </div>
@@ -780,7 +788,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                         className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-lg shadow-accent/20"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>Tandai Sudah Join</span>
+                        <span>{isEn ? "Mark as Joined" : "Tandai Sudah Join"}</span>
                       </button>
 
                       <div className="flex items-center justify-between text-caption pt-1 text-text-tertiary">
@@ -791,7 +799,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           className="text-text-secondary hover:text-link-teal hover:underline inline-flex items-center gap-1 text-[11px] transition-colors"
                         >
                           <Send className="w-3 h-3 text-link-teal" />
-                          <span>Buka Telegram</span>
+                          <span>{isEn ? "Open Telegram" : "Buka Telegram"}</span>
                           <ExternalLink className="w-2.5 h-2.5" />
                         </a>
 
@@ -819,31 +827,31 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
       <Modal
         isOpen={Boolean(targetItemForJoin)}
         onClose={() => setTargetItemForJoin(null)}
-        title={`Catat Pendaftaran Waitlist: ${targetItemForJoin?.project_name || ""}`}
-        description="Simpan informasi akun atau email yang kamu gunakan untuk mendaftar waitlist ini agar tidak lupa saat distribusi."
+        title={isEn ? `Record Waitlist Registration: ${targetItemForJoin?.project_name || ""}` : `Catat Pendaftaran Waitlist: ${targetItemForJoin?.project_name || ""}`}
+        description={isEn ? "Save account or email info used to sign up for this waitlist so you won't forget during distribution." : "Simpan informasi akun atau email yang kamu gunakan untuk mendaftar waitlist ini agar tidak lupa saat distribusi."}
         maxWidth="md"
       >
         <form onSubmit={handleSaveJoinStatus} className="space-y-4">
           <div>
             <label className="block text-caption font-semibold text-text-primary mb-1">
-              Akun / Email Terdaftar <span className="text-accent">*</span>
+              {isEn ? "Registered Account / Email" : "Akun / Email Terdaftar"} <span className="text-accent">*</span>
             </label>
             <input
               type="text"
               required
               value={accountInput}
               onChange={(e) => setAccountInput(e.target.value)}
-              placeholder="Contoh: airdrop_hunter@gmail.com / @username_x / 0x123..."
+              placeholder={isEn ? "e.g. hunter@gmail.com / @x_handle / 0x123..." : "Contoh: airdrop_hunter@gmail.com / @username_x / 0x123..."}
               className="w-full px-3 py-2 rounded-md bg-bg-elevated border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
             />
             <p className="text-[11px] text-text-tertiary mt-1">
-              Catatan email, wallet, atau handle sosial media yang dipakai saat submit waitlist.
+              {isEn ? "Note email, wallet, or social handle used when submitting this waitlist." : "Catatan email, wallet, atau handle sosial media yang dipakai saat submit waitlist."}
             </p>
           </div>
 
           <div>
             <label className="block text-caption font-semibold text-text-primary mb-1">
-              Link Referal / URL Pendaftaran (Opsional)
+              {isEn ? "Referral Link / Registration URL (Optional)" : "Link Referal / URL Pendaftaran (Opsional)"}
             </label>
             <input
               type="url"
@@ -856,7 +864,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-hairline">
             <ButtonSecondary type="button" onClick={() => setTargetItemForJoin(null)}>
-              Batal
+              {isEn ? "Cancel" : "Batal"}
             </ButtonSecondary>
             <button
               type="submit"
@@ -868,7 +876,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               ) : (
                 <ShieldCheck className="w-4 h-4" />
               )}
-              <span>Simpan Catatan</span>
+              <span>{isEn ? "Save Notes" : "Simpan Catatan"}</span>
             </button>
           </div>
         </form>
@@ -1040,7 +1048,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             )}
 
             <ButtonSecondary type="button" onClick={() => setTgSearchTarget(null)}>
-              Tutup
+              {isEn ? "Close" : "Tutup"}
             </ButtonSecondary>
           </div>
         </div>
@@ -1077,7 +1085,9 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   <div className="flex items-center gap-2 min-w-0">
                     <FolderPlus className="w-4 h-4 text-accent shrink-0" />
                     <div className="truncate">
-                      <div className="text-caption font-semibold">Buat Proyek Baru</div>
+                      <div className="text-caption font-semibold">
+                        {isEn ? "Create New Project" : "Buat Proyek Baru"}
+                      </div>
                       <div className="text-[11px] text-text-tertiary truncate">{transferProjectName}</div>
                     </div>
                   </div>
@@ -1090,7 +1100,11 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                     if (existingProjects.length > 0) {
                       setTransferProjectMode("existing");
                     } else {
-                      alert("Belum ada proyek lain yang terdaftar. Gunakan 'Buat Proyek Baru'.");
+                      alert(
+                        isEn
+                          ? "No other projects registered yet. Use 'Create New Project'."
+                          : "Belum ada proyek lain yang terdaftar. Gunakan 'Buat Proyek Baru'."
+                      );
                     }
                   }}
                   className={`p-2.5 rounded-md border text-left transition-all flex items-center justify-between ${
@@ -1102,8 +1116,14 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   <div className="flex items-center gap-2 min-w-0">
                     <ListPlus className="w-4 h-4 text-link-teal shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-caption font-semibold">Gabung Proyek Ada</div>
-                      <div className="text-[11px] text-text-tertiary">Pilih ({existingProjects.length} proyek)</div>
+                      <div className="text-caption font-semibold">
+                        {isEn ? "Merge with Existing" : "Gabung Proyek Ada"}
+                      </div>
+                      <div className="text-[11px] text-text-tertiary">
+                        {isEn
+                          ? `Select (${existingProjects.length} projects)`
+                          : `Pilih (${existingProjects.length} proyek)`}
+                      </div>
                     </div>
                   </div>
                   {transferProjectMode === "existing" && <Check className="w-4 h-4 text-accent shrink-0" />}
@@ -1112,7 +1132,9 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
 
               {transferProjectMode === "new" ? (
                 <div>
-                  <label className="block text-[11px] text-text-tertiary mb-1">Nama Proyek:</label>
+                  <label className="block text-[11px] text-text-tertiary mb-1">
+                    {isEn ? "Project Name:" : "Nama Proyek:"}
+                  </label>
                   <input
                     type="text"
                     required
@@ -1123,7 +1145,9 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 </div>
               ) : (
                 <div>
-                  <label className="block text-[11px] text-text-tertiary mb-1">Pilih Proyek Penerima Tugas:</label>
+                  <label className="block text-[11px] text-text-tertiary mb-1">
+                    {isEn ? "Select Receiving Project:" : "Pilih Proyek Penerima Tugas:"}
+                  </label>
                   <select
                     value={selectedExistingProjectId}
                     onChange={(e) => setSelectedExistingProjectId(e.target.value)}
@@ -1142,7 +1166,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             {/* Task Type selector */}
             <div className="flex items-center justify-between p-2.5 rounded-lg bg-bg-elevated border border-border-hairline">
               <span className="text-caption font-semibold text-text-primary">
-                Kategori / Siklus Tugas:
+                {isEn ? "Task Category / Frequency:" : "Kategori / Siklus Tugas:"}
               </span>
               <div className="flex items-center gap-1.5">
                 <button
@@ -1154,7 +1178,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       : "text-text-secondary hover:bg-bg-elevated-2"
                   }`}
                 >
-                  Sekali Selesai (One-time)
+                  {isEn ? "One-time Task" : "Sekali Selesai (One-time)"}
                 </button>
                 <button
                   type="button"
@@ -1165,7 +1189,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       : "text-text-secondary hover:bg-bg-elevated-2"
                   }`}
                 >
-                  Tugas Harian (Daily)
+                  {isEn ? "Daily Task" : "Tugas Harian (Daily)"}
                 </button>
               </div>
             </div>
@@ -1175,16 +1199,22 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               <div className="flex items-center justify-between">
                 <label className="block text-caption font-semibold text-text-primary flex items-center gap-1.5">
                   <CheckSquare className="w-4 h-4 text-accent" />
-                  <span>Daftar Tugas ({transferTaskList.length}):</span>
+                  <span>
+                    {isEn
+                      ? `Task List (${transferTaskList.length}):`
+                      : `Daftar Tugas (${transferTaskList.length}):`}
+                  </span>
                 </label>
                 <span className="text-[11px] text-text-tertiary">
-                  Dapat diedit atau dihapus
+                  {isEn ? "Can be edited or deleted" : "Dapat diedit atau dihapus"}
                 </span>
               </div>
 
               {transferTaskList.length === 0 ? (
                 <div className="p-4 rounded-md bg-bg-elevated text-center text-caption text-text-tertiary">
-                  Belum ada langkah tugas. Tambahkan tugas di bawah.
+                  {isEn
+                    ? "No task steps yet. Add tasks below."
+                    : "Belum ada langkah tugas. Tambahkan tugas di bawah."}
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -1234,7 +1264,11 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       handleAddCustomTaskToTransfer();
                     }
                   }}
-                  placeholder="+ Tambah baris instruksi tugas baru..."
+                  placeholder={
+                    isEn
+                      ? "+ Add new task instruction line..."
+                      : "+ Tambah baris instruksi tugas baru..."
+                  }
                   className="flex-1 px-3 py-1.5 rounded-md bg-bg-elevated border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
                 />
                 <button
@@ -1242,7 +1276,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   onClick={handleAddCustomTaskToTransfer}
                   className="px-3 py-1.5 rounded-md bg-bg-elevated-2 border border-border-hairline hover:bg-bg-elevated text-caption font-semibold text-text-primary transition-colors shrink-0"
                 >
-                  Tambah
+                  {isEn ? "Add" : "Tambah"}
                 </button>
               </div>
             </div>
@@ -1251,11 +1285,13 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           {/* Modal Footer */}
           <div className="pt-3 border-t border-border-hairline flex items-center justify-between gap-2 shrink-0">
             <span className="text-[11px] text-text-tertiary">
-              Tugas akan langsung muncul di halaman Tasks dan Thread Workspace.
+              {isEn
+                ? "Tasks will appear immediately in Tasks page and Workspace Thread."
+                : "Tugas akan langsung muncul di halaman Tasks dan Thread Workspace."}
             </span>
             <div className="flex items-center gap-2">
               <ButtonSecondary type="button" onClick={() => setTransferModalOpen(false)}>
-                Batal
+                {isEn ? "Cancel" : "Batal"}
               </ButtonSecondary>
               <button
                 type="submit"
@@ -1267,7 +1303,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 ) : (
                   <Rocket className="w-4 h-4" />
                 )}
-                <span>Simpan ke Tugas Airdrop</span>
+                <span>{isEn ? "Save to Airdrop Tasks" : "Simpan ke Tugas Airdrop"}</span>
               </button>
             </div>
           </div>
@@ -1280,12 +1316,24 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
       <Modal
         isOpen={Boolean(detailModalTarget)}
         onClose={() => setDetailModalTarget(null)}
-        title={detailModalTarget ? `Instruksi: ${detailModalTarget.project_name}` : "Detail Waitlist"}
+        title={
+          detailModalTarget
+            ? isEn
+              ? `Instructions: ${detailModalTarget.project_name}`
+              : `Instruksi: ${detailModalTarget.project_name}`
+            : isEn
+            ? "Waitlist Details"
+            : "Detail Waitlist"
+        }
         description={
           detailModalTarget
-            ? `Postingan dari ${
-                detailModalTarget.channel === "dutacryptoairdrop" ? "Duta Crypto" : "Airdrop Finder"
-              } • ${formatDate(detailModalTarget.created_at)}`
+            ? isEn
+              ? `Post from ${
+                  detailModalTarget.channel === "dutacryptoairdrop" ? "Duta Crypto" : "Airdrop Finder"
+                } • ${formatDate(detailModalTarget.created_at)}`
+              : `Postingan dari ${
+                  detailModalTarget.channel === "dutacryptoairdrop" ? "Duta Crypto" : "Airdrop Finder"
+                } • ${formatDate(detailModalTarget.created_at)}`
             : ""
         }
         maxWidth="lg"
@@ -1299,10 +1347,14 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   <div className="flex items-center justify-between">
                     <span className="text-caption font-semibold text-text-primary flex items-center gap-1.5">
                       <CheckSquare className="w-4 h-4 text-accent" />
-                      <span>Seluruh Langkah Pendaftaran ({detailModalTarget.tasks.length}):</span>
+                      <span>
+                        {isEn
+                          ? `All Registration Steps (${detailModalTarget.tasks.length}):`
+                          : `Seluruh Langkah Pendaftaran (${detailModalTarget.tasks.length}):`}
+                      </span>
                     </span>
                     <span className="text-[11px] font-mono text-text-tertiary">
-                      Lengkap tanpa terpotong
+                      {isEn ? "Complete without truncation" : "Lengkap tanpa terpotong"}
                     </span>
                   </div>
 
@@ -1328,7 +1380,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               {detailModalTarget.ref_link && (
                 <div className="p-3 rounded-lg bg-bg-elevated border border-border-hairline space-y-1">
                   <span className="text-[11px] font-mono text-text-tertiary uppercase">
-                    Tautan Form / Referral Resmi:
+                    {isEn ? "Official Form / Referral Link:" : "Tautan Form / Referral Resmi:"}
                   </span>
                   <div>
                     <a
@@ -1350,7 +1402,11 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 <div className="flex items-center justify-between">
                   <span className="text-caption font-semibold text-text-primary flex items-center gap-1.5">
                     <Send className="w-3.5 h-3.5 text-link-teal" />
-                    <span>Teks Asli dari Channel Telegram:</span>
+                    <span>
+                      {isEn
+                        ? "Original Text from Telegram Channel:"
+                        : "Teks Asli dari Channel Telegram:"}
+                    </span>
                   </span>
                   <button
                     type="button"
@@ -1368,7 +1424,15 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                     ) : (
                       <Copy className="w-3 h-3" />
                     )}
-                    <span>{detailCopied ? "Tersalin" : "Salin Teks"}</span>
+                    <span>
+                      {isEn
+                        ? detailCopied
+                          ? "Copied"
+                          : "Copy Text"
+                        : detailCopied
+                        ? "Tersalin"
+                        : "Salin Teks"}
+                    </span>
                   </button>
                 </div>
 
@@ -1387,13 +1451,13 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-link-teal/15 text-link-teal hover:bg-link-teal/25 border border-link-teal/30 text-caption font-semibold transition-colors"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Buka Postingan di Telegram</span>
+                <span>{isEn ? "Open Post in Telegram" : "Buka Postingan di Telegram"}</span>
                 <ExternalLink className="w-3 h-3 ml-0.5" />
               </a>
 
               <div className="flex items-center gap-2">
                 <ButtonSecondary type="button" onClick={() => setDetailModalTarget(null)}>
-                  Tutup
+                  {isEn ? "Close" : "Tutup"}
                 </ButtonSecondary>
                 {detailModalTarget.status === "pending" && (
                   <button
@@ -1406,7 +1470,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-colors shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Tandai Sudah Join</span>
+                    <span>{isEn ? "Mark as Joined" : "Tandai Sudah Join"}</span>
                   </button>
                 )}
               </div>

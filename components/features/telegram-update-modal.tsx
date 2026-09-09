@@ -26,6 +26,7 @@ import {
   bulkCreateProjectThreads,
   type ThreadItem,
 } from "@/lib/supabase/thread-updates";
+import { useTranslation } from "@/lib/i18n/context";
 
 interface ParsedAiItem {
   type: "task" | "news";
@@ -51,13 +52,15 @@ const CHANNELS = [
     id: "airdropfind",
     name: "Airdrop Finder",
     handle: "@airdropfind",
-    desc: "Update airdrop & testnet global",
+    descId: "Update airdrop & testnet global",
+    descEn: "Global airdrop & testnet updates",
   },
   {
     id: "dutacryptoairdrop",
     name: "Duta Crypto",
     handle: "@dutacryptoairdrop",
-    desc: "Update airdrop & analisa harian",
+    descId: "Update airdrop & analisa harian",
+    descEn: "Daily airdrop updates & analysis",
   },
 ];
 
@@ -70,6 +73,7 @@ export function TelegramUpdateModal({
   existingThreads = [],
   onThreadAdded,
 }: TelegramUpdateModalProps) {
+  const { locale, isEn } = useTranslation();
   const [searchTerm, setSearchTerm] = useState(projectName);
   // Default to single channel: user can pick ONE channel at a time
   const [selectedChannel, setSelectedChannel] = useState<"airdropfind" | "dutacryptoairdrop">("dutacryptoairdrop");
@@ -287,7 +291,7 @@ export function TelegramUpdateModal({
     if (!isoString) return "";
     try {
       const d = new Date(isoString);
-      return d.toLocaleDateString("id-ID", {
+      return d.toLocaleDateString(isEn ? "en-US" : "id-ID", {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -303,8 +307,12 @@ export function TelegramUpdateModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Update Telegram Airdrop"
-      description="Ambil update proyek dari channel Telegram pilihan, lalu masukkan ke thread riwayat proyek."
+      title={isEn ? "Telegram Airdrop Updates" : "Update Telegram Airdrop"}
+      description={
+        isEn
+          ? "Fetch project updates from selected Telegram channels and add them to the project thread."
+          : "Ambil update proyek dari channel Telegram pilihan, lalu masukkan ke thread riwayat proyek."
+      }
       maxWidth="xl"
     >
       <div className="space-y-4 max-h-[78vh] flex flex-col">
@@ -314,7 +322,7 @@ export function TelegramUpdateModal({
             <div className="flex items-center gap-2 min-w-0">
               <Send className="w-3.5 h-3.5 text-link-teal shrink-0" />
               <span className="text-caption text-text-primary truncate">
-                Postingan Induk Terdaftar:{" "}
+                {isEn ? "Registered Parent Post: " : "Postingan Induk Terdaftar: "}
                 <strong className="font-mono text-[11px] text-link-teal">
                   {telegramPostUrl}
                 </strong>
@@ -326,7 +334,7 @@ export function TelegramUpdateModal({
               rel="noreferrer"
               className="inline-flex items-center gap-1 text-caption text-link-teal hover:underline font-semibold shrink-0"
             >
-              <span>Buka di TG</span>
+              <span>{isEn ? "Open in TG" : "Buka di TG"}</span>
               <ExternalLink className="w-2.5 h-2.5" />
             </a>
           </div>
@@ -336,10 +344,12 @@ export function TelegramUpdateModal({
         <div className="p-3 rounded-lg bg-bg-elevated border border-border-hairline space-y-2 shrink-0">
           <div className="flex items-center justify-between">
             <span className="text-caption font-semibold text-text-primary">
-              Pilih Sumber Channel (1 Channel):
+              {isEn ? "Select Channel Source (1 Channel):" : "Pilih Sumber Channel (1 Channel):"}
             </span>
             <span className="text-[11px] text-text-tertiary">
-              Pencarian fokus pada 1 channel agar konteks akurat
+              {isEn
+                ? "Search is focused on 1 channel for accurate context"
+                : "Pencarian fokus pada 1 channel agar konteks akurat"}
             </span>
           </div>
 
@@ -397,7 +407,11 @@ export function TelegramUpdateModal({
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari kata kunci nama proyek di Telegram..."
+                placeholder={
+                  isEn
+                    ? "Search project keywords on Telegram..."
+                    : "Cari kata kunci nama proyek di Telegram..."
+                }
                 className="w-full pl-9 pr-3 py-1.5 rounded-md bg-bg-elevated border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
               />
             </div>
@@ -409,7 +423,7 @@ export function TelegramUpdateModal({
               {loading ? (
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                "Cari"
+                isEn ? "Search" : "Cari"
               )}
             </ButtonSecondary>
           </form>
@@ -423,7 +437,7 @@ export function TelegramUpdateModal({
                 className="!py-1.5 !px-3 text-caption inline-flex items-center gap-1.5"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Lihat Pesan Asli</span>
+                <span>{isEn ? "View Original Messages" : "Lihat Pesan Asli"}</span>
               </ButtonSecondary>
             ) : (
               <button
@@ -431,7 +445,11 @@ export function TelegramUpdateModal({
                 onClick={handleRunAiParsing}
                 disabled={loading || aiLoading || updates.length === 0}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-gradient-to-r from-accent to-accent-hover text-text-inverse font-semibold text-caption shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
-                title="AI akan merapikan seluruh pesan dari channel ini dan memisahkan mana Task dan mana Berita secara otomatis"
+                title={
+                  isEn
+                    ? "AI will clean up and separate tasks from news updates automatically"
+                    : "AI akan merapikan seluruh pesan dari channel ini dan memisahkan mana Task dan mana Berita secara otomatis"
+                }
               >
                 {aiLoading ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -439,7 +457,9 @@ export function TelegramUpdateModal({
                   <Sparkles className="w-3.5 h-3.5" />
                 )}
                 <span>
-                  {aiLoading ? "AI Menganalisis..." : "✨ Rapihkan dengan AI"}
+                  {aiLoading
+                    ? (isEn ? "AI Analyzing..." : "AI Menganalisis...")
+                    : (isEn ? "✨ Clean up with AI" : "✨ Rapihkan dengan AI")}
                 </span>
               </button>
             )}
@@ -466,10 +486,14 @@ export function TelegramUpdateModal({
                   <Sparkles className="w-4 h-4 text-accent shrink-0" />
                   <div>
                     <h4 className="text-body-sm font-semibold text-text-primary">
-                      Hasil Analisis AI untuk {projectName}
+                      {isEn
+                        ? `AI Analysis Results for ${projectName}`
+                        : `Hasil Analisis AI untuk ${projectName}`}
                     </h4>
                     <p className="text-[11px] text-text-secondary">
-                      AI berhasil memisahkan {aiItems.filter((i) => i.type === "task").length} Langkah Task dan {aiItems.filter((i) => i.type === "news").length} Catatan Berita.
+                      {isEn
+                        ? `AI separated ${aiItems.filter((i) => i.type === "task").length} Task Steps and ${aiItems.filter((i) => i.type === "news").length} News Notes.`
+                        : `AI berhasil memisahkan ${aiItems.filter((i) => i.type === "task").length} Langkah Task dan ${aiItems.filter((i) => i.type === "news").length} Catatan Berita.`}
                     </p>
                   </div>
                 </div>
@@ -480,7 +504,7 @@ export function TelegramUpdateModal({
                     onClick={() => toggleSelectAllAiItems(true)}
                     className="text-[11px] text-accent hover:underline font-medium"
                   >
-                    Pilih Semua
+                    {isEn ? "Select All" : "Pilih Semua"}
                   </button>
                   <span className="text-text-tertiary">|</span>
                   <button
@@ -488,14 +512,16 @@ export function TelegramUpdateModal({
                     onClick={() => toggleSelectAllAiItems(false)}
                     className="text-[11px] text-text-tertiary hover:underline"
                   >
-                    Batal Pilih
+                    {isEn ? "Deselect All" : "Batal Pilih"}
                   </button>
                 </div>
               </div>
 
               {aiItems.length === 0 ? (
                 <div className="py-10 text-center text-caption text-text-tertiary">
-                  Tidak ada poin update baru yang terdeteksi oleh AI.
+                  {isEn
+                    ? "No new update points detected by AI."
+                    : "Tidak ada poin update baru yang terdeteksi oleh AI."}
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -543,7 +569,9 @@ export function TelegramUpdateModal({
                                       : "bg-link-teal/20 text-link-teal"
                                   }`}
                                 >
-                                  {isTask ? "⚡ Task (Checkbox)" : "📰 Berita / Info"}
+                                  {isTask
+                                    ? (isEn ? "⚡ Task (Checkbox)" : "⚡ Task (Checkbox)")
+                                    : (isEn ? "📰 News / Info" : "📰 Berita / Info")}
                                 </span>
 
                                 {item.source_date && (
@@ -557,7 +585,7 @@ export function TelegramUpdateModal({
                               {isAlreadyIn ? (
                                 <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-status-completed/15 text-status-completed border border-status-completed/30 flex items-center gap-1">
                                   <Check className="w-3 h-3" />
-                                  <span>Sudah di Thread</span>
+                                  <span>{isEn ? "Already in Thread" : "Sudah di Thread"}</span>
                                 </span>
                               ) : (
                                 item.source_url && (
@@ -568,7 +596,7 @@ export function TelegramUpdateModal({
                                     onClick={(e) => e.stopPropagation()}
                                     className="text-[11px] text-link-teal hover:underline inline-flex items-center gap-0.5"
                                   >
-                                    <span>Sumber TG</span>
+                                    <span>{isEn ? "TG Source" : "Sumber TG"}</span>
                                     <ExternalLink className="w-2.5 h-2.5" />
                                   </a>
                                 )
@@ -596,7 +624,9 @@ export function TelegramUpdateModal({
               {aiItems.length > 0 && (
                 <div className="p-3 rounded-lg bg-bg-elevated border border-border-hairline flex items-center justify-between gap-2 shrink-0">
                   <span className="text-caption text-text-secondary">
-                    {aiItems.filter((i) => i.selected).length} item terpilih untuk dimasukkan ke thread
+                    {isEn
+                      ? `${aiItems.filter((i) => i.selected).length} items selected to add to thread`
+                      : `${aiItems.filter((i) => i.selected).length} item terpilih untuk dimasukkan ke thread`}
                   </span>
 
                   <button
@@ -612,7 +642,9 @@ export function TelegramUpdateModal({
                     )}
                     <span>
                       {isSavingBulk
-                        ? "Menyimpan ke Thread..."
+                        ? (isEn ? "Saving to Thread..." : "Menyimpan ke Thread...")
+                        : isEn
+                        ? `+ Add ${aiItems.filter((i) => i.selected).length} Items to Thread`
                         : `+ Masukkan ${aiItems.filter((i) => i.selected).length} Item ke Thread`}
                     </span>
                   </button>
@@ -628,26 +660,34 @@ export function TelegramUpdateModal({
                 <div className="py-16 text-center space-y-2">
                   <RefreshCw className="w-6 h-6 animate-spin text-accent mx-auto" />
                   <p className="text-body-sm text-text-secondary">
-                    Memindai postingan dari {CHANNELS.find((c) => c.id === selectedChannel)?.name}...
+                    {isEn
+                      ? `Scanning posts from ${CHANNELS.find((c) => c.id === selectedChannel)?.name}...`
+                      : `Memindai postingan dari ${CHANNELS.find((c) => c.id === selectedChannel)?.name}...`}
                   </p>
                 </div>
               ) : updates.length === 0 ? (
                 <div className="py-16 text-center space-y-2 p-6 rounded-lg bg-bg-elevated/40 border border-dashed border-border-hairline">
                   <Info className="w-8 h-8 text-text-tertiary mx-auto" />
                   <p className="text-body-sm text-text-secondary font-medium">
-                    Tidak ditemukan postingan terkait &quot;{searchTerm}&quot; di channel {CHANNELS.find((c) => c.id === selectedChannel)?.name}.
+                    {isEn
+                      ? `No posts found matching "${searchTerm}" in channel ${CHANNELS.find((c) => c.id === selectedChannel)?.name}.`
+                      : `Tidak ditemukan postingan terkait "${searchTerm}" di channel ${CHANNELS.find((c) => c.id === selectedChannel)?.name}.`}
                   </p>
                   <p className="text-caption text-text-tertiary max-w-sm mx-auto">
-                    Coba ubah kata kunci pencarian atau beralih ke channel lainnya di atas.
+                    {isEn
+                      ? "Try changing search keywords or switch to another channel above."
+                      : "Coba ubah kata kunci pencarian atau beralih ke channel lainnya di atas."}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-[11px] text-text-tertiary px-1">
                     <span>
-                      Ditemukan {updates.length} postingan di {CHANNELS.find((c) => c.id === selectedChannel)?.name}
+                      {isEn
+                        ? `Found ${updates.length} posts in ${CHANNELS.find((c) => c.id === selectedChannel)?.name}`
+                        : `Ditemukan ${updates.length} postingan di ${CHANNELS.find((c) => c.id === selectedChannel)?.name}`}
                     </span>
-                    <span>Urutan: Terbaru ke Terlama</span>
+                    <span>{isEn ? "Order: Newest to Oldest" : "Urutan: Terbaru ke Terlama"}</span>
                   </div>
 
                   {updates.map((item) => {
@@ -684,7 +724,7 @@ export function TelegramUpdateModal({
                               type="button"
                               onClick={() => handleCopy(item.id, item.text)}
                               className="p-1 text-text-tertiary hover:text-text-primary rounded hover:bg-bg-elevated transition-colors"
-                              title="Salin teks postingan"
+                              title={isEn ? "Copy post text" : "Salin teks postingan"}
                             >
                               {isCopied ? (
                                 <Check className="w-3.5 h-3.5 text-status-completed" />
@@ -698,9 +738,9 @@ export function TelegramUpdateModal({
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-bg-elevated text-link-teal hover:underline text-caption font-medium border border-border-hairline"
-                              title="Buka postingan langsung di Telegram"
+                              title={isEn ? "Open post directly on Telegram" : "Buka postingan langsung di Telegram"}
                             >
-                              <span>Buka di TG</span>
+                              <span>{isEn ? "Open in TG" : "Buka di TG"}</span>
                               <ExternalLink className="w-2.5 h-2.5" />
                             </a>
                           </div>
@@ -716,12 +756,12 @@ export function TelegramUpdateModal({
                           {isAlreadyIn ? (
                             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-status-completed/15 text-status-completed border border-status-completed/30 text-caption font-semibold">
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>Sudah Ada di Thread Proyek</span>
+                              <span>{isEn ? "Already in Project Thread" : "Sudah Ada di Thread Proyek"}</span>
                             </div>
                           ) : (
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-[11px] text-text-tertiary mr-1">
-                                Masukkan ke Thread sebagai:
+                                {isEn ? "Add to Thread as:" : "Masukkan ke Thread sebagai:"}
                               </span>
 
                               {/* Save as Task */}
@@ -730,14 +770,18 @@ export function TelegramUpdateModal({
                                 onClick={() => handleQuickSaveItem(item, "task")}
                                 disabled={Boolean(savingItemId)}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent/15 border border-accent/30 text-accent hover:bg-accent/25 transition-colors text-caption font-semibold disabled:opacity-50"
-                                title="Masukkan sebagai Task dengan Checkbox"
+                                title={
+                                  isEn
+                                    ? "Add as Task with Checkbox"
+                                    : "Masukkan sebagai Task dengan Checkbox"
+                                }
                               >
                                 {isSavingThis ? (
                                   <RefreshCw className="w-3 h-3 animate-spin" />
                                 ) : (
                                   <CheckSquare className="w-3 h-3" />
                                 )}
-                                <span>+ Langkah Task</span>
+                                <span>{isEn ? "+ Task Step" : "+ Langkah Task"}</span>
                               </button>
 
                               {/* Save as News */}
@@ -746,14 +790,18 @@ export function TelegramUpdateModal({
                                 onClick={() => handleQuickSaveItem(item, "news")}
                                 disabled={Boolean(savingItemId)}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-link-teal/15 border border-link-teal/30 text-link-teal hover:bg-link-teal/25 transition-colors text-caption font-semibold disabled:opacity-50"
-                                title="Masukkan sebagai Catatan Berita / Update Info tanpa checkbox"
+                                title={
+                                  isEn
+                                    ? "Add as News / Info update note without checkbox"
+                                    : "Masukkan sebagai Catatan Berita / Update Info tanpa checkbox"
+                                }
                               >
                                 {isSavingThis ? (
                                   <RefreshCw className="w-3 h-3 animate-spin" />
                                 ) : (
                                   <Newspaper className="w-3 h-3" />
                                 )}
-                                <span>+ Catatan Berita</span>
+                                <span>{isEn ? "+ News Note" : "+ Catatan Berita"}</span>
                               </button>
                             </div>
                           )}
@@ -769,9 +817,13 @@ export function TelegramUpdateModal({
 
         {/* Footer info */}
         <div className="pt-2 border-t border-border-hairline flex items-center justify-between text-caption text-text-tertiary shrink-0">
-          <span>Data diambil langsung secara publik dari Telegram Web tanpa akun/token.</span>
+          <span>
+            {isEn
+              ? "Data is fetched publicly from Telegram Web without any account/token."
+              : "Data diambil langsung secara publik dari Telegram Web tanpa akun/token."}
+          </span>
           <ButtonSecondary onClick={onClose} className="!py-1 !px-3">
-            Tutup
+            {isEn ? "Close" : "Tutup"}
           </ButtonSecondary>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/modal";
 import { ShieldCheck, Wallet, Plus, Copy, Check, Trash2, FolderGit2, Link2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAccount, useConnect } from "wagmi";
+import { useTranslation } from "@/lib/i18n/context";
 import type { Database } from "@/lib/supabase/database.types";
 
 type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
@@ -21,6 +22,7 @@ export function WalletsClientView({
 }: {
   initialWallets: WalletWithProjects[];
 }) {
+  const { isEn } = useTranslation();
   const [wallets, setWallets] = useState<WalletWithProjects[]>(initialWallets);
 
   // Re-sync when server re-renders after router.refresh()
@@ -96,14 +98,14 @@ export function WalletsClientView({
       setIsModalOpen(false);
     } catch (err: any) {
       console.error("Failed to insert wallet:", err);
-      setError(err?.message || "Gagal menyimpan wallet.");
+      setError(err?.message || (isEn ? "Failed to save wallet." : "Gagal menyimpan wallet."));
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteWallet = async (id: string) => {
-    if (!confirm("Hapus wallet ini dari daftar?")) return;
+    if (!confirm(isEn ? "Delete this wallet from your list?" : "Hapus wallet ini dari daftar?")) return;
     try {
       const supabase = createClient() as any;
       await supabase.from("wallets").delete().eq("id", id);
@@ -118,10 +120,12 @@ export function WalletsClientView({
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-heading-2 font-semibold text-text-primary">
-            Wallets & Accounts
+            {isEn ? "Wallets & Accounts" : "Wallets & Akun"}
           </h1>
           <p className="text-body-sm text-text-secondary">
-            Kelola alamat wallet publik untuk keperluan multi-akun dan tracking airdrop agar tidak tertukar.
+            {isEn
+              ? "Manage public wallet addresses for multi-account farming and tracking so you never mix them up."
+              : "Kelola alamat wallet publik untuk keperluan multi-akun dan tracking airdrop agar tidak tertukar."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -131,7 +135,7 @@ export function WalletsClientView({
               className="inline-flex items-center gap-2 text-caption sm:text-body-sm"
             >
               <Link2 className="w-4 h-4 text-accent" />
-              <span>Simpan Wallet Terkoneksi</span>
+              <span>{isEn ? "Save Connected Wallet" : "Simpan Wallet Terkoneksi"}</span>
             </ButtonSecondary>
           ) : (
             <ButtonSecondary
@@ -140,7 +144,7 @@ export function WalletsClientView({
               className="inline-flex items-center gap-2 text-caption sm:text-body-sm"
             >
               <Wallet className="w-4 h-4 text-accent" />
-              <span>{isConnecting ? "Menghubungkan..." : "Hubungkan Browser Wallet"}</span>
+              <span>{isConnecting ? (isEn ? "Connecting..." : "Menghubungkan...") : (isEn ? "Connect Browser Wallet" : "Hubungkan Browser Wallet")}</span>
             </ButtonSecondary>
           )}
 
@@ -154,7 +158,7 @@ export function WalletsClientView({
             className="inline-flex items-center gap-2 text-caption sm:text-body-sm"
           >
             <Plus className="w-4 h-4 text-on-accent" />
-            <span>Tambah Wallet Manual</span>
+            <span>{isEn ? "Add Wallet Manually" : "Tambah Wallet Manual"}</span>
           </ButtonPrimary>
         </div>
       </div>
@@ -164,10 +168,12 @@ export function WalletsClientView({
         <ShieldCheck className="w-5 h-5 text-status-completed shrink-0 mt-0.5" />
         <div className="text-body-sm">
           <span className="font-semibold text-text-primary">
-            Keamanan Terjamin:
+            {isEn ? "Guaranteed Security:" : "Keamanan Terjamin:"}
           </span>{" "}
           <span className="text-text-secondary">
-            Droppr bersifat read-only dan tidak pernah meminta atau menyimpan private key maupun seed phrase.
+            {isEn
+              ? "Droppr is strictly read-only and never asks for or stores private keys or seed phrases."
+              : "Droppr bersifat read-only dan tidak pernah meminta atau menyimpan private key maupun seed phrase."}
           </span>
         </div>
       </div>
@@ -176,10 +182,12 @@ export function WalletsClientView({
         <CardBase className="text-center py-12 space-y-3">
           <Wallet className="w-8 h-8 text-text-tertiary mx-auto mb-1" />
           <h3 className="text-heading-3 font-semibold text-text-primary">
-            Belum ada wallet tersimpan
+            {isEn ? "No wallets saved yet" : "Belum ada wallet tersimpan"}
           </h3>
           <p className="text-body-sm text-text-secondary max-w-md mx-auto">
-            Simpan alamat wallet yang kamu pakai untuk hunting airdrop agar mudah disalin dan dipasangkan ke project.
+            {isEn
+              ? "Save the wallet addresses you use for airdrop hunting to easily copy and assign to projects."
+              : "Simpan alamat wallet yang kamu pakai untuk hunting airdrop agar mudah disalin dan dipasangkan ke project."}
           </p>
           <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
             {isConnected && connectedAddress && (
@@ -188,7 +196,7 @@ export function WalletsClientView({
                 className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm"
               >
                 <Link2 className="w-4 h-4 text-accent" />
-                <span>Simpan Wallet Terkoneksi ({connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)})</span>
+                <span>{isEn ? `Save Connected Wallet (${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)})` : `Simpan Wallet Terkoneksi (${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)})`}</span>
               </ButtonSecondary>
             )}
             <ButtonPrimary
@@ -196,7 +204,7 @@ export function WalletsClientView({
               className="inline-flex items-center gap-1.5 text-caption sm:text-body-sm"
             >
               <Plus className="w-4 h-4 text-on-accent" />
-              <span>Tambah Wallet Pertama</span>
+              <span>{isEn ? "Add First Wallet" : "Tambah Wallet Pertama"}</span>
             </ButtonPrimary>
           </div>
         </CardBase>
@@ -215,7 +223,7 @@ export function WalletsClientView({
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-body-md font-semibold text-text-primary">
-                        {w.label || "Wallet Tanpa Label"}
+                        {w.label || (isEn ? "Unlabeled Wallet" : "Wallet Tanpa Label")}
                       </h3>
                       {w.chain && (
                         <span className="text-[10px] px-2 py-0.5 rounded bg-bg-elevated-2 border border-border-hairline font-mono text-text-tertiary uppercase">
@@ -233,7 +241,7 @@ export function WalletsClientView({
                       type="button"
                       onClick={() => handleCopy(w.id, w.address)}
                       className="p-1.5 rounded hover:bg-bg-elevated-2 text-text-tertiary hover:text-text-primary transition-colors"
-                      title="Salin Address"
+                      title={isEn ? "Copy Address" : "Salin Address"}
                     >
                       {isCopied ? (
                         <Check className="w-4 h-4 text-status-completed" />
@@ -245,7 +253,7 @@ export function WalletsClientView({
                       type="button"
                       onClick={() => handleDeleteWallet(w.id)}
                       className="p-1.5 rounded hover:bg-bg-elevated-2 text-text-tertiary hover:text-status-overdue transition-colors"
-                      title="Hapus Wallet"
+                      title={isEn ? "Delete Wallet" : "Hapus Wallet"}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -258,8 +266,8 @@ export function WalletsClientView({
                     <FolderGit2 className="w-3.5 h-3.5" />
                     <span>
                       {projectCount > 0
-                        ? `Digunakan di ${projectCount} project`
-                        : "Belum dipasangkan ke project"}
+                        ? (isEn ? `Used in ${projectCount} projects` : `Digunakan di ${projectCount} project`)
+                        : (isEn ? "Not assigned to any project" : "Belum dipasangkan ke project")}
                     </span>
                   </div>
                 </div>
@@ -273,8 +281,8 @@ export function WalletsClientView({
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Tambah Alamat Wallet"
-        description="Simpan address publik wallet Anda untuk dipasangkan ke tugas airdrop."
+        title={isEn ? "Add Wallet Address" : "Tambah Alamat Wallet"}
+        description={isEn ? "Save public wallet address to link to airdrop tasks." : "Simpan address publik wallet Anda untuk dipasangkan ke tugas airdrop."}
         maxWidth="md"
       >
         <form onSubmit={handleCreateWallet} className="space-y-4">
@@ -286,12 +294,12 @@ export function WalletsClientView({
 
           <div>
             <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Label / Nama Wallet <span className="text-status-overdue">*</span>
+              {isEn ? "Wallet Label / Name" : "Label / Nama Wallet"} <span className="text-status-overdue">*</span>
             </label>
             <Input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Contoh: Akun Utama EVM, Wallet Tuyul 01, Backpack Solana"
+              placeholder={isEn ? "e.g. Main EVM, Sybil 01, Backpack Solana" : "Contoh: Akun Utama EVM, Wallet Tuyul 01, Backpack Solana"}
               required
               disabled={loading}
               autoFocus
@@ -300,29 +308,29 @@ export function WalletsClientView({
 
           <div>
             <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Alamat Publik (Address) <span className="text-status-overdue">*</span>
+              {isEn ? "Public Address" : "Alamat Publik (Address)"} <span className="text-status-overdue">*</span>
             </label>
             <Input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="0x... atau address Solana/Sui/Cosmos"
+              placeholder={isEn ? "0x... or Solana/Sui/Cosmos address" : "0x... atau address Solana/Sui/Cosmos"}
               className="font-mono text-data-mono-sm"
               required
               disabled={loading}
             />
             <p className="text-[11px] text-text-tertiary mt-1">
-              Droppr strictly read-only. Jangan pernah memasukkan private key/seed phrase.
+              {isEn ? "Droppr is strictly read-only. Never enter private keys or seed phrases." : "Droppr strictly read-only. Jangan pernah memasukkan private key/seed phrase."}
             </p>
           </div>
 
           <div>
             <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Chain / Jaringan (Opsional)
+              {isEn ? "Chain / Network (Optional)" : "Chain / Jaringan (Opsional)"}
             </label>
             <Input
               value={chain}
               onChange={(e) => setChain(e.target.value)}
-              placeholder="Contoh: EVM, Solana, Sui, Berachain"
+              placeholder={isEn ? "e.g. EVM, Solana, Sui, Berachain" : "Contoh: EVM, Solana, Sui, Berachain"}
               disabled={loading}
             />
           </div>
@@ -333,10 +341,10 @@ export function WalletsClientView({
               onClick={() => setIsModalOpen(false)}
               disabled={loading}
             >
-              Batal
+              {isEn ? "Cancel" : "Batal"}
             </ButtonSecondary>
             <ButtonPrimary type="submit" disabled={loading}>
-              {loading ? "Menyimpan..." : "Simpan Wallet"}
+              {loading ? (isEn ? "Saving..." : "Menyimpan...") : (isEn ? "Save Wallet" : "Simpan Wallet")}
             </ButtonPrimary>
           </div>
         </form>

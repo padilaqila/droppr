@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { useTranslation } from "@/lib/i18n/context";
 
 export type ProjectStatus =
   | "not-started"
@@ -16,48 +19,55 @@ interface StatusBadgeProps {
 
 const statusConfig: Record<
   ProjectStatus,
-  { defaultLabel: string; bgClass: string; textClass: string }
+  { defaultLabelId: string; defaultLabelEn: string; bgClass: string; textClass: string }
 > = {
   "not-started": {
-    defaultLabel: "Belum Mulai",
+    defaultLabelId: "Belum Mulai",
+    defaultLabelEn: "Not Started",
     bgClass: "bg-badge-bg-not-started",
     textClass: "text-status-not-started",
   },
   "in-progress": {
-    defaultLabel: "Sedang Dikerjakan",
+    defaultLabelId: "Sedang Dikerjakan",
+    defaultLabelEn: "In Progress",
     bgClass: "bg-badge-bg-in-progress",
     textClass: "text-status-in-progress",
   },
   waiting: {
-    defaultLabel: "Menunggu TGE/Snapshot",
+    defaultLabelId: "Menunggu TGE/Snapshot",
+    defaultLabelEn: "Waiting TGE/Snapshot",
     bgClass: "bg-badge-bg-waiting",
     textClass: "text-status-waiting",
   },
   "ready-claim": {
-    defaultLabel: "Siap Klaim",
+    defaultLabelId: "Siap Klaim",
+    defaultLabelEn: "Ready to Claim",
     bgClass: "bg-badge-bg-ready-claim",
     textClass: "text-status-ready-claim",
   },
   completed: {
-    defaultLabel: "Selesai",
+    defaultLabelId: "Selesai",
+    defaultLabelEn: "Completed",
     bgClass: "bg-badge-bg-completed",
     textClass: "text-status-completed",
   },
   overdue: {
-    defaultLabel: "Overdue",
+    defaultLabelId: "Terlambat",
+    defaultLabelEn: "Overdue",
     bgClass: "bg-badge-bg-overdue",
     textClass: "text-status-overdue",
   },
 };
 
 export function StatusBadge({ status, label, className = "" }: StatusBadgeProps) {
+  const { isEn } = useTranslation();
   const config = statusConfig[status];
 
   return (
     <span
       className={`inline-flex items-center text-caption font-medium rounded-full px-[10px] py-[3px] ${config.bgClass} ${config.textClass} ${className}`.trim()}
     >
-      {label || config.defaultLabel}
+      {label || (isEn ? config.defaultLabelEn : config.defaultLabelId)}
     </span>
   );
 }

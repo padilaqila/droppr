@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ExternalLink, Edit2, Save, X, Info } from "lucide-react";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 
 interface GuideViewerProps {
   projectId: string;
@@ -81,6 +82,7 @@ export function GuideViewer({
   initialContent,
   onContentUpdated,
 }: GuideViewerProps) {
+  const { isEn } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(initialContent || "");
   const [isSaving, setIsSaving] = useState(false);
@@ -109,7 +111,7 @@ export function GuideViewer({
       }
     } catch (err: any) {
       console.error("Failed to update guide content:", err);
-      setError(err?.message || "Gagal menyimpan panduan.");
+      setError(err?.message || (isEn ? "Failed to save guide." : "Gagal menyimpan panduan."));
     } finally {
       setIsSaving(false);
     }
@@ -135,14 +137,26 @@ export function GuideViewer({
             rows={8}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="Tulis tutorial atau catatan pengerjaan di sini...&#10;Contoh:&#10;1. Klaim faucet harian di [Faucet Sepolia](https://sepoliafaucet.com)&#10;2. Masuk ke web testnet https://beta.project.io&#10;3. Lakukan mint NFT testnet"
+            placeholder={
+              isEn
+                ? "Write tutorial or workflow notes here...\nExample:\n1. Claim daily faucet at [Sepolia Faucet](https://sepoliafaucet.com)\n2. Visit testnet web https://beta.project.io\n3. Mint testnet NFT"
+                : "Tulis tutorial atau catatan pengerjaan di sini...\nContoh:\n1. Klaim faucet harian di [Faucet Sepolia](https://sepoliafaucet.com)\n2. Masuk ke web testnet https://beta.project.io\n3. Lakukan mint NFT testnet"
+            }
             className="w-full bg-bg-elevated-2 text-text-primary text-body-sm p-3.5 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent font-sans leading-relaxed transition-colors"
             disabled={isSaving}
           />
           <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
             <Info className="w-3.5 h-3.5 text-accent shrink-0" />
             <span>
-              Tips: Tulis URL langsung seperti <code className="text-text-secondary font-mono">https://faucet.com</code> atau format markdown <code className="text-text-secondary font-mono">[Nama Link](https://...)</code> agar bisa langsung diklik.
+              {isEn ? (
+                <>
+                  Tip: Write direct URLs like <code className="text-text-secondary font-mono">https://faucet.com</code> or markdown links <code className="text-text-secondary font-mono">[Link Name](https://...)</code> for clickability.
+                </>
+              ) : (
+                <>
+                  Tips: Tulis URL langsung seperti <code className="text-text-secondary font-mono">https://faucet.com</code> atau format markdown <code className="text-text-secondary font-mono">[Nama Link](https://...)</code> agar bisa langsung diklik.
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -155,7 +169,7 @@ export function GuideViewer({
             className="!py-1.5 !px-3 text-caption inline-flex items-center gap-1"
           >
             <X className="w-3.5 h-3.5" />
-            <span>Batal</span>
+            <span>{isEn ? "Cancel" : "Batal"}</span>
           </ButtonSecondary>
           <ButtonPrimary
             type="button"
@@ -164,7 +178,11 @@ export function GuideViewer({
             className="!py-1.5 !px-3 text-caption inline-flex items-center gap-1"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>{isSaving ? "Menyimpan..." : "Simpan Panduan"}</span>
+            <span>
+              {isSaving
+                ? (isEn ? "Saving..." : "Menyimpan...")
+                : (isEn ? "Save Guide" : "Simpan Panduan")}
+            </span>
           </ButtonPrimary>
         </div>
       </div>
@@ -175,14 +193,16 @@ export function GuideViewer({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-caption text-text-tertiary">
-          Format tutorial mendukung link web otomatis & markdown link.
+          {isEn
+            ? "Tutorial format supports automatic web links & markdown links."
+            : "Format tutorial mendukung link web otomatis & markdown link."}
         </span>
         <ButtonSecondary
           onClick={() => setIsEditing(true)}
           className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1"
         >
           <Edit2 className="w-3 h-3" />
-          <span>Edit Panduan</span>
+          <span>{isEn ? "Edit Guide" : "Edit Panduan"}</span>
         </ButtonSecondary>
       </div>
 
@@ -193,17 +213,21 @@ export function GuideViewer({
       ) : (
         <div className="p-4 rounded-md bg-bg-elevated-2/60 border border-dashed border-border-hairline text-center space-y-1.5">
           <p className="text-body-sm text-text-secondary">
-            Belum ada panduan kerja atau link tutorial yang disimpan.
+            {isEn
+              ? "No workflow guide or tutorial links saved yet."
+              : "Belum ada panduan kerja atau link tutorial yang disimpan."}
           </p>
           <p className="text-caption text-text-tertiary">
-            Simpan alur langkah airdrop, link faucet harian, atau petunjuk bridge agar tidak lupa.
+            {isEn
+              ? "Save airdrop step flow, daily faucet links, or bridge guides to stay on track."
+              : "Simpan alur langkah airdrop, link faucet harian, atau petunjuk bridge agar tidak lupa."}
           </p>
           <ButtonSecondary
             onClick={() => setIsEditing(true)}
             className="!py-1 !px-3 text-caption mt-1 inline-flex items-center gap-1.5"
           >
             <Edit2 className="w-3.5 h-3.5" />
-            <span>Tulis Panduan Sekarang</span>
+            <span>{isEn ? "Write Guide Now" : "Tulis Panduan Sekarang"}</span>
           </ButtonSecondary>
         </div>
       )}

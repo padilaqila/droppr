@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 
 interface CreateFolderModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export function CreateFolderModal({
   onClose,
   onFolderCreated,
 }: CreateFolderModalProps) {
+  const { isEn } = useTranslation();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export function CreateFolderModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError("Nama folder tidak boleh kosong.");
+      setError(isEn ? "Folder name cannot be empty." : "Nama folder tidak boleh kosong.");
       return;
     }
 
@@ -38,7 +40,7 @@ export function CreateFolderModal({
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setError("Sesi login berakhir. Silakan login kembali.");
+        setError(isEn ? "Login session expired. Please log in again." : "Sesi login berakhir. Silakan login kembali.");
         setLoading(false);
         return;
       }
@@ -63,7 +65,7 @@ export function CreateFolderModal({
       onClose();
     } catch (err: any) {
       console.error("Create folder error:", err);
-      setError(err?.message || "Gagal membuat folder.");
+      setError(err?.message || (isEn ? "Failed to create folder." : "Gagal membuat folder."));
     } finally {
       setLoading(false);
     }
@@ -73,8 +75,8 @@ export function CreateFolderModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Buat Folder Baru"
-      description="Kelompokkan project airdrop berdasarkan kategori atau ekosistem."
+      title={isEn ? "Create New Folder" : "Buat Folder Baru"}
+      description={isEn ? "Organize airdrop projects by category or ecosystem." : "Kelompokkan project airdrop berdasarkan kategori atau ekosistem."}
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -86,12 +88,12 @@ export function CreateFolderModal({
 
         <div>
           <label className="block text-body-sm font-medium text-text-secondary mb-1.5">
-            Nama Folder
+            {isEn ? "Folder Name" : "Nama Folder"}
           </label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Contoh: Berachain, Solana Ecosystem, Testnet 2026"
+            placeholder={isEn ? "e.g. Berachain, Solana Ecosystem, Testnet 2026" : "Contoh: Berachain, Solana Ecosystem, Testnet 2026"}
             autoFocus
             disabled={loading}
           />
@@ -99,10 +101,12 @@ export function CreateFolderModal({
 
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-hairline">
           <ButtonSecondary type="button" onClick={onClose} disabled={loading}>
-            Batal
+            {isEn ? "Cancel" : "Batal"}
           </ButtonSecondary>
           <ButtonPrimary type="submit" disabled={loading}>
-            {loading ? "Menyimpan..." : "Buat Folder"}
+            {loading
+              ? (isEn ? "Saving..." : "Menyimpan...")
+              : (isEn ? "Create Folder" : "Buat Folder")}
           </ButtonPrimary>
         </div>
       </form>

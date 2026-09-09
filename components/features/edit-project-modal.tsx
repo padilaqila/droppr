@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
+import { useTranslation } from "@/lib/i18n/context";
 
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
@@ -51,6 +52,7 @@ export function EditProjectModal({
   onProjectUpdated,
 }: EditProjectModalProps) {
   const router = useRouter();
+  const { isEn } = useTranslation();
 
   // Basic Info
   const [name, setName] = useState(project.name || "");
@@ -244,8 +246,8 @@ export function EditProjectModal({
       router.push("/projects");
       router.refresh();
     } catch (err: any) {
-      console.error("Failed to delete project:", err);
-      setError(err?.message || "Gagal menghapus project.");
+      console.error("Delete project error:", err);
+      setError(err?.message || (isEn ? "Failed to delete project." : "Gagal menghapus project."));
       setIsDeleting(false);
     }
   };
@@ -254,8 +256,12 @@ export function EditProjectModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Edit Proyek Airdrop"
-      description="Perbarui informasi identitas, tautan website, faucet, komunitas, dan catatan panduan."
+      title={isEn ? "Edit Airdrop Project" : "Edit Proyek Airdrop"}
+      description={
+        isEn
+          ? "Update identity information, website links, faucet, community, and guide notes."
+          : "Perbarui informasi identitas, tautan website, faucet, komunitas, dan catatan panduan."
+      }
       maxWidth="2xl"
     >
       <form onSubmit={handleSave} className="space-y-5">
@@ -271,20 +277,20 @@ export function EditProjectModal({
           <div className="flex items-center gap-2 pb-1 border-b border-white/[0.05]">
             <Layers className="w-4 h-4 text-accent shrink-0" />
             <span className="text-body-sm font-semibold text-text-primary">
-              Identitas & Status Proyek
+              {isEn ? "Project Identity & Status" : "Identitas & Status Proyek"}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5">
-                Nama Proyek <span className="text-status-overdue">*</span>
+                {isEn ? "Project Name" : "Nama Proyek"} <span className="text-status-overdue">*</span>
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Contoh: MINARA, Monad, Berachain"
+                placeholder={isEn ? "e.g. MINARA, Monad, Berachain" : "Contoh: MINARA, Monad, Berachain"}
                 required
                 disabled={isSaving || isDeleting}
                 className="w-full h-10 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
@@ -293,13 +299,13 @@ export function EditProjectModal({
 
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5">
-                Jaringan / Chain
+                {isEn ? "Network / Chain" : "Jaringan / Chain"}
               </label>
               <input
                 type="text"
                 value={chain}
                 onChange={(e) => setChain(e.target.value)}
-                placeholder="Contoh: Ethereum, Arbitrum, Base, Berachain"
+                placeholder={isEn ? "e.g. Ethereum, Arbitrum, Base, Berachain" : "Contoh: Ethereum, Arbitrum, Base, Berachain"}
                 disabled={isSaving || isDeleting}
                 className="w-full h-10 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
               />
@@ -308,7 +314,7 @@ export function EditProjectModal({
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5 flex items-center gap-1.5">
                 <Folder className="w-3.5 h-3.5 text-text-tertiary" />
-                <span>Folder Kategori</span>
+                <span>{isEn ? "Category Folder" : "Folder Kategori"}</span>
               </label>
               <select
                 value={folderId}
@@ -316,7 +322,7 @@ export function EditProjectModal({
                 disabled={isSaving || isDeleting}
                 className="w-full h-10 px-3.5 rounded-xl bg-[#0d121b] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
               >
-                <option value="">(Tanpa Folder)</option>
+                <option value="">{isEn ? "(Unorganized)" : "(Tanpa Folder)"}</option>
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -328,7 +334,7 @@ export function EditProjectModal({
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5 flex items-center gap-1.5">
                 <Activity className="w-3.5 h-3.5 text-text-tertiary" />
-                <span>Status Garapan</span>
+                <span>{isEn ? "Farming Status" : "Status Garapan"}</span>
               </label>
               <select
                 value={status}
@@ -336,35 +342,36 @@ export function EditProjectModal({
                 disabled={isSaving || isDeleting}
                 className="w-full h-10 px-3.5 rounded-xl bg-[#0d121b] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
               >
-                <option value="not_started">Belum Mulai</option>
-                <option value="in_progress">Sedang Dikerjakan</option>
-                <option value="waiting">Menunggu TGE / Snapshot</option>
-                <option value="ready_to_claim">Siap Klaim</option>
-                <option value="completed">Selesai / Klaim Selesai</option>
+                <option value="not_started">{isEn ? "Not Started" : "Belum Mulai"}</option>
+                <option value="in_progress">{isEn ? "In Progress" : "Sedang Dikerjakan"}</option>
+                <option value="waiting">{isEn ? "Waiting for TGE / Snapshot" : "Menunggu TGE / Snapshot"}</option>
+                <option value="ready_to_claim">{isEn ? "Ready to Claim" : "Siap Klaim"}</option>
+                <option value="completed">{isEn ? "Completed" : "Selesai / Klaim Selesai"}</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* SECTION 2: SITUS WEB & SUMBER DAYA UTAMA (NO DOUBLE EMOJIS) */}
+        {/* SECTION 2: SITUS WEB & SUMBER DAYA UTAMA */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1 border-b border-white/[0.05]">
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-link-teal shrink-0" />
               <span className="text-body-sm font-semibold text-text-primary">
-                Situs Web & Sumber Daya Utama
+                {isEn ? "Websites & Primary Resources" : "Situs Web & Sumber Daya Utama"}
               </span>
             </div>
             <span className="text-[11px] text-text-tertiary">
-              Tautan portal resmi, dApp swap, dan faucet testnet
+              {isEn
+                ? "Official portal links, dApp swap, and testnet faucet"
+                : "Tautan portal resmi, dApp swap, dan faucet testnet"}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* Website Resmi */}
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5">
-                Website Resmi / Portal Info
+                {isEn ? "Official Website / Info Portal" : "Website Resmi / Portal Info"}
               </label>
               <div className="relative">
                 <Globe className="w-4 h-4 text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -379,10 +386,9 @@ export function EditProjectModal({
               </div>
             </div>
 
-            {/* DApp Web App */}
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5">
-                Web App / DApp Testnet
+                {isEn ? "Web App / Testnet DApp" : "Web App / DApp Testnet"}
               </label>
               <div className="relative">
                 <ExternalLink className="w-4 h-4 text-accent absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -397,10 +403,9 @@ export function EditProjectModal({
               </div>
             </div>
 
-            {/* Faucet Link */}
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5">
-                Faucet Testnet (Klaim Gas)
+                {isEn ? "Testnet Faucet (Gas Claim)" : "Faucet Testnet (Klaim Gas)"}
               </label>
               <div className="relative">
                 <Droplets className="w-4 h-4 text-link-teal absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -415,10 +420,9 @@ export function EditProjectModal({
               </div>
             </div>
 
-            {/* Dokumentasi */}
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5">
-                Dokumentasi / GitBook / Panduan
+                {isEn ? "Documentation / GitBook / Guide" : "Dokumentasi / GitBook / Panduan"}
               </label>
               <div className="relative">
                 <BookOpen className="w-4 h-4 text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -440,70 +444,57 @@ export function EditProjectModal({
           <div className="flex items-center gap-2 pb-1 border-b border-white/[0.05]">
             <Send className="w-4 h-4 text-accent shrink-0" />
             <span className="text-body-sm font-semibold text-text-primary">
-              Media Sosial & Sumber Telegram
+              {isEn ? "Social Media & Telegram Source" : "Media Sosial & Sumber Telegram"}
             </span>
           </div>
 
-          {/* 3 Grid Sosmed */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5">
                 Twitter / X
               </label>
-              <div className="relative">
-                <span className="text-[13px] font-bold text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                  𝕏
-                </span>
-                <input
-                  type="text"
-                  value={twitter}
-                  onChange={(e) => setTwitter(e.target.value)}
-                  placeholder="https://x.com/... atau @handle"
-                  disabled={isSaving || isDeleting}
-                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
-                />
-              </div>
+              <input
+                type="text"
+                value={twitter}
+                onChange={(e) => setTwitter(e.target.value)}
+                placeholder="https://x.com/project"
+                disabled={isSaving || isDeleting}
+                className="w-full h-10 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
+              />
             </div>
-
-            <div>
-              <label className="block text-caption font-medium text-text-secondary mb-1.5">
-                Telegram Channel / Group
-              </label>
-              <div className="relative">
-                <Send className="w-3.5 h-3.5 text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={telegram}
-                  onChange={(e) => setTelegram(e.target.value)}
-                  placeholder="https://t.me/..."
-                  disabled={isSaving || isDeleting}
-                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
-                />
-              </div>
-            </div>
-
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1.5">
                 Discord
               </label>
-              <div className="relative">
-                <MessageSquare className="w-3.5 h-3.5 text-text-tertiary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={discord}
-                  onChange={(e) => setDiscord(e.target.value)}
-                  placeholder="https://discord.gg/..."
-                  disabled={isSaving || isDeleting}
-                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
-                />
-              </div>
+              <input
+                type="text"
+                value={discord}
+                onChange={(e) => setDiscord(e.target.value)}
+                placeholder="https://discord.gg/project"
+                disabled={isSaving || isDeleting}
+                className="w-full h-10 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-caption font-medium text-text-secondary mb-1.5">
+                Telegram Group/Channel
+              </label>
+              <input
+                type="text"
+                value={telegram}
+                onChange={(e) => setTelegram(e.target.value)}
+                placeholder="https://t.me/project"
+                disabled={isSaving || isDeleting}
+                className="w-full h-10 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
+              />
             </div>
           </div>
 
-          {/* Link Postingan Telegram Induk */}
           <div className="pt-2 border-t border-white/[0.04]">
             <label className="block text-caption font-medium text-text-secondary mb-1.5">
-              Link Postingan Telegram Induk (Sumber Garapan)
+              {isEn
+                ? "Parent Telegram Post Link (Airdrop Source)"
+                : "Link Postingan Telegram Induk (Sumber Garapan)"}
             </label>
             <div className="relative">
               <Send className="w-4 h-4 text-accent absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -511,13 +502,19 @@ export function EditProjectModal({
                 type="url"
                 value={telegramPostUrl}
                 onChange={(e) => setTelegramPostUrl(e.target.value)}
-                placeholder="https://t.me/airdropfind/115116 atau https://t.me/dutacryptoairdrop/4294"
+                placeholder={
+                  isEn
+                    ? "https://t.me/airdropfind/115116 or https://t.me/dutacryptoairdrop/4294"
+                    : "https://t.me/airdropfind/115116 atau https://t.me/dutacryptoairdrop/4294"
+                }
                 disabled={isSaving || isDeleting}
                 className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50 font-mono text-[13px]"
               />
             </div>
             <p className="text-[11px] text-text-tertiary mt-1.5 leading-relaxed">
-              Tautan pesan awal garapan ini di Telegram. Berguna untuk melacak update berantai secara otomatis saat admin channel mengirimkan info pembaruan.
+              {isEn
+                ? "Initial message link for this airdrop on Telegram. Useful for automatic chain update tracking when channel admins post new updates."
+                : "Tautan pesan awal garapan ini di Telegram. Berguna untuk melacak update berantai secara otomatis saat admin channel mengirimkan info pembaruan."}
             </p>
           </div>
         </div>
@@ -528,7 +525,7 @@ export function EditProjectModal({
             <div className="flex items-center gap-2">
               <LinkIcon className="w-4 h-4 text-text-secondary shrink-0" />
               <span className="text-body-sm font-semibold text-text-primary">
-                Tautan Tambahan ({customLinks.length})
+                {isEn ? "Additional Links" : "Tautan Tambahan"} ({customLinks.length})
               </span>
             </div>
             <span className="text-[11px] text-text-tertiary">
@@ -555,7 +552,7 @@ export function EditProjectModal({
                     type="button"
                     onClick={() => handleRemoveCustomLink(idx)}
                     className="p-1 text-text-tertiary hover:text-status-overdue rounded-lg hover:bg-white/[0.05] transition-colors shrink-0"
-                    title="Hapus Link"
+                    title={isEn ? "Delete Link" : "Hapus Link"}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -569,7 +566,7 @@ export function EditProjectModal({
               type="text"
               value={newCustomLabel}
               onChange={(e) => setNewCustomLabel(e.target.value)}
-              placeholder="Label (cth: Explorer)"
+              placeholder={isEn ? "Label (e.g. Explorer)" : "Label (cth: Explorer)"}
               disabled={isSaving || isDeleting}
               className="w-full sm:w-1/3 h-9 px-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all disabled:opacity-50"
             />
@@ -588,7 +585,7 @@ export function EditProjectModal({
               className="h-9 px-3.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] text-text-primary text-caption font-semibold inline-flex items-center justify-center gap-1.5 transition-all shrink-0 disabled:opacity-40"
             >
               <Plus className="w-3.5 h-3.5 text-accent" />
-              <span>Tambah</span>
+              <span>{isEn ? "Add" : "Tambah"}</span>
             </button>
           </div>
         </div>
@@ -598,7 +595,7 @@ export function EditProjectModal({
           <div className="flex items-center gap-2 pb-1 border-b border-white/[0.05]">
             <FileText className="w-4 h-4 text-text-secondary shrink-0" />
             <span className="text-body-sm font-semibold text-text-primary">
-              Catatan Garapan & Panduan Kerja
+              {isEn ? "Farming Notes & Work Guide" : "Catatan Garapan & Panduan Kerja"}
             </span>
           </div>
 
@@ -606,12 +603,18 @@ export function EditProjectModal({
             rows={4}
             value={guideContent}
             onChange={(e) => setGuideContent(e.target.value)}
-            placeholder="Tulis panduan kerja, trik pengerjaan, catatan gas fee, atau info penting lainnya..."
+            placeholder={
+              isEn
+                ? "Write work guides, tricks, gas fee notes, or other important info..."
+                : "Tulis panduan kerja, trik pengerjaan, catatan gas fee, atau info penting lainnya..."
+            }
             disabled={isSaving || isDeleting}
             className="w-full p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.06] transition-all font-sans leading-relaxed no-scrollbar resize-none disabled:opacity-50"
           />
           <p className="text-[11px] text-text-tertiary">
-            Tautan URL di dalam catatan otomatis menjadi link interaktif saat dilihat pada halaman linimasa proyek.
+            {isEn
+              ? "URL links in notes will automatically become interactive links when viewed on the project timeline page."
+              : "Tautan URL di dalam catatan otomatis menjadi link interaktif saat dilihat pada halaman linimasa proyek."}
           </p>
         </div>
 
@@ -622,7 +625,7 @@ export function EditProjectModal({
               <div className="flex items-center gap-2.5 p-2 rounded-xl bg-status-overdue/10 border border-status-overdue/30">
                 <span className="text-caption text-status-overdue font-semibold flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  Hapus proyek ini?
+                  {isEn ? "Delete this project?" : "Hapus proyek ini?"}
                 </span>
                 <button
                   type="button"
@@ -630,14 +633,16 @@ export function EditProjectModal({
                   disabled={isDeleting}
                   className="px-3 py-1 bg-status-overdue text-white text-caption font-bold rounded-lg hover:bg-red-700 transition-colors shadow-xs"
                 >
-                  {isDeleting ? "Menghapus..." : "Ya, Hapus"}
+                  {isDeleting
+                    ? (isEn ? "Deleting..." : "Menghapus...")
+                    : (isEn ? "Yes, Delete" : "Ya, Hapus")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
                   className="text-caption text-text-tertiary hover:text-text-primary px-1.5 transition-colors"
                 >
-                  Batal
+                  {isEn ? "Cancel" : "Batal"}
                 </button>
               </div>
             ) : (
@@ -648,7 +653,7 @@ export function EditProjectModal({
                 disabled={isSaving || isDeleting}
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Hapus Proyek</span>
+                <span>{isEn ? "Delete Project" : "Hapus Proyek"}</span>
               </button>
             )}
           </div>
@@ -660,14 +665,16 @@ export function EditProjectModal({
               disabled={isSaving || isDeleting}
               className="!py-2 !px-4 text-caption rounded-xl"
             >
-              Batal
+              {isEn ? "Cancel" : "Batal"}
             </ButtonSecondary>
             <ButtonPrimary
               type="submit"
               disabled={isSaving || isDeleting}
               className="!py-2 !px-5 text-caption rounded-xl"
             >
-              {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+              {isSaving
+                ? (isEn ? "Saving..." : "Menyimpan...")
+                : (isEn ? "Save Changes" : "Simpan Perubahan")}
             </ButtonPrimary>
           </div>
         </div>

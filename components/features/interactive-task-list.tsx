@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
+import { useTranslation } from "@/lib/i18n/context";
 
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
 type TaskType = Database["public"]["Enums"]["task_type"];
@@ -68,6 +69,7 @@ export function InteractiveTaskList({
   onTasksUpdated,
   showFilters = true,
 }: InteractiveTaskListProps) {
+  const { isEn } = useTranslation();
   const [tasks, setTasks] = useState<TaskRow[]>(initialTasks);
   const [filter, setFilter] = useState<"all" | "pending" | "done">("all");
 
@@ -236,7 +238,7 @@ export function InteractiveTaskList({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-border-hairline">
         <div className="flex items-center gap-2">
           <span className="text-body-sm font-semibold text-text-primary">
-            Langkah Garapan
+            {isEn ? "Action Steps" : "Langkah Garapan"}
           </span>
           <span className="text-caption font-mono text-text-secondary px-2 py-0.5 rounded-full bg-bg-elevated-2 border border-border-hairline">
             {completedCount}/{tasks.length} ({progressPercent}%)
@@ -254,7 +256,7 @@ export function InteractiveTaskList({
                   : "text-text-tertiary hover:text-text-primary"
               }`}
             >
-              Semua
+              {isEn ? "All" : "Semua"}
             </button>
             <button
               type="button"
@@ -265,7 +267,7 @@ export function InteractiveTaskList({
                   : "text-text-tertiary hover:text-text-primary"
               }`}
             >
-              Belum ({tasks.length - completedCount})
+              {isEn ? `Pending (${tasks.length - completedCount})` : `Belum (${tasks.length - completedCount})`}
             </button>
             <button
               type="button"
@@ -276,7 +278,7 @@ export function InteractiveTaskList({
                   : "text-text-tertiary hover:text-text-primary"
               }`}
             >
-              Selesai ({completedCount})
+              {isEn ? `Done (${completedCount})` : `Selesai (${completedCount})`}
             </button>
           </div>
         )}
@@ -298,11 +300,13 @@ export function InteractiveTaskList({
           <div className="p-4 rounded-md bg-bg-elevated/40 border border-dashed border-border-hairline text-center space-y-1">
             <p className="text-body-sm text-text-secondary">
               {tasks.length === 0
-                ? "Belum ada langkah kerja untuk proyek ini."
-                : "Tidak ada langkah pada filter ini."}
+                ? (isEn ? "No action steps for this project yet." : "Belum ada langkah kerja untuk proyek ini.")
+                : (isEn ? "No steps in this filter." : "Tidak ada langkah pada filter ini.")}
             </p>
             <p className="text-caption text-text-tertiary">
-              Ketik langsung langkah pertama di baris bawah dan tekan Enter.
+              {isEn
+                ? "Type the first step below and press Enter."
+                : "Ketik langsung langkah pertama di baris bawah dan tekan Enter."}
             </p>
           </div>
         ) : (
@@ -326,7 +330,11 @@ export function InteractiveTaskList({
                     type="button"
                     onClick={() => handleToggleTask(task.id, task.status)}
                     className="shrink-0 p-0.5 text-text-tertiary hover:text-text-primary transition-colors focus:outline-none"
-                    title={isDone ? "Tandai belum selesai" : "Tandai selesai"}
+                    title={
+                      isDone
+                        ? (isEn ? "Mark as pending" : "Tandai belum selesai")
+                        : (isEn ? "Mark as done" : "Tandai selesai")
+                    }
                   >
                     {isDone ? (
                       <CheckCircle2 className="w-4 h-4 text-status-completed" />
@@ -352,7 +360,7 @@ export function InteractiveTaskList({
                         type="button"
                         onClick={() => handleSaveEdit(task.id)}
                         className="p-1 text-status-completed hover:bg-bg-elevated rounded"
-                        title="Simpan (Enter)"
+                        title={isEn ? "Save (Enter)" : "Simpan (Enter)"}
                       >
                         <Check className="w-3.5 h-3.5" />
                       </button>
@@ -360,7 +368,7 @@ export function InteractiveTaskList({
                         type="button"
                         onClick={() => setEditingTaskId(null)}
                         className="p-1 text-text-tertiary hover:bg-bg-elevated rounded"
-                        title="Batal (Esc)"
+                        title={isEn ? "Cancel (Esc)" : "Batal (Esc)"}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -373,7 +381,7 @@ export function InteractiveTaskList({
                           ? "line-through text-text-tertiary"
                           : "text-text-primary font-medium"
                       }`}
-                      title="Klik untuk ubah teks langkah"
+                      title={isEn ? "Click to edit step text" : "Klik untuk ubah teks langkah"}
                     >
                       {renderFormattedTitle(task.title)}
                     </span>
@@ -390,9 +398,9 @@ export function InteractiveTaskList({
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors text-[11px] font-semibold"
-                        title={`Buka ${directUrl}`}
+                        title={isEn ? `Open ${directUrl}` : `Buka ${directUrl}`}
                       >
-                        <span>Akses</span>
+                        <span>{isEn ? "Open" : "Akses"}</span>
                         <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     )}
@@ -401,13 +409,13 @@ export function InteractiveTaskList({
                     {task.type === "daily" && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated border border-border-hairline text-accent font-mono inline-flex items-center gap-1">
                         <Repeat className="w-2.5 h-2.5" />
-                        <span>Harian</span>
+                        <span>{isEn ? "Daily" : "Harian"}</span>
                       </span>
                     )}
                     {task.type === "weekly" && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated border border-border-hairline text-link-teal font-mono inline-flex items-center gap-1">
                         <Calendar className="w-2.5 h-2.5" />
-                        <span>Mingguan</span>
+                        <span>{isEn ? "Weekly" : "Mingguan"}</span>
                       </span>
                     )}
 
@@ -416,7 +424,7 @@ export function InteractiveTaskList({
                       type="button"
                       onClick={() => handleStartEdit(task)}
                       className="p-1 text-text-tertiary hover:text-text-primary rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                      title="Ubah teks langkah"
+                      title={isEn ? "Edit step text" : "Ubah teks langkah"}
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
@@ -426,7 +434,7 @@ export function InteractiveTaskList({
                       type="button"
                       onClick={() => handleDeleteTask(task.id)}
                       className="p-1 text-text-tertiary hover:text-status-overdue rounded opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                      title="Hapus langkah ini"
+                      title={isEn ? "Delete this step" : "Hapus langkah ini"}
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
@@ -453,7 +461,11 @@ export function InteractiveTaskList({
             type="text"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="+ Tambah langkah baru... (Ketik judul/link)"
+            placeholder={
+              isEn
+                ? "+ Add new step... (Type title/link)"
+                : "+ Tambah langkah baru... (Ketik judul/link)"
+            }
             className="flex-1 bg-transparent text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none min-w-0"
             disabled={isAdding}
           />
@@ -465,11 +477,11 @@ export function InteractiveTaskList({
             value={newType}
             onChange={(e) => setNewType(e.target.value as TaskType)}
             className="bg-bg-elevated-2 text-caption text-text-secondary px-2 py-1 rounded border border-border-hairline focus:outline-none cursor-pointer"
-            title="Frekuensi tugas"
+            title={isEn ? "Task frequency" : "Frekuensi tugas"}
           >
-            <option value="one_time">Sekali</option>
-            <option value="daily">Harian 🔁</option>
-            <option value="weekly">Mingguan</option>
+            <option value="one_time">{isEn ? "Once" : "Sekali"}</option>
+            <option value="daily">{isEn ? "Daily 🔁" : "Harian 🔁"}</option>
+            <option value="weekly">{isEn ? "Weekly" : "Mingguan"}</option>
           </select>
 
           <button
@@ -477,7 +489,9 @@ export function InteractiveTaskList({
             disabled={!newTitle.trim() || isAdding}
             className="px-2.5 py-1 rounded bg-accent text-on-accent text-caption font-semibold disabled:opacity-40 hover:bg-accent-pressed transition-colors shadow-sm"
           >
-            {isAdding ? "Menyimpan..." : "Tambah"}
+            {isAdding
+              ? (isEn ? "Saving..." : "Menyimpan...")
+              : (isEn ? "Add" : "Tambah")}
           </button>
         </div>
       </form>

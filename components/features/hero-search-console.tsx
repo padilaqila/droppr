@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CommunityCreditsModal, PARTNERS } from "./community-credits-modal";
+import { useTranslation } from "@/lib/i18n/context";
 
 type CategoryFilter = "all" | "testnet" | "waitlist";
 
@@ -112,6 +113,7 @@ const DEFAULT_FALLBACK_DATA: LiveFeedItem[] = [
 ];
 
 export function HeroSearchConsole() {
+  const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>("all");
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<LiveFeedItem[]>(DEFAULT_FALLBACK_DATA);
@@ -195,7 +197,7 @@ export function HeroSearchConsole() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Protokol airdrop atau task apa yang ingin kamu lacak hari ini?"
+              placeholder={t("marketing.searchPlaceholder")}
               className="w-full bg-transparent text-text-primary placeholder:text-white/40 text-body-sm sm:text-body-md font-sans focus:outline-none tracking-normal"
             />
           </div>
@@ -207,11 +209,11 @@ export function HeroSearchConsole() {
               onClick={() => fetchTelegramFeed(true)}
               disabled={isLoading || isSyncing}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[11px] text-white/80 hover:text-white transition-all disabled:opacity-50"
-              title="Sinkronkan pembaruan terbaru dengan kanal Telegram"
+              title={t("marketing.syncTelegram")}
             >
               <RotateCw className={`w-3 h-3 text-link-teal ${isSyncing || isLoading ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline font-sans">
-                {isSyncing ? "Menyinkronkan..." : "Sinkron Telegram"}
+                {isSyncing ? t("marketing.syncing") : t("marketing.syncTelegram")}
               </span>
             </button>
 
@@ -229,7 +231,7 @@ export function HeroSearchConsole() {
             <div className="space-y-2 py-1 animate-pulse">
               <div className="flex items-center justify-center gap-2 text-[11px] text-text-tertiary font-sans py-1">
                 <Radio className="w-3.5 h-3.5 text-accent animate-pulse" />
-                <span>Menghubungkan ke kanal Telegram Airdrop Finder & Duta Crypto...</span>
+                <span>{t("marketing.connectingChannels")}</span>
               </div>
               {[1, 2, 3].map((i) => (
                 <div
@@ -300,7 +302,7 @@ export function HeroSearchConsole() {
 
               {filteredData.length === 0 && (
                 <div className="py-6 text-center text-white/50 text-caption font-sans">
-                  Tidak ada data airdrop Telegram yang cocok dengan &quot;{query}&quot;.
+                  {t("marketing.noTelegramMatch")} &quot;{query}&quot;.
                 </div>
               )}
             </>
@@ -314,7 +316,7 @@ export function HeroSearchConsole() {
             <Link 
               href="/dashboard"
               className="w-7 h-7 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white/80 hover:text-white flex items-center justify-center transition-colors"
-              title="Tambah airdrop baru ke workspace"
+              title={t("nav.quickAdd")}
             >
               <Plus className="w-3.5 h-3.5" />
             </Link>
@@ -329,7 +331,7 @@ export function HeroSearchConsole() {
                     : "text-white/50 hover:text-white/80"
                 }`}
               >
-                SEMUA
+                {t("marketing.filterAll")}
               </button>
               <button
                 type="button"
@@ -340,7 +342,7 @@ export function HeroSearchConsole() {
                     : "text-white/50 hover:text-white/80"
                 }`}
               >
-                TESTNET
+                {t("marketing.filterTestnet")}
               </button>
               <button
                 type="button"
@@ -351,7 +353,7 @@ export function HeroSearchConsole() {
                     : "text-white/50 hover:text-white/80"
                 }`}
               >
-                WAITLIST
+                {t("marketing.filterWaitlist")}
               </button>
             </div>
           </div>
@@ -362,10 +364,10 @@ export function HeroSearchConsole() {
               type="button"
               onClick={() => setIsCreditsOpen(true)}
               className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] border border-white/10 text-[11px] font-sans text-white/80 hover:text-white transition-all cursor-pointer"
-              title="Klik untuk melihat info sumber Telegram publik"
+              title={t("marketing.telegramSources")}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-status-completed animate-pulse" />
-              <span>Sumber Telegram</span>
+              <span>{t("marketing.telegramSources")}</span>
               <HeartHandshake className="w-3 h-3 text-accent ml-0.5" />
             </button>
 
@@ -373,7 +375,7 @@ export function HeroSearchConsole() {
               <button
                 type="button"
                 className="w-7 h-7 rounded-full bg-accent hover:bg-accent-pressed text-on-accent flex items-center justify-center shadow-[0_0_15px_rgba(240,169,59,0.5)] hover:scale-105 active:scale-95 transition-all"
-                title="Buka Workspace Droppr"
+                title={t("marketing.openWorkspaceTitle")}
               >
                 <ArrowUp className="w-3.5 h-3.5 font-bold stroke-[2.5]" />
               </button>
@@ -390,7 +392,7 @@ export function HeroSearchConsole() {
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-white/25 text-[11px] text-white/85 hover:text-white font-sans transition-all shadow-sm"
         >
           <CheckCircle2 className="w-3 h-3 text-status-completed" />
-          <span>Pelacakan task & snapshot harian</span>
+          <span>{t("marketing.capDaily")}</span>
         </Link>
 
         <Link 
@@ -398,7 +400,7 @@ export function HeroSearchConsole() {
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-white/25 text-[11px] text-white/85 hover:text-white font-sans transition-all shadow-sm"
         >
           <ShieldCheck className="w-3 h-3 text-status-in-progress" />
-          <span>Portofolio multi-wallet non-custodial</span>
+          <span>{t("marketing.capWallet")}</span>
         </Link>
 
         <Link 
@@ -406,14 +408,14 @@ export function HeroSearchConsole() {
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-white/25 text-[11px] text-white/85 hover:text-white font-sans transition-all shadow-sm"
         >
           <Clock className="w-3 h-3 text-accent" />
-          <span>Reminder deadline klaim token</span>
+          <span>{t("marketing.capReminder")}</span>
         </Link>
       </div>
 
       {/* Community Public Sources Bar with Interactive Logos */}
       <div className="mt-4 pt-3 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3 max-w-2xl mx-auto px-2">
         <div className="flex items-center gap-2 text-[11px] text-white/60 font-sans">
-          <span>Referensi channel komunitas:</span>
+          <span>{t("marketing.communityRef")}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -448,7 +450,7 @@ export function HeroSearchConsole() {
             onClick={() => setIsCreditsOpen(true)}
             className="text-[11px] text-link-teal hover:underline ml-1 font-medium cursor-pointer"
           >
-            Detail Sumber ↗
+            {t("marketing.sourceDetail")}
           </button>
         </div>
       </div>

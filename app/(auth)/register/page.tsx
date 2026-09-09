@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ButtonPrimary } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 import { 
   AlertCircle, 
   CheckCircle2, 
@@ -19,6 +20,7 @@ import {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -33,13 +35,13 @@ export default function RegisterPage() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (password.length < 6) {
-      setErrorMsg("Kata sandi minimal harus 6 karakter.");
+    if (password !== confirmPassword) {
+      setErrorMsg("Konfirmasi kata sandi tidak cocok.");
       return;
     }
 
-    if (password !== confirmPassword) {
-      setErrorMsg("Konfirmasi kata sandi tidak cocok.");
+    if (password.length < 6) {
+      setErrorMsg("Kata sandi harus minimal 6 karakter.");
       return;
     }
 
@@ -50,10 +52,13 @@ export default function RegisterPage() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
 
       if (error) {
-        setErrorMsg(error.message || "Gagal mendaftarkan akun baru.");
+        setErrorMsg(error.message || "Gagal mendaftarkan akun.");
         setLoading(false);
         return;
       }
@@ -89,10 +94,10 @@ export default function RegisterPage() {
             <Flame className="w-5 h-5" />
           </div>
           <h2 className="text-2xl font-bold font-sans text-text-primary tracking-tight">
-            Daftar Akun Droppr
+            {t("auth.registerTitle")}
           </h2>
           <p className="text-body-sm text-text-secondary font-sans">
-            Mulai kelola seluruh airdrop dalam satu workspace personal.
+            {t("auth.registerSubtitle")}
           </p>
         </div>
 
@@ -122,7 +127,7 @@ export default function RegisterPage() {
             {/* Email Input */}
             <div className="space-y-1.5">
               <label className="block text-caption font-semibold text-text-secondary font-sans">
-                Email
+                {t("auth.emailLabel")}
               </label>
               <div className="relative flex items-center">
                 <input
@@ -143,7 +148,7 @@ export default function RegisterPage() {
             {/* Password Input */}
             <div className="space-y-1.5">
               <label className="block text-caption font-semibold text-text-secondary font-sans">
-                Kata Sandi
+                {t("auth.passwordLabel")}
               </label>
               <div className="relative flex items-center">
                 <input
@@ -178,7 +183,7 @@ export default function RegisterPage() {
             {/* Confirm Password Input */}
             <div className="space-y-1.5">
               <label className="block text-caption font-semibold text-text-secondary font-sans">
-                Konfirmasi Kata Sandi
+                {t("auth.confirmPasswordLabel")}
               </label>
               <div className="relative flex items-center">
                 <input
@@ -220,11 +225,11 @@ export default function RegisterPage() {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Mendaftarkan Akun...</span>
+                    <span>{t("auth.processing")}</span>
                   </>
                 ) : (
                   <>
-                    <span>Buat Akun Droppr</span>
+                    <span>{t("auth.signUpButton")}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -235,12 +240,12 @@ export default function RegisterPage() {
 
         {/* Footer Link */}
         <div className="border-t border-white/10 pt-4 text-center text-body-sm text-text-secondary font-sans">
-          Sudah memiliki akun?{" "}
+          {t("auth.hasAccount")}{" "}
           <Link
             href="/login"
             className="text-link-teal hover:underline font-semibold"
           >
-            Masuk di sini
+            {t("auth.loginLink")}
           </Link>
         </div>
 

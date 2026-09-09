@@ -27,6 +27,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import type { AirdropFeedItem } from "@/lib/supabase/airdrop-feeds";
 import type { WaitlistItem } from "@/lib/supabase/waitlists";
+import { useTranslation } from "@/lib/i18n/context";
 
 type ProjectStatus = Database["public"]["Enums"]["project_status"];
 
@@ -59,6 +60,7 @@ export function ProjectReviewModal({
   onSuccess,
 }: ProjectReviewModalProps) {
   const router = useRouter();
+  const { isEn } = useTranslation();
 
   // Loading & Error States
   const [isSaving, setIsSaving] = useState(false);
@@ -323,7 +325,7 @@ export function ProjectReviewModal({
       }
     } catch (err: any) {
       console.error("ProjectReviewModal save error:", err);
-      setErrorMessage(err?.message || "Terjadi kesalahan saat membuat proyek.");
+      setErrorMessage(err?.message || (isEn ? "An error occurred while creating the project." : "Terjadi kesalahan saat membuat proyek."));
     } finally {
       setIsSaving(false);
     }
@@ -333,8 +335,8 @@ export function ProjectReviewModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Review & Rapikan Data Proyek"
-      description="Periksa dan sesuaikan data garapan sebelum resmi ditambahkan ke workstation Droppr Anda."
+      title={isEn ? "Review & Refine Project Data" : "Review & Rapikan Data Proyek"}
+      description={isEn ? "Check and adjust farming data before adding to your Droppr workstation." : "Periksa dan sesuaikan data garapan sebelum resmi ditambahkan ke workstation Droppr Anda."}
       maxWidth="4xl"
     >
       <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
@@ -344,9 +346,12 @@ export function ProjectReviewModal({
           <div className="p-3 rounded-lg bg-accent/10 border border-accent/20 flex items-start gap-2.5 text-body-sm text-text-secondary">
             <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
             <div className="leading-snug">
-              <span className="font-semibold text-text-primary">Ekstraksi Otomatis Selesai: </span>
-              Tautan penting, blockchain, checklist tugas, dan info akun sudah dirapikan otomatis.
-              Anda bisa mengubah nama, menambah link, atau menyaring tugas yang diperlukan di bawah ini.
+              <span className="font-semibold text-text-primary">
+                {isEn ? "Automatic Extraction Complete: " : "Ekstraksi Otomatis Selesai: "}
+              </span>
+              {isEn
+                ? "Important links, blockchain, task checklist, and account info have been formatted automatically. You can change the name, add links, or filter required tasks below."
+                : "Tautan penting, blockchain, checklist tugas, dan info akun sudah dirapikan otomatis. Anda bisa mengubah nama, menambah link, atau menyaring tugas yang diperlukan di bawah ini."}
             </div>
           </div>
 
@@ -363,18 +368,18 @@ export function ProjectReviewModal({
               <div className="space-y-3.5 pb-5 border-b border-border-hairline">
                 <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
                   <Layers className="w-4 h-4 text-accent" />
-                  <span>Identitas Proyek</span>
+                  <span>{isEn ? "Project Identity" : "Identitas Proyek"}</span>
                 </h4>
 
                 <div className="space-y-1">
                   <label className="text-caption font-medium text-text-secondary">
-                    Nama Proyek <span className="text-status-danger">*</span>
+                    {isEn ? "Project Name" : "Nama Proyek"} <span className="text-status-danger">*</span>
                   </label>
                   <Input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Nama Airdrop / Proyek"
+                    placeholder={isEn ? "Airdrop / Project Name" : "Nama Airdrop / Proyek"}
                     required
                     className="font-semibold text-body-md"
                   />
@@ -382,16 +387,18 @@ export function ProjectReviewModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary">Status Awal</label>
+                    <label className="text-caption font-medium text-text-secondary">
+                      {isEn ? "Initial Status" : "Status Awal"}
+                    </label>
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as ProjectStatus)}
                       className="w-full px-3 py-2 rounded-lg bg-bg-elevated-2 border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent"
                     >
-                      <option value="in_progress">Sedang Dikerjakan</option>
-                      <option value="waiting">Menunggu Snapshot/TGE</option>
-                      <option value="not_started">Belum Mulai</option>
-                      <option value="ready_to_claim">Siap Klaim</option>
+                      <option value="in_progress">{isEn ? "In Progress" : "Sedang Dikerjakan"}</option>
+                      <option value="waiting">{isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE"}</option>
+                      <option value="not_started">{isEn ? "Not Started" : "Belum Mulai"}</option>
+                      <option value="ready_to_claim">{isEn ? "Ready to Claim" : "Siap Klaim"}</option>
                     </select>
                   </div>
 
@@ -401,18 +408,20 @@ export function ProjectReviewModal({
                       type="text"
                       value={chain}
                       onChange={(e) => setChain(e.target.value)}
-                      placeholder="Multi-chain, EVM, Solana"
+                      placeholder={isEn ? "Multi-chain, EVM, Solana" : "Multi-chain, EVM, Solana"}
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-caption font-medium text-text-secondary">Folder (Opsional)</label>
+                    <label className="text-caption font-medium text-text-secondary">
+                      {isEn ? "Folder (Optional)" : "Folder (Opsional)"}
+                    </label>
                     <select
                       value={folderId}
                       onChange={(e) => setFolderId(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg bg-bg-elevated-2 border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent"
                     >
-                      <option value="">Tanpa Folder</option>
+                      <option value="">{isEn ? "No Folder" : "Tanpa Folder"}</option>
                       {folders.map((f) => (
                         <option key={f.id} value={f.id}>
                           {f.name}
@@ -427,14 +436,14 @@ export function ProjectReviewModal({
               <div className="space-y-3.5 pb-5 border-b border-border-hairline">
                 <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
                   <Globe className="w-4 h-4 text-accent" />
-                  <span>Tautan Penting (Resource Links)</span>
+                  <span>{isEn ? "Important Links (Resource Links)" : "Tautan Penting (Resource Links)"}</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
                       <Zap className="w-3.5 h-3.5 text-accent" />
-                      <span>DApp / Link Testnet</span>
+                      <span>{isEn ? "DApp / Testnet Link" : "DApp / Link Testnet"}</span>
                     </label>
                     <Input
                       type="url"
@@ -447,7 +456,7 @@ export function ProjectReviewModal({
                   <div className="space-y-1">
                     <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
                       <Globe className="w-3.5 h-3.5 text-text-tertiary" />
-                      <span>Website Resmi</span>
+                      <span>{isEn ? "Official Website" : "Website Resmi"}</span>
                     </label>
                     <Input
                       type="url"
@@ -460,7 +469,7 @@ export function ProjectReviewModal({
                   <div className="space-y-1">
                     <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
                       <Droplets className="w-3.5 h-3.5 text-link-teal" />
-                      <span>Faucet Token</span>
+                      <span>{isEn ? "Token Faucet" : "Faucet Token"}</span>
                     </label>
                     <Input
                       type="url"
@@ -473,7 +482,7 @@ export function ProjectReviewModal({
                   <div className="space-y-1">
                     <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
                       <BookOpen className="w-3.5 h-3.5 text-text-tertiary" />
-                      <span>Dokumentasi / Docs</span>
+                      <span>{isEn ? "Documentation / Docs" : "Dokumentasi / Docs"}</span>
                     </label>
                     <Input
                       type="url"
@@ -525,7 +534,7 @@ export function ProjectReviewModal({
                   <div className="space-y-1">
                     <label className="text-caption font-medium text-text-secondary flex items-center gap-1">
                       <Share2 className="w-3.5 h-3.5 text-accent" />
-                      <span>Link Referral</span>
+                      <span>{isEn ? "Referral Link" : "Link Referral"}</span>
                     </label>
                     <Input
                       type="url"
@@ -541,7 +550,7 @@ export function ProjectReviewModal({
               <div className="space-y-3">
                 <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
                   <AtSign className="w-4 h-4 text-accent" />
-                  <span>Akun Terkait (Non-Sensitif)</span>
+                  <span>{isEn ? "Linked Account (Non-Sensitive)" : "Akun Terkait (Non-Sensitif)"}</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
@@ -556,16 +565,18 @@ export function ProjectReviewModal({
                       <option value="Discord">Discord</option>
                       <option value="Telegram">Telegram</option>
                       <option value="Wallet Address">Wallet Address</option>
-                      <option value="Akun Pendaftar">Akun Pendaftar</option>
+                      <option value="Akun Pendaftar">{isEn ? "Registered Account" : "Akun Pendaftar"}</option>
                     </select>
                   </div>
                   <div className="sm:col-span-2 space-y-1">
-                    <label className="text-caption font-medium text-text-secondary">Username / Alamat / Email</label>
+                    <label className="text-caption font-medium text-text-secondary">
+                      {isEn ? "Username / Address / Email" : "Username / Alamat / Email"}
+                    </label>
                     <Input
                       type="text"
                       value={accountValue}
                       onChange={(e) => setAccountValue(e.target.value)}
-                      placeholder="Misal: @padilaqila atau email@gmail.com"
+                      placeholder={isEn ? "e.g. @padilaqila or email@gmail.com" : "Misal: @padilaqila atau email@gmail.com"}
                     />
                   </div>
                 </div>
@@ -579,9 +590,11 @@ export function ProjectReviewModal({
                 <div className="flex items-center justify-between gap-2">
                   <h4 className="text-body-sm font-semibold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
                     <Zap className="w-4 h-4 text-accent" />
-                    <span>Daftar Checklist Tugas ({tasks.length})</span>
+                    <span>{isEn ? `Task Checklist (${tasks.length})` : `Daftar Checklist Tugas (${tasks.length})`}</span>
                   </h4>
-                  <span className="text-[11px] font-mono text-text-tertiary">Klik badge ubah tipe</span>
+                  <span className="text-[11px] font-mono text-text-tertiary">
+                    {isEn ? "Click badge to toggle type" : "Klik badge ubah tipe"}
+                  </span>
                 </div>
 
                 {/* Add task bar */}
@@ -589,17 +602,17 @@ export function ProjectReviewModal({
                   <select
                     value={newTaskType}
                     onChange={(e) => setNewTaskType(e.target.value as any)}
-                    className="px-2 py-1.5 rounded-lg bg-bg-elevated border border-border-hairline text-caption text-text-primary shrink-0 focus:outline-none focus:border-accent"
+                    className="px-2 py-1.5 rounded-lg bg-bg-elevated border border-border-hairline text-caption text-text-primary shrink-0 focus:outline-none focus:border-accent cursor-pointer"
                   >
-                    <option value="one_time">Sekali</option>
-                    <option value="daily">Harian</option>
-                    <option value="weekly">Mingguan</option>
+                    <option value="one_time">{isEn ? "One-time" : "Sekali"}</option>
+                    <option value="daily">{isEn ? "Daily" : "Harian"}</option>
+                    <option value="weekly">{isEn ? "Weekly" : "Mingguan"}</option>
                   </select>
                   <Input
                     type="text"
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                    placeholder="Tambah tugas..."
+                    placeholder={isEn ? "Add task..." : "Tambah tugas..."}
                     className="flex-1 !py-1.5 text-caption"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
@@ -636,9 +649,9 @@ export function ProjectReviewModal({
                                 ? "bg-link-teal/15 text-link-teal border border-link-teal/30"
                                 : "bg-bg-elevated-2 text-text-secondary border border-border-subtle"
                             }`}
-                            title="Klik untuk mengganti tipe (Sekali / Harian / Mingguan)"
+                            title={isEn ? "Click to switch type (One-time / Daily / Weekly)" : "Klik untuk mengganti tipe (Sekali / Harian / Mingguan)"}
                           >
-                            {t.type === "daily" ? "Harian" : t.type === "weekly" ? "Mingguan" : "Sekali"}
+                            {t.type === "daily" ? (isEn ? "Daily" : "Harian") : t.type === "weekly" ? (isEn ? "Weekly" : "Mingguan") : (isEn ? "One-time" : "Sekali")}
                           </button>
                           <span className="text-text-primary leading-tight break-words font-medium">
                             {t.title}
@@ -649,7 +662,7 @@ export function ProjectReviewModal({
                           type="button"
                           onClick={() => handleRemoveTask(t.id)}
                           className="p-1 rounded text-text-tertiary hover:text-status-danger transition-colors shrink-0"
-                          title="Hapus tugas ini"
+                          title={isEn ? "Delete this task" : "Hapus tugas ini"}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -657,7 +670,7 @@ export function ProjectReviewModal({
                     ))
                   ) : (
                     <div className="text-center py-6 text-caption text-text-tertiary">
-                      Belum ada tugas. Ketik tugas di atas untuk menambahkan checklist pengerjaan.
+                      {isEn ? "No tasks yet. Type a task above to add a checklist." : "Belum ada tugas. Ketik tugas di atas untuk menambahkan checklist pengerjaan."}
                     </div>
                   )}
                 </div>
@@ -668,15 +681,15 @@ export function ProjectReviewModal({
                 <label className="text-caption font-medium text-text-secondary flex items-center justify-between">
                   <span className="flex items-center gap-1">
                     <BookOpen className="w-3.5 h-3.5 text-text-tertiary" />
-                    <span>Catatan / Panduan Pengerjaan</span>
+                    <span>{isEn ? "Notes / Task Guide" : "Catatan / Panduan Pengerjaan"}</span>
                   </span>
-                  <span className="text-[11px] text-text-tertiary">Tersimpan di proyek</span>
+                  <span className="text-[11px] text-text-tertiary">{isEn ? "Saved to project" : "Tersimpan di proyek"}</span>
                 </label>
                 <textarea
                   rows={5}
                   value={guideContent}
                   onChange={(e) => setGuideContent(e.target.value)}
-                  placeholder="Catatan panduan langkah kerja..."
+                  placeholder={isEn ? "Step-by-step notes..." : "Catatan panduan langkah kerja..."}
                   className="w-full px-3 py-2 rounded-lg bg-bg-elevated-2 border border-border-hairline text-caption text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent font-mono resize-y"
                 />
               </div>
@@ -692,7 +705,7 @@ export function ProjectReviewModal({
             disabled={isSaving}
             className="px-4 py-2 rounded-lg text-body-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 transition-colors disabled:opacity-50"
           >
-            Batal
+            {isEn ? "Cancel" : "Batal"}
           </button>
 
           <div className="flex items-center gap-2">
@@ -704,12 +717,12 @@ export function ProjectReviewModal({
               {isSaving ? (
                 <>
                   <RotateCcw className="w-4 h-4 animate-spin" />
-                  <span>Menyimpan Proyek...</span>
+                  <span>{isEn ? "Saving Project..." : "Menyimpan Proyek..."}</span>
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Simpan &amp; Buka Proyek</span>
+                  <span>{isEn ? "Save & Open Project" : "Simpan & Buka Proyek"}</span>
                 </>
               )}
             </ButtonPrimary>

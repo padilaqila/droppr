@@ -15,6 +15,7 @@ import {
   Share2,
 } from "lucide-react";
 import type { Database } from "@/lib/supabase/database.types";
+import { useTranslation } from "@/lib/i18n/context";
 
 type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
 
@@ -36,6 +37,7 @@ export function ProjectQuickLinks({
   onOpenEditModal,
   onOpenWalletModal,
 }: ProjectQuickLinksProps) {
+  const { isEn } = useTranslation();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const rawSocial = socialLinks || {};
@@ -69,10 +71,14 @@ export function ProjectQuickLinks({
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-on-accent text-body-sm font-semibold hover:bg-accent-pressed transition-colors shadow-sm"
-              title="Buka Web App / DApp garapan"
+              title={isEn ? "Open Web App / DApp" : "Buka Web App / DApp garapan"}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>{dappUrl ? "Buka DApp" : "Buka Website"}</span>
+              <span>
+                {dappUrl
+                  ? (isEn ? "Open DApp" : "Buka DApp")
+                  : (isEn ? "Open Website" : "Buka Website")}
+              </span>
               <ExternalLink className="w-3 h-3 ml-0.5 opacity-90" />
             </a>
           )}
@@ -85,7 +91,7 @@ export function ProjectQuickLinks({
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-accent text-caption font-semibold hover:bg-accent/20 transition-colors"
-                title="Buka Halaman Faucet Testnet"
+                title={isEn ? "Open Testnet Faucet Page" : "Buka Halaman Faucet Testnet"}
               >
                 <Droplets className="w-3.5 h-3.5" />
                 <span>Faucet</span>
@@ -95,7 +101,7 @@ export function ProjectQuickLinks({
                 type="button"
                 onClick={() => handleCopy("faucet", faucetUrl)}
                 className="px-2 py-1.5 border-l border-accent/30 text-accent hover:bg-accent/20 transition-colors"
-                title="Salin Link Faucet"
+                title={isEn ? "Copy Faucet Link" : "Salin Link Faucet"}
               >
                 {copiedId === "faucet" ? (
                   <Check className="w-3 h-3 text-status-completed" />
@@ -114,17 +120,17 @@ export function ProjectQuickLinks({
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-accent text-caption font-semibold hover:bg-accent/20 transition-colors"
-                title="Buka Link Referral / Pendaftaran"
+                title={isEn ? "Open Referral / Registration Link" : "Buka Link Referral / Pendaftaran"}
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>Link Ref</span>
+                <span>{isEn ? "Ref Link" : "Link Ref"}</span>
                 <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
               </a>
               <button
                 type="button"
                 onClick={() => handleCopy("reflink", refLink)}
                 className="px-2 py-1.5 border-l border-accent/30 text-accent hover:bg-accent/20 transition-colors"
-                title="Salin Link Referral"
+                title={isEn ? "Copy Referral Link" : "Salin Link Referral"}
               >
                 {copiedId === "reflink" ? (
                   <Check className="w-3 h-3 text-status-completed" />
@@ -188,10 +194,10 @@ export function ProjectQuickLinks({
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-link-teal/15 border border-link-teal/30 text-link-teal hover:bg-link-teal/25 transition-colors text-caption font-semibold"
-              title="Buka postingan awal garapan ini di Telegram"
+              title={isEn ? "Open initial project post on Telegram" : "Buka postingan awal garapan ini di Telegram"}
             >
               <Send className="w-3 h-3" />
-              <span>Post Induk TG</span>
+              <span>{isEn ? "Parent Post TG" : "Post Induk TG"}</span>
               <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
             </a>
           )}
@@ -226,7 +232,7 @@ export function ProjectQuickLinks({
             type="button"
             onClick={onOpenEditModal}
             className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md bg-bg-elevated-2/50 border border-dashed border-border-hairline text-text-tertiary hover:text-text-primary hover:border-border-hairline-strong text-caption transition-colors"
-            title="Tambah atau kelola tautan proyek"
+            title={isEn ? "Add or manage project links" : "Tambah atau kelola tautan proyek"}
           >
             <Plus className="w-3 h-3" />
             <span>Link</span>
@@ -243,7 +249,7 @@ export function ProjectQuickLinks({
                 <div
                   key={w.id}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded bg-bg-elevated-2 border border-border-hairline text-caption font-mono"
-                  title={`${w.label || "Wallet"}: ${w.address} (Klik untuk salin)`}
+                  title={`${w.label || "Wallet"}: ${w.address} (${isEn ? "Click to copy" : "Klik untuk salin"})`}
                 >
                   <Wallet className="w-3 h-3 text-accent shrink-0" />
                   <span className="text-text-secondary">{shortAddr}</span>
@@ -251,7 +257,7 @@ export function ProjectQuickLinks({
                     type="button"
                     onClick={() => handleCopy(w.id, w.address)}
                     className="p-0.5 rounded hover:bg-bg-elevated text-text-tertiary hover:text-text-primary transition-colors"
-                    title="Salin Address"
+                    title={isEn ? "Copy Address" : "Salin Address"}
                   >
                     {isCopied ? (
                       <Check className="w-3 h-3 text-status-completed" />
@@ -269,7 +275,7 @@ export function ProjectQuickLinks({
               className="inline-flex items-center gap-1 px-2 py-1 rounded bg-bg-elevated-2/60 border border-dashed border-border-hairline text-text-tertiary hover:text-text-primary text-caption transition-colors"
             >
               <Wallet className="w-3 h-3" />
-              <span>Pasang Wallet</span>
+              <span>{isEn ? "Attach Wallet" : "Pasang Wallet"}</span>
             </button>
           )}
 
@@ -279,7 +285,7 @@ export function ProjectQuickLinks({
               onClick={onOpenWalletModal}
               className="text-[11px] font-mono text-text-tertiary hover:text-text-primary"
             >
-              +{wallets.length - 2} lagi
+              +{wallets.length - 2} {isEn ? "more" : "lagi"}
             </button>
           )}
         </div>

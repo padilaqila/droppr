@@ -72,7 +72,7 @@ export function DashboardClientView({
   initialReminders,
 }: DashboardClientViewProps) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, isEn } = useTranslation();
 
   const [projects, setProjects] = useState<ProjectRow[]>(initialProjects);
   const [tasks, setTasks] = useState<TaskRow[]>(initialTasks);
@@ -626,23 +626,23 @@ export function DashboardClientView({
               </div>
               <h3 className="text-heading-3 font-semibold text-text-primary">
                 {activeProjectFilter === "overdue"
-                  ? "Bagus! Tidak ada tugas yang telat"
+                  ? (isEn ? "Great! No overdue tasks" : "Bagus! Tidak ada tugas yang telat")
                   : activeProjectFilter === "completed_today"
-                  ? "Belum ada tugas yang diselesaikan hari ini"
+                  ? (isEn ? "No tasks completed today yet" : "Belum ada tugas yang diselesaikan hari ini")
                   : activeProjectFilter === "skipped"
-                  ? "Tidak ada tugas yang sedang dilewati"
+                  ? (isEn ? "No skipped tasks" : "Tidak ada tugas yang sedang dilewati")
                   : activeProjectFilter === "upcoming"
-                  ? "Belum ada jadwal tugas mendatang"
-                  : "Semua tugas beres atau belum dijadwalkan"}
+                  ? (isEn ? "No upcoming task schedules" : "Belum ada jadwal tugas mendatang")
+                  : (isEn ? "All tasks done or not yet scheduled" : "Semua tugas beres atau belum dijadwalkan")}
               </h3>
               <p className="text-body-sm text-text-secondary max-w-md mx-auto">
                 {activeProjectFilter === "overdue"
-                  ? "Semua garapan kamu masih tepat waktu atau sudah diselesaikan."
+                  ? (isEn ? "All your projects are on time or already completed." : "Semua garapan kamu masih tepat waktu atau sudah diselesaikan.")
                   : activeProjectFilter === "completed_today"
-                  ? "Tandai selesai tugas proyek setelah kamu menggarap daily task hari ini."
+                  ? (isEn ? "Mark tasks completed after finishing your daily airdrop tasks." : "Tandai selesai tugas proyek setelah kamu menggarap daily task hari ini.")
                   : activeProjectFilter === "skipped"
-                  ? "Kamu bisa melewati tugas harian proyek tertentu dan memunculkannya kembali di tab ini."
-                  : "Kamu bisa mengatur pengingat berkala atau melihat seluruh daftar garapan proyek."}
+                  ? (isEn ? "You can skip daily tasks for specific projects and restore them from this tab." : "Kamu bisa melewati tugas harian proyek tertentu dan memunculkannya kembali di tab ini.")
+                  : (isEn ? "You can configure periodic reminders or view all projects." : "Kamu bisa mengatur pengingat berkala atau melihat seluruh daftar garapan proyek.")}
               </p>
               <div className="pt-2 flex items-center justify-center gap-2">
                 <button
@@ -650,7 +650,7 @@ export function DashboardClientView({
                   onClick={() => setActiveProjectFilter("all")}
                   className="px-3.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-text-primary text-caption font-medium transition-colors"
                 >
-                  Tampilkan Semua Proyek ({projects.length})
+                  {isEn ? "Show All Projects" : "Tampilkan Semua Proyek"} ({projects.length})
                 </button>
               </div>
             </div>
@@ -713,27 +713,27 @@ export function DashboardClientView({
                           {isDailyDone ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1 shadow-xs">
                               <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                              <span>Selesai Hari Ini</span>
+                              <span>{t("dashboard.tabs.completedToday")}</span>
                             </span>
                           ) : isSkipped ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.08] text-white/70 font-semibold border border-white/15 flex items-center gap-1">
                               <FastForward className="w-3 h-3 text-white/50" />
-                              <span>Dilewati Hari Ini</span>
+                              <span>{isEn ? "Skipped Today" : "Dilewati Hari Ini"}</span>
                             </span>
                           ) : activeProjectFilter === "overdue" ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 font-semibold border border-rose-500/30 flex items-center gap-1">
                               <AlertCircle className="w-3 h-3 text-rose-400" />
-                              <span>Telat • Jadwal 07:00 WIB</span>
+                              <span>{isEn ? "Overdue • 07:00 Schedule" : "Telat • Jadwal 07:00 WIB"}</span>
                             </span>
                           ) : isTodayReminder ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 font-semibold border border-amber-400/30 flex items-center gap-1">
                               <Clock className="w-3 h-3 text-amber-400" />
-                              <span>Jadwal Hari Ini</span>
+                              <span>{t("dashboard.stats.todaySchedule")}</span>
                             </span>
                           ) : activeProjectFilter === "upcoming" ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 font-semibold border border-amber-400/25 flex items-center gap-1 font-mono">
                               <Timer className="w-3 h-3 text-amber-400" />
-                              <span>Reset dlm {countdown}</span>
+                              <span>{isEn ? `Reset in ${countdown}` : `Reset dlm ${countdown}`}</span>
                             </span>
                           ) : null}
                         </div>
@@ -743,17 +743,17 @@ export function DashboardClientView({
                           {scheduleLabel ? (
                             <span className="text-amber-400/90 font-medium flex items-center gap-1">
                               <Bell className="w-3 h-3 text-amber-400" />
-                              <span>Pengingat: {scheduleLabel} @ 07:00 WIB</span>
+                              <span>{isEn ? `Reminder: ${scheduleLabel} @ 07:00` : `Pengingat: ${scheduleLabel} @ 07:00 WIB`}</span>
                             </span>
                           ) : (
-                            <span>Tugas garapan aktif</span>
+                            <span>{isEn ? "Active task" : "Tugas garapan aktif"}</span>
                           )}
                           <span>•</span>
-                          <span>{pTasks.length} langkah pengerjaan</span>
+                          <span>{pTasks.length} {isEn ? "steps" : "langkah pengerjaan"}</span>
                           {linkCount > 0 && (
                             <>
                               <span>•</span>
-                              <span>{linkCount} tautan</span>
+                              <span>{linkCount} {isEn ? "links" : "tautan"}</span>
                             </>
                           )}
                         </div>
@@ -773,7 +773,7 @@ export function DashboardClientView({
                             title="Buka Web App DApp Langsung"
                           >
                             <Layers className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Buka DApp</span>
+                            <span>{t("common.openDapp")}</span>
                             <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                           </a>
                         )}
@@ -808,7 +808,7 @@ export function DashboardClientView({
                         })}
                         {pTasks.length > 2 && (
                           <span className="text-[11px] text-white/40 block pl-6">
-                            +{pTasks.length - 2} langkah lainnya...
+                            +{pTasks.length - 2} {t("dashboard.card.moreSteps")}
                           </span>
                         )}
                       </div>
@@ -998,7 +998,9 @@ export function DashboardClientView({
                     className="w-full py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white/80 hover:text-white text-caption font-medium transition-colors inline-flex items-center justify-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5 text-accent" />
-                    <span>Tambah Pengingat Proyek Lain</span>
+                    <span>
+                      {isEn ? "Add Reminder for Another Project" : "Tambah Pengingat Proyek Lain"}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1009,10 +1011,18 @@ export function DashboardClientView({
           <div className="rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_30px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.08)] p-4 space-y-2">
             <div className="flex items-center gap-1.5 text-caption font-semibold text-text-primary">
               <Sparkles className="w-3.5 h-3.5 text-accent" />
-              <span>Tips Garapan Rutin</span>
+              <span>{isEn ? "Routine Farming Tips" : "Tips Garapan Rutin"}</span>
             </div>
             <p className="text-[12px] text-text-tertiary leading-relaxed">
-              Sebagian besar snapshot testnet & reset check-in harian terjadi pukul <strong>07:00 WIB</strong> (00:00 UTC). Jadwalkan pengingat proyek kamu agar tidak tertinggal streak harian.
+              {isEn ? (
+                <>
+                  Most testnet snapshots & daily check-in resets happen at <strong>00:00 UTC</strong> (07:00 WIB). Schedule project reminders to maintain your daily streak.
+                </>
+              ) : (
+                <>
+                  Sebagian besar snapshot testnet & reset check-in harian terjadi pukul <strong>07:00 WIB</strong> (00:00 UTC). Jadwalkan pengingat proyek kamu agar tidak tertinggal streak harian.
+                </>
+              )}
             </p>
           </div>
         </div>

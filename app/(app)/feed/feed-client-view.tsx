@@ -126,21 +126,21 @@ export function extractCoreProjectKey(title: string): string {
     .trim();
 }
 
-// Human readable relative timestamp (WIB localized)
-export function formatTimeAgo(isoString?: string | null): string {
+// Human readable relative timestamp (WIB localized / i18n aware)
+export function formatTimeAgo(isoString?: string | null, locale: "id" | "en" = "id"): string {
   if (!isoString) return "";
   try {
     const diffMs = Date.now() - new Date(isoString).getTime();
     const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 60) return "Baru saja";
+    if (diffSec < 60) return locale === "en" ? "Just now" : "Baru saja";
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} mnt lalu`;
+    if (diffMin < 60) return locale === "en" ? `${diffMin}m ago` : `${diffMin} mnt lalu`;
     const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return `${diffHours} jam lalu`;
+    if (diffHours < 24) return locale === "en" ? `${diffHours}h ago` : `${diffHours} jam lalu`;
     const diffDays = Math.floor(diffHours / 24);
-    if (diffDays === 1) return "Kemarin";
-    if (diffDays < 7) return `${diffDays} hari lalu`;
-    return new Date(isoString).toLocaleDateString("id-ID", {
+    if (diffDays === 1) return locale === "en" ? "Yesterday" : "Kemarin";
+    if (diffDays < 7) return locale === "en" ? `${diffDays}d ago` : `${diffDays} hari lalu`;
+    return new Date(isoString).toLocaleDateString(locale === "en" ? "en-US" : "id-ID", {
       day: "numeric",
       month: "short",
     });
@@ -543,7 +543,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             onClick={() => setSyncStatus(null)}
             className="text-caption hover:underline text-text-tertiary hover:text-text-primary ml-2 shrink-0"
           >
-            Tutup
+            {t("common.close")}
           </button>
         </div>
       )}
@@ -559,7 +559,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             type="button"
             onClick={() => setErrorMessage(null)}
             className="p-1 rounded-lg hover:bg-status-danger/20 text-status-danger transition-colors shrink-0"
-            title="Tutup pesan"
+            title={t("common.close")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -646,11 +646,11 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   ? "bg-accent/20 text-accent border-accent/35 font-semibold shadow-xs"
                   : "bg-white/[0.03] text-text-secondary border-white/[0.08] hover:text-text-primary hover:border-white/[0.2]"
               }`}
-              title="Kelompokkan berdasarkan nama proyek agar tidak muncul berulang saat proyek yang sama di-update di Telegram"
+              title={t("feed.groupTitle")}
             >
               <Layers2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Kelompokkan Proyek</span>
-              <span className="sm:hidden">Group</span>
+              <span className="hidden sm:inline">{t("feed.groupProjects")}</span>
+              <span className="sm:hidden">{t("feed.groupShort")}</span>
             </button>
           </div>
         </div>
@@ -660,7 +660,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
           {/* Tipe Filter */}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1">
-              Kategori:
+              {t("feed.categoryLabel")}
             </span>
 
             <button
@@ -672,7 +672,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
               }`}
             >
-              Semua ({feeds.length})
+              {t("feed.all")} ({feeds.length})
             </button>
 
             <button
@@ -685,7 +685,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               }`}
             >
               <Zap className="w-3 h-3 text-link-teal" />
-              <span>Testnet ({testnetCount})</span>
+              <span>{t("feed.testnet")} ({testnetCount})</span>
             </button>
 
             <button
@@ -698,14 +698,14 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               }`}
             >
               <Flame className="w-3 h-3 text-amber-400" />
-              <span>Retro ({retroCount})</span>
+              <span>{t("feed.retro")} ({retroCount})</span>
             </button>
           </div>
 
           {/* Biaya Filter */}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1">
-              Biaya:
+              {t("feed.costLabel")}
             </span>
 
             <button
@@ -717,7 +717,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
               }`}
             >
-              Semua
+              {t("feed.all")}
             </button>
 
             <button
@@ -730,7 +730,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               }`}
             >
               <Coins className="w-3 h-3 text-status-completed" />
-              <span>Gratis ({freeCostCount})</span>
+              <span>{t("feed.free")} ({freeCostCount})</span>
             </button>
 
             <button
@@ -743,7 +743,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               }`}
             >
               <Wallet className="w-3 h-3 text-amber-400" />
-              <span>Berbayar ({paidCostCount})</span>
+              <span>{t("feed.paid")} ({paidCostCount})</span>
             </button>
           </div>
         </div>
@@ -755,15 +755,15 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
           <div className="p-12 text-center space-y-3 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20">
             <Rss className="w-9 h-9 text-text-tertiary mx-auto opacity-50" />
             <h3 className="text-body-md font-semibold text-text-primary">
-              Tidak ada postingan airdrop yang cocok
+              {t("feed.noMatch")}
             </h3>
             <p className="text-caption text-text-secondary max-w-md mx-auto">
-              Coba atur filter channel, kategori, atau klik sinkronkan untuk memindai pembaruan terbaru dari Telegram.
+              {t("feed.noMatchDesc")}
             </p>
             <div className="pt-2">
               <ButtonPrimary onClick={handleSyncFeed} disabled={isSyncing} className="rounded-xl">
                 <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
-                <span>Sinkronkan Sekarang</span>
+                <span>{t("feed.syncNow")}</span>
               </ButtonPrimary>
             </div>
           </div>
@@ -773,7 +773,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             const isConverted = feed.is_imported || convertedSuccessId === feed.id;
             const projectKey = extractCoreProjectKey(feed.title);
             const mentionCount = projectMentionStats[projectKey]?.count || 1;
-            const relativeTime = formatTimeAgo(feed.created_at);
+            const relativeTime = formatTimeAgo(feed.created_at, locale);
 
             return (
               <div
@@ -821,7 +821,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                         )}
                       </div>
                       <p className="text-[11px] text-text-tertiary/80 font-mono">
-                        Sumber Telegram Airdrop Signal
+                        {t("feed.sourceTelegram")}
                       </p>
                     </div>
                   </div>
@@ -835,7 +835,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                         title={`Proyek ini sudah disebut atau diperbarui ${mentionCount} kali di channel Telegram`}
                       >
                         <Layers2 className="w-3 h-3" />
-                        <span>{mentionCount}x Update</span>
+                        <span>{mentionCount}x {t("feed.updateCountSuffix")}</span>
                       </span>
                     )}
 
@@ -843,12 +843,12 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     {isFeedFree(feed) ? (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-status-completed/15 text-status-completed border border-status-completed/30 flex items-center gap-1">
                         <Coins className="w-3 h-3" />
-                        <span>Gratis</span>
+                        <span>{t("feed.free")}</span>
                       </span>
                     ) : (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
                         <Wallet className="w-3 h-3" />
-                        <span>{feed.cost || "Gas Fee"}</span>
+                        <span>{feed.cost || (locale === "en" ? "Gas Fee" : "Biaya Gas")}</span>
                       </span>
                     )}
 
@@ -856,12 +856,12 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     {feed.category === "retro" || isFeedPaid(feed) ? (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1">
                         <Flame className="w-3 h-3" />
-                        <span>Retro</span>
+                        <span>{t("feed.retro")}</span>
                       </span>
                     ) : (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-link-teal/15 border border-link-teal/30 text-link-teal flex items-center gap-1">
                         <Zap className="w-3 h-3" />
-                        <span>Testnet</span>
+                        <span>{t("feed.testnet")}</span>
                       </span>
                     )}
 
@@ -870,7 +870,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       type="button"
                       onClick={() => handleDeleteFeed(feed.id)}
                       className="p-1.5 text-text-tertiary hover:text-status-overdue rounded-lg hover:bg-white/[0.05] transition-colors ml-1"
-                      title="Hapus pesan ini dari feed"
+                      title={t("feed.deleteFeedTooltip")}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -901,7 +901,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-status-completed/15 text-status-completed border border-status-completed/30 text-caption font-semibold">
                           <Check className="w-3.5 h-3.5" />
-                          <span>Sudah Jadi Proyek</span>
+                          <span>{t("feed.alreadyProject")}</span>
                         </span>
 
                         {feed.linked_project_id && (
@@ -910,7 +910,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                             prefetch={false}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-text-primary border border-white/[0.1] text-caption font-medium transition-colors"
                           >
-                            <span>Buka Proyek</span>
+                            <span>{t("feed.openProject")}</span>
                             <ExternalLink className="w-3 h-3 text-text-tertiary" />
                           </Link>
                         )}
@@ -963,7 +963,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       title="Cek sentimen & kabar proyek ini di X (Twitter)"
                     >
                       <Search className="w-3 h-3 text-text-tertiary" />
-                      <span>Cek di X</span>
+                      <span>{t("feed.checkX")}</span>
                     </a>
 
                     {/* Open in Telegram */}
@@ -975,7 +975,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       title="Buka langsung di aplikasi atau web Telegram"
                     >
                       <Send className="w-3 h-3" />
-                      <span className="hidden sm:inline">Buka di Telegram</span>
+                      <span className="hidden sm:inline">{t("feed.openTelegram")}</span>
                       <span className="sm:hidden">TG</span>
                       <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
                     </a>
@@ -1069,12 +1069,12 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     {isPreviewCopied ? (
                       <>
                         <Check className="w-3.5 h-3.5 text-status-completed" />
-                        <span className="text-status-completed">Tersalin!</span>
+                        <span className="text-status-completed">{t("common.copied")}</span>
                       </>
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5" />
-                        <span>Salin</span>
+                        <span>{t("common.copy")}</span>
                       </>
                     )}
                   </button>
@@ -1120,7 +1120,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-link-teal text-caption font-medium border border-white/[0.08] transition-all"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Buka di Telegram</span>
+                  <span>{t("feed.openTelegram")}</span>
                   <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
                 </a>
 
@@ -1130,7 +1130,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     onClick={handleClosePreview}
                     className="px-4 py-2 rounded-xl text-caption text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-all font-medium"
                   >
-                    Tutup
+                    {t("common.close")}
                   </button>
                   <button
                     type="button"
@@ -1142,7 +1142,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     className="px-4 py-2 rounded-xl text-caption font-semibold text-on-accent bg-accent hover:bg-accent-pressed transition-all shadow-lg shadow-accent/20 flex items-center gap-1.5"
                   >
                     <FolderPlus className="w-3.5 h-3.5" />
-                    <span>Jadikan Proyek</span>
+                    <span>{t("feed.makeProject")}</span>
                   </button>
                 </div>
               </div>

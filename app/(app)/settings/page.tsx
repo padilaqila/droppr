@@ -27,6 +27,7 @@ import {
   Compass,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 import {
   getLanguagePreference,
   setLanguagePreference,
@@ -45,6 +46,7 @@ interface NotificationPrefs {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { t, isEn } = useTranslation();
   const [activeTab, setActiveTab] = useState<SettingsTab>("language");
 
   // User info state
@@ -253,10 +255,14 @@ export default function SettingsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setExportSuccess("File backup JSON lengkap berhasil diunduh.");
+      setExportSuccess(
+        isEn
+          ? "Complete JSON backup file downloaded successfully."
+          : "File backup JSON lengkap berhasil diunduh."
+      );
     } catch (err) {
       console.error("Export JSON failed:", err);
-      alert("Gagal mengekspor data JSON.");
+      alert(isEn ? "Failed to export JSON data." : "Gagal mengekspor data JSON.");
     } finally {
       setIsExportingJson(false);
     }
@@ -273,7 +279,14 @@ export default function SettingsPage() {
       ]);
 
       const rows = [
-        ["Nama Project", "Chain", "Status", "Total Task", "Task Selesai", "Tanggal Dibuat"],
+        [
+          isEn ? "Project Name" : "Nama Project",
+          "Chain",
+          "Status",
+          isEn ? "Total Tasks" : "Total Task",
+          isEn ? "Completed Tasks" : "Task Selesai",
+          isEn ? "Created Date" : "Tanggal Dibuat",
+        ],
       ];
 
       (projects || []).forEach((p: any) => {
@@ -285,7 +298,7 @@ export default function SettingsPage() {
           `"${p.status}"`,
           String(projTasks.length),
           String(doneTasks),
-          `"${new Date(p.created_at).toLocaleDateString("id-ID")}"`,
+          `"${new Date(p.created_at).toLocaleDateString(isEn ? "en-US" : "id-ID")}"`,
         ]);
       });
 
@@ -300,17 +313,24 @@ export default function SettingsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setExportSuccess("File CSV ringkasan project berhasil diunduh.");
+      setExportSuccess(
+        isEn
+          ? "Project summary CSV file downloaded successfully."
+          : "File CSV ringkasan project berhasil diunduh."
+      );
     } catch (err) {
       console.error("Export CSV failed:", err);
-      alert("Gagal mengekspor CSV.");
+      alert(isEn ? "Failed to export CSV." : "Gagal mengekspor CSV.");
     } finally {
       setIsExportingCsv(false);
     }
   };
 
   const handleClearCompletedTasks = async () => {
-    if (!confirm("Hapus semua tugas yang sudah berstatus 'Selesai'? Tugas yang belum selesai akan tetap disimpan.")) {
+    const confirmPrompt = isEn
+      ? "Delete all tasks with status 'Done'? Incomplete tasks will be kept."
+      : "Hapus semua tugas yang sudah berstatus 'Selesai'? Tugas yang belum selesai akan tetap disimpan.";
+    if (!confirm(confirmPrompt)) {
       return;
     }
     setDangerMsg(null);
@@ -320,19 +340,24 @@ export default function SettingsPage() {
       if (error) throw error;
       setDangerMsg({
         type: "success",
-        text: "Seluruh tugas yang selesai berhasil dibersihkan.",
+        text: isEn
+          ? "All completed tasks have been cleared."
+          : "Seluruh tugas yang selesai berhasil dibersihkan.",
       });
       router.refresh();
     } catch (err: any) {
       setDangerMsg({
         type: "error",
-        text: err?.message || "Gagal membersihkan tugas selesai.",
+        text: err?.message || (isEn ? "Failed to clear completed tasks." : "Gagal membersihkan tugas selesai."),
       });
     }
   };
 
   const handleResetFeedImportStatus = async () => {
-    if (!confirm("Reset status import feed Telegram? Sinyal yang pernah kamu hapus dari garapan akan bisa di-import ulang.")) {
+    const confirmPrompt = isEn
+      ? "Reset Telegram feed import status? Signals previously deleted from your workspace can be imported again."
+      : "Reset status import feed Telegram? Sinyal yang pernah kamu hapus dari garapan akan bisa di-import ulang.";
+    if (!confirm(confirmPrompt)) {
       return;
     }
     setDangerMsg(null);
@@ -344,22 +369,27 @@ export default function SettingsPage() {
       ]);
       setDangerMsg({
         type: "success",
-        text: "Status import feed & waitlist berhasil di-reset. Kamu bisa menambahkan ulang dari Feed.",
+        text: isEn
+          ? "Feed & waitlist import status has been reset. You can add them again from the Feed."
+          : "Status import feed & waitlist berhasil di-reset. Kamu bisa menambahkan ulang dari Feed.",
       });
       router.refresh();
     } catch (err: any) {
       setDangerMsg({
         type: "error",
-        text: err?.message || "Gagal me-reset status feed.",
+        text: err?.message || (isEn ? "Failed to reset feed status." : "Gagal me-reset status feed."),
       });
     }
   };
 
   const handleDeleteAllProjects = async () => {
-    if (deleteConfirmText.trim().toUpperCase() !== "HAPUS") {
+    const isConfirmed = ["HAPUS", "DELETE"].includes(deleteConfirmText.trim().toUpperCase());
+    if (!isConfirmed) {
       setDangerMsg({
         type: "error",
-        text: 'Ketik kata "HAPUS" secara persis untuk konfirmasi penghapusan seluruh data.',
+        text: isEn
+          ? 'Type "DELETE" to confirm deleting all data.'
+          : 'Ketik kata "HAPUS" secara persis untuk konfirmasi penghapusan seluruh data.',
       });
       return;
     }
@@ -382,13 +412,15 @@ export default function SettingsPage() {
       setDeleteConfirmText("");
       setDangerMsg({
         type: "success",
-        text: "Seluruh proyek dan tugas turunan berhasil dihapus.",
+        text: isEn
+          ? "All projects and associated tasks have been deleted."
+          : "Seluruh proyek dan tugas turunan berhasil dihapus.",
       });
       router.refresh();
     } catch (err: any) {
       setDangerMsg({
         type: "error",
-        text: err?.message || "Gagal menghapus data proyek.",
+        text: err?.message || (isEn ? "Failed to delete project data." : "Gagal menghapus data proyek."),
       });
     } finally {
       setIsDeleting(false);
@@ -403,10 +435,10 @@ export default function SettingsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-white/[0.06]">
         <div>
           <h1 className="text-heading-2 font-bold text-text-primary tracking-tight">
-            Pengaturan & Preferensi
+            {t("settings.title")}
           </h1>
           <p className="text-body-sm text-text-secondary mt-1">
-            Konfigurasikan preferensi bahasa terjemahan Telegram, keamanan akun, siklus harian, dan backup data.
+            {t("settings.subtitle")}
           </p>
         </div>
 
@@ -414,7 +446,7 @@ export default function SettingsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="px-3 py-1 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[11px] font-mono text-text-secondary flex items-center gap-1.5">
             <FolderGit2 className="w-3.5 h-3.5 text-accent" />
-            <span>{stats.projects} Proyek</span>
+            <span>{stats.projects} {isEn ? "Projects" : "Proyek"}</span>
           </span>
           <span className="px-3 py-1 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[11px] font-mono text-text-secondary flex items-center gap-1.5">
             <Wallet className="w-3.5 h-3.5 text-link-teal" />
@@ -435,7 +467,7 @@ export default function SettingsPage() {
           }`}
         >
           <Languages className="w-4 h-4" />
-          <span>Bahasa & Terjemahan</span>
+          <span>{t("settings.tabs.language")}</span>
         </button>
 
         <button
@@ -448,7 +480,7 @@ export default function SettingsPage() {
           }`}
         >
           <User className="w-4 h-4" />
-          <span>Akun & Keamanan</span>
+          <span>{t("settings.tabs.account")}</span>
         </button>
 
         <button
@@ -461,7 +493,7 @@ export default function SettingsPage() {
           }`}
         >
           <Bell className="w-4 h-4" />
-          <span>Operasional & Notifikasi</span>
+          <span>{t("settings.tabs.notifications")}</span>
         </button>
 
         <button
@@ -474,7 +506,7 @@ export default function SettingsPage() {
           }`}
         >
           <Download className="w-4 h-4" />
-          <span>Backup & Ekspor</span>
+          <span>{t("settings.tabs.backup")}</span>
         </button>
 
         <button
@@ -487,7 +519,7 @@ export default function SettingsPage() {
           }`}
         >
           <AlertTriangle className="w-4 h-4" />
-          <span>Zona Bahaya</span>
+          <span>{t("settings.tabs.danger")}</span>
         </button>
       </div>
 
@@ -504,10 +536,12 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
-                    Preferensi Bahasa & Terjemahan Cerdas
+                    {isEn ? "Language & Smart Translation Preferences" : "Preferensi Bahasa & Terjemahan Cerdas"}
                   </h2>
                   <p className="text-caption text-text-secondary mt-0.5">
-                    Tentukan target terjemahan default untuk pesan Telegram dan panduan garapan airdrop.
+                    {isEn
+                      ? "Set default translation target for Telegram posts and airdrop guides."
+                      : "Tentukan target terjemahan default untuk pesan Telegram dan panduan garapan airdrop."}
                   </p>
                 </div>
               </div>
@@ -515,7 +549,7 @@ export default function SettingsPage() {
               {langToast && (
                 <span className="px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption font-semibold animate-in fade-in flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5" />
-                  <span>Tersimpan</span>
+                  <span>{isEn ? "Saved" : "Tersimpan"}</span>
                 </span>
               )}
             </div>
@@ -543,14 +577,12 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <h3 className="text-body-sm font-bold text-text-primary flex items-center gap-1.5">
-                    <span>Otomatis (Sistem)</span>
+                    <span>{isEn ? "Automatic (System)" : "Otomatis (Sistem)"}</span>
                   </h3>
                   <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
-                    Mengikuti region perangkat:{" "}
-                    <strong className="text-accent font-mono">
-                      {detectedSysLang.toUpperCase()}
-                    </strong>{" "}
-                    (Aktif: {effectiveLang === "id" ? "Indonesia" : "English"}).
+                    {isEn
+                      ? `Follows device locale: ${detectedSysLang.toUpperCase()} (Active: ${effectiveLang === "id" ? "Indonesian" : "English"}).`
+                      : `Mengikuti region perangkat: ${detectedSysLang.toUpperCase()} (Aktif: ${effectiveLang === "id" ? "Indonesia" : "English"}).`}
                   </p>
                 </div>
               </div>
@@ -577,7 +609,9 @@ export default function SettingsPage() {
                     English (EN)
                   </h3>
                   <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
-                    Default terjemahan ke Bahasa Inggris. Postingan berbahasa Indonesia otomatis dialihkan ke Inggris.
+                    {isEn
+                      ? "Default translation to English. Posts in Indonesian will be translated to English."
+                      : "Default terjemahan ke Bahasa Inggris. Postingan berbahasa Indonesia otomatis dialihkan ke Inggris."}
                   </p>
                 </div>
               </div>
@@ -604,7 +638,9 @@ export default function SettingsPage() {
                     Bahasa Indonesia (ID)
                   </h3>
                   <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
-                    Default terjemahan ke Indonesia. Postingan berbahasa Indonesia otomatis ditawarkan terjemahan ke Inggris.
+                    {isEn
+                      ? "Default translation to Indonesian. Indonesian posts offer translation to English."
+                      : "Default terjemahan ke Indonesia. Postingan berbahasa Indonesia otomatis ditawarkan terjemahan ke Inggris."}
                   </p>
                 </div>
               </div>
@@ -614,26 +650,30 @@ export default function SettingsPage() {
             <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-2">
               <h4 className="text-caption font-bold text-text-primary flex items-center gap-1.5">
                 <Compass className="w-3.5 h-3.5 text-link-teal" />
-                <span>Cara Kerja Deteksi & Terjemahan Dua Arah (Dual-Way)</span>
+                <span>{isEn ? "How Dual-Way Detection & Translation Works" : "Cara Kerja Deteksi & Terjemahan Dua Arah (Dual-Way)"}</span>
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] text-text-secondary leading-relaxed pt-1">
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
                   <div className="font-semibold text-text-primary flex items-center gap-1.5">
-                    <span>📩 Postingan Asli Bahasa Indonesia</span>
+                    <span>{isEn ? "📩 Original Indonesian Post" : "📩 Postingan Asli Bahasa Indonesia"}</span>
                   </div>
                   <p>
-                    Tombol terjemahan otomatis berubah menjadi{" "}
+                    {isEn
+                      ? 'The translation button automatically switches to '
+                      : 'Tombol terjemahan otomatis berubah menjadi '}
                     <strong className="text-accent font-mono">"Translate to English"</strong>.
                   </p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
                   <div className="font-semibold text-text-primary flex items-center gap-1.5">
-                    <span>🌍 Postingan Asli Bahasa Inggris / Asing</span>
+                    <span>{isEn ? "🌍 Original English / Foreign Post" : "🌍 Postingan Asli Bahasa Inggris / Asing"}</span>
                   </div>
                   <p>
-                    Tombol terjemahan otomatis berubah menjadi{" "}
-                    <strong className="text-link-teal font-mono">"Terjemahkan ke Indonesia"</strong>.
+                    {isEn
+                      ? 'The translation button automatically switches to '
+                      : 'Tombol terjemahan otomatis berubah menjadi '}
+                    <strong className="text-link-teal font-mono">{isEn ? '"Translate to Indonesian"' : '"Terjemahkan ke Indonesia"'}</strong>.
                   </p>
                 </div>
               </div>
@@ -655,36 +695,36 @@ export default function SettingsPage() {
               </div>
               <div>
                 <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
-                  Identitas Pengguna
+                  {isEn ? "User Identity" : "Identitas Pengguna"}
                 </h2>
                 <p className="text-caption text-text-secondary">
-                  Informasi akun Supabase terautentikasi dan sesi aktif saat ini.
+                  {isEn ? "Authenticated Supabase account and active session info." : "Informasi akun Supabase terautentikasi dan sesi aktif saat ini."}
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
-                <span className="text-[11px] font-mono text-text-tertiary">Email Terdaftar</span>
+                <span className="text-[11px] font-mono text-text-tertiary">{isEn ? "Registered Email" : "Email Terdaftar"}</span>
                 <p className="text-body-sm font-semibold text-text-primary font-mono truncate">
-                  {userEmail || "Memuat..."}
+                  {userEmail || (isEn ? "Loading..." : "Memuat...")}
                 </p>
               </div>
 
               <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-text-tertiary">User ID Supabase</span>
+                  <span className="text-[11px] font-mono text-text-tertiary">{isEn ? "Supabase User ID" : "User ID Supabase"}</span>
                   <button
                     type="button"
                     onClick={handleCopyUserId}
                     className="text-[10px] text-accent hover:underline inline-flex items-center gap-1 font-mono"
                   >
                     {copiedId ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedId ? "Tersalin" : "Salin"}</span>
+                    <span>{copiedId ? (isEn ? "Copied" : "Tersalin") : (isEn ? "Copy" : "Salin")}</span>
                   </button>
                 </div>
                 <p className="text-[11px] font-mono text-text-secondary truncate">
-                  {userId || "Memuat..."}
+                  {userId || (isEn ? "Loading..." : "Memuat...")}
                 </p>
               </div>
             </div>
@@ -692,9 +732,9 @@ export default function SettingsPage() {
             {/* Logout button */}
             <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between">
               <div>
-                <div className="text-body-sm font-semibold text-text-primary">Sesi Login</div>
+                <div className="text-body-sm font-semibold text-text-primary">{isEn ? "Active Session" : "Sesi Login"}</div>
                 <div className="text-caption text-text-secondary">
-                  Keluar dari sesi Droppr pada browser ini.
+                  {isEn ? "Sign out of your Droppr session on this browser." : "Keluar dari sesi Droppr pada browser ini."}
                 </div>
               </div>
               <button
@@ -703,7 +743,7 @@ export default function SettingsPage() {
                 className="px-3.5 py-2 rounded-xl bg-status-overdue/15 hover:bg-status-overdue/25 border border-status-overdue/30 text-status-overdue text-caption font-semibold transition-all inline-flex items-center gap-1.5"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>Keluar Akun</span>
+                <span>{isEn ? "Sign Out" : "Keluar Akun"}</span>
               </button>
             </div>
           </div>
@@ -716,10 +756,10 @@ export default function SettingsPage() {
               </div>
               <div>
                 <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
-                  Perbarui Kata Sandi
+                  {isEn ? "Update Password" : "Perbarui Kata Sandi"}
                 </h2>
                 <p className="text-caption text-text-secondary">
-                  Ubah password akun Supabase untuk menjaga keamanan workspace Anda.
+                  {isEn ? "Change Supabase account password to keep your workspace secure." : "Ubah password akun Supabase untuk menjaga keamanan workspace Anda."}
                 </p>
               </div>
             </div>
@@ -741,7 +781,7 @@ export default function SettingsPage() {
             <form onSubmit={handleChangePassword} className="space-y-3 max-w-md pt-1">
               <div>
                 <label className="block text-caption font-medium text-text-secondary mb-1">
-                  Password Baru (Min. 6 Karakter)
+                  {isEn ? "New Password (Min. 6 Characters)" : "Password Baru (Min. 6 Karakter)"}
                 </label>
                 <input
                   type="password"
@@ -754,7 +794,7 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-caption font-medium text-text-secondary mb-1">
-                  Ulangi Password Baru
+                  {isEn ? "Repeat New Password" : "Ulangi Password Baru"}
                 </label>
                 <input
                   type="password"
@@ -771,7 +811,7 @@ export default function SettingsPage() {
                   disabled={passwordLoading || !newPassword || !confirmPassword}
                   className="px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed disabled:opacity-50 text-caption font-semibold transition-all shadow-md shadow-accent/20"
                 >
-                  {passwordLoading ? "Menyimpan..." : "Simpan Password Baru"}
+                  {passwordLoading ? (isEn ? "Saving..." : "Menyimpan...") : (isEn ? "Save New Password" : "Simpan Password Baru")}
                 </button>
               </div>
             </form>
@@ -792,10 +832,12 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
-                    Jadwal Operasional & Pengingat
+                    {isEn ? "Operational Schedule & Reminders" : "Jadwal Operasional & Pengingat"}
                   </h2>
                   <p className="text-caption text-text-secondary">
-                    Standar siklus reset harian dan preferensi saluran notifikasi garapan.
+                    {isEn
+                      ? "Daily reset cycle standards and task notification channel preferences."
+                      : "Standar siklus reset harian dan preferensi saluran notifikasi garapan."}
                   </p>
                 </div>
               </div>
@@ -803,7 +845,7 @@ export default function SettingsPage() {
               {notifSaved && (
                 <span className="px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption font-semibold animate-in fade-in flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5" />
-                  <span>Tersimpan</span>
+                  <span>{isEn ? "Saved" : "Tersimpan"}</span>
                 </span>
               )}
             </div>
@@ -812,21 +854,29 @@ export default function SettingsPage() {
             <div className="p-4 rounded-2xl bg-amber-500/[0.06] border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="text-caption font-bold text-amber-400">
-                  Siklus Reset Garapan Harian (Daily Task Reset)
+                  {isEn ? "Daily Task Reset Cycle" : "Siklus Reset Garapan Harian (Daily Task Reset)"}
                 </div>
                 <p className="text-[11px] text-text-secondary">
-                  Setiap hari pukul <strong className="text-text-primary font-mono">07:00 WIB (00:00 UTC)</strong>, status pengerjaan tugas rutin harian akan otomatis di-reset untuk siklus hari baru.
+                  {isEn ? (
+                    <>
+                      Every day at <strong className="text-text-primary font-mono">07:00 WIB (00:00 UTC)</strong>, the completion status of recurring daily tasks will automatically reset for the new day's cycle.
+                    </>
+                  ) : (
+                    <>
+                      Setiap hari pukul <strong className="text-text-primary font-mono">07:00 WIB (00:00 UTC)</strong>, status pengerjaan tugas rutin harian akan otomatis di-reset untuk siklus hari baru.
+                    </>
+                  )}
                 </p>
               </div>
               <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-mono shrink-0">
-                Reset: 07:00 WIB
+                {isEn ? "Reset: 07:00 WIB" : "Reset: 07:00 WIB"}
               </span>
             </div>
 
             <form onSubmit={handleSaveNotificationPrefs} className="space-y-4 pt-1">
               <div className="space-y-2">
                 <label className="block text-caption font-semibold text-text-secondary">
-                  Saluran Notifikasi
+                  {isEn ? "Notification Channels" : "Saluran Notifikasi"}
                 </label>
 
                 {/* In-app */}
@@ -841,10 +891,12 @@ export default function SettingsPage() {
                   />
                   <div>
                     <div className="text-body-sm font-semibold text-text-primary">
-                      In-App Dashboard Notification (Aktif)
+                      {isEn ? "In-App Dashboard Notification (Active)" : "In-App Dashboard Notification (Aktif)"}
                     </div>
                     <div className="text-caption text-text-tertiary">
-                      Pengingat otomatis muncul di Command Center Dashboard saat tugas perlu dikerjakan.
+                      {isEn
+                        ? "Automated reminders appear in the Command Center Dashboard when tasks are due."
+                        : "Pengingat otomatis muncul di Command Center Dashboard saat tugas perlu dikerjakan."}
                     </div>
                   </div>
                 </label>
@@ -862,10 +914,12 @@ export default function SettingsPage() {
                     />
                     <div>
                       <div className="text-body-sm font-semibold text-text-primary">
-                        Browser Push Notification
+                        {isEn ? "Browser Push Notification" : "Browser Push Notification"}
                       </div>
                       <div className="text-caption text-text-tertiary">
-                        Pemberitahuan pop-up desktop saat peramban sedang berjalan.
+                        {isEn
+                          ? "Desktop pop-up notifications while the browser is running."
+                          : "Pemberitahuan pop-up desktop saat peramban sedang berjalan."}
                       </div>
                     </div>
                   </label>
@@ -876,7 +930,7 @@ export default function SettingsPage() {
                       onClick={handleRequestPushPermission}
                       className="text-[11px] font-semibold text-accent hover:underline px-2 py-1 rounded bg-accent/10 border border-accent/20 shrink-0"
                     >
-                      Izinkan Browser
+                      {isEn ? "Allow Browser" : "Izinkan Browser"}
                     </button>
                   )}
                 </div>
@@ -885,7 +939,7 @@ export default function SettingsPage() {
               {/* Default notification time */}
               <div>
                 <label className="block text-caption font-semibold text-text-secondary mb-1">
-                  Jam Pengingat Rutin Harian Default
+                  {isEn ? "Default Daily Routine Reminder Time" : "Jam Pengingat Rutin Harian Default"}
                 </label>
                 <div className="flex items-center gap-2 max-w-xs">
                   <Clock className="w-4 h-4 text-text-tertiary" />
@@ -899,11 +953,21 @@ export default function SettingsPage() {
                     }
                     className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent font-mono"
                   >
-                    <option value="07:00" className="bg-[#0e131b] text-text-primary">07:00 WIB (Pagi Awal - Saat Reset)</option>
-                    <option value="09:00" className="bg-[#0e131b] text-text-primary">09:00 WIB (Pagi Hari - Standar)</option>
-                    <option value="12:00" className="bg-[#0e131b] text-text-primary">12:00 WIB (Siang)</option>
-                    <option value="18:00" className="bg-[#0e131b] text-text-primary">18:00 WIB (Sore)</option>
-                    <option value="21:00" className="bg-[#0e131b] text-text-primary">21:00 WIB (Malam Hari)</option>
+                    <option value="07:00" className="bg-[#0e131b] text-text-primary">
+                      {isEn ? "07:00 WIB (Early Morning - Reset Time)" : "07:00 WIB (Pagi Awal - Saat Reset)"}
+                    </option>
+                    <option value="09:00" className="bg-[#0e131b] text-text-primary">
+                      {isEn ? "09:00 WIB (Morning - Standard)" : "09:00 WIB (Pagi Hari - Standar)"}
+                    </option>
+                    <option value="12:00" className="bg-[#0e131b] text-text-primary">
+                      {isEn ? "12:00 WIB (Noon)" : "12:00 WIB (Siang)"}
+                    </option>
+                    <option value="18:00" className="bg-[#0e131b] text-text-primary">
+                      {isEn ? "18:00 WIB (Evening)" : "18:00 WIB (Sore)"}
+                    </option>
+                    <option value="21:00" className="bg-[#0e131b] text-text-primary">
+                      {isEn ? "21:00 WIB (Night)" : "21:00 WIB (Malam Hari)"}
+                    </option>
                   </select>
                 </div>
               </div>
@@ -913,7 +977,7 @@ export default function SettingsPage() {
                   type="submit"
                   className="px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-md shadow-accent/20"
                 >
-                  Simpan Pengaturan Notifikasi
+                  {isEn ? "Save Notification Settings" : "Simpan Pengaturan Notifikasi"}
                 </button>
               </div>
             </form>
@@ -933,10 +997,12 @@ export default function SettingsPage() {
               </div>
               <div>
                 <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
-                  Kedaulatan & Cadangan Data
+                  {isEn ? "Data Sovereignty & Backups" : "Kedaulatan & Cadangan Data"}
                 </h2>
                 <p className="text-caption text-text-secondary">
-                  Unduh seluruh database garapan, folder, linimasa pembaruan, dan wallet Anda secara mandiri kapan saja.
+                  {isEn
+                    ? "Download your complete farming database, folders, update timeline, and wallets independently at any time."
+                    : "Unduh seluruh database garapan, folder, linimasa pembaruan, dan wallet Anda secara mandiri kapan saja."}
                 </p>
               </div>
             </div>
@@ -954,10 +1020,12 @@ export default function SettingsPage() {
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-text-primary font-bold text-body-sm">
                     <FileJson className="w-4 h-4 text-accent" />
-                    <span>Cadangan Lengkap (JSON)</span>
+                    <span>{isEn ? "Complete Backup (JSON)" : "Cadangan Lengkap (JSON)"}</span>
                   </div>
                   <p className="text-[11px] text-text-secondary leading-relaxed">
-                    Menyimpan 100% struktur hierarki folder, proyek, tugas, catatan linimasa, pengingat, dan wallet untuk di-restore atau diarsipkan.
+                    {isEn
+                      ? "Saves 100% of your folders, projects, tasks, timeline logs, reminders, and wallets hierarchy to restore or archive."
+                      : "Menyimpan 100% struktur hierarki folder, proyek, tugas, catatan linimasa, pengingat, dan wallet untuk di-restore atau diarsipkan."}
                   </p>
                 </div>
                 <button
@@ -967,7 +1035,11 @@ export default function SettingsPage() {
                   className="w-full py-2 px-3 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed disabled:opacity-50 text-caption font-semibold transition-all inline-flex items-center justify-center gap-2 shadow-md shadow-accent/20"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>{isExportingJson ? "Membuat Cadangan..." : "Unduh Backup JSON"}</span>
+                  <span>
+                    {isExportingJson
+                      ? (isEn ? "Creating Backup..." : "Membuat Cadangan...")
+                      : (isEn ? "Download JSON Backup" : "Unduh Backup JSON")}
+                  </span>
                 </button>
               </div>
 
@@ -976,10 +1048,12 @@ export default function SettingsPage() {
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-text-primary font-bold text-body-sm">
                     <FileSpreadsheet className="w-4 h-4 text-link-teal" />
-                    <span>Ringkasan Tabel (CSV)</span>
+                    <span>{isEn ? "Table Summary (CSV)" : "Ringkasan Tabel (CSV)"}</span>
                   </div>
                   <p className="text-[11px] text-text-secondary leading-relaxed">
-                    Tabel ringkasan proyek garapan dan progress tugas yang kompatibel langsung dengan Microsoft Excel, Google Sheets, atau Notion.
+                    {isEn
+                      ? "Airdrop project summary table and task progress compatible directly with Microsoft Excel, Google Sheets, or Notion."
+                      : "Tabel ringkasan proyek garapan dan progress tugas yang kompatibel langsung dengan Microsoft Excel, Google Sheets, atau Notion."}
                   </p>
                 </div>
                 <button
@@ -989,7 +1063,11 @@ export default function SettingsPage() {
                   className="w-full py-2 px-3 rounded-xl bg-white/[0.04] text-text-primary hover:bg-white/[0.08] border border-white/[0.1] disabled:opacity-50 text-caption font-semibold transition-all inline-flex items-center justify-center gap-2"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>{isExportingCsv ? "Memproses CSV..." : "Unduh File CSV"}</span>
+                  <span>
+                    {isExportingCsv
+                      ? (isEn ? "Processing CSV..." : "Memproses CSV...")
+                      : (isEn ? "Download CSV File" : "Unduh File CSV")}
+                  </span>
                 </button>
               </div>
             </div>
@@ -1007,10 +1085,12 @@ export default function SettingsPage() {
               <AlertTriangle className="w-5 h-5" />
               <div>
                 <h2 className="text-body-md sm:text-heading-3 font-bold">
-                  Zona Bahaya & Pemeliharaan Database
+                  {isEn ? "Danger Zone & Database Maintenance" : "Zona Bahaya & Pemeliharaan Database"}
                 </h2>
                 <p className="text-caption text-text-secondary">
-                  Aksi pembersihan dan penghapusan data permanen. Pastikan Anda telah membuat backup JSON sebelum melanjutkan.
+                  {isEn
+                    ? "Permanent data cleanup and deletion actions. Make sure you have created a JSON backup before proceeding."
+                    : "Aksi pembersihan dan penghapusan data permanen. Pastikan Anda telah membuat backup JSON sebelum melanjutkan."}
                 </p>
               </div>
             </div>
@@ -1032,10 +1112,12 @@ export default function SettingsPage() {
             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="text-body-sm font-bold text-text-primary">
-                  Bersihkan Tugas yang Sudah Selesai
+                  {isEn ? "Clear Completed Tasks" : "Bersihkan Tugas yang Sudah Selesai"}
                 </div>
                 <p className="text-caption text-text-tertiary">
-                  Menghapus tugas lama yang statusnya sudah selesai (done) di database agar ringan.
+                  {isEn
+                    ? "Delete old tasks whose status is already completed (done) in the database to keep it lightweight."
+                    : "Menghapus tugas lama yang statusnya sudah selesai (done) di database agar ringan."}
                 </p>
               </div>
               <button
@@ -1043,7 +1125,7 @@ export default function SettingsPage() {
                 onClick={handleClearCompletedTasks}
                 className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] text-text-secondary hover:text-text-primary text-caption font-semibold transition-all shrink-0"
               >
-                Bersihkan Tugas Selesai
+                {isEn ? "Clear Completed Tasks" : "Bersihkan Tugas Selesai"}
               </button>
             </div>
 
@@ -1051,10 +1133,12 @@ export default function SettingsPage() {
             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="text-body-sm font-bold text-text-primary">
-                  Reset Status Import Feed Sinyal
+                  {isEn ? "Reset Signal Feed Import Status" : "Reset Status Import Feed Sinyal"}
                 </div>
                 <p className="text-caption text-text-tertiary">
-                  Mengembalikan status sinyal feed/waitlist sehingga postingan yang pernah dihapus dapat ditambahkan kembali.
+                  {isEn
+                    ? "Reset feed/waitlist signals status so previously removed posts can be imported again."
+                    : "Mengembalikan status sinyal feed/waitlist sehingga postingan yang pernah dihapus dapat ditambahkan kembali."}
                 </p>
               </div>
               <button
@@ -1062,7 +1146,7 @@ export default function SettingsPage() {
                 onClick={handleResetFeedImportStatus}
                 className="px-3.5 py-1.5 rounded-xl bg-link-teal/15 hover:bg-link-teal/25 border border-link-teal/30 text-link-teal text-caption font-semibold transition-all shrink-0"
               >
-                Reset Sinyal Feed
+                {isEn ? "Reset Feed Signals" : "Reset Sinyal Feed"}
               </button>
             </div>
 
@@ -1070,33 +1154,43 @@ export default function SettingsPage() {
             <div className="p-4 rounded-xl bg-status-overdue/10 border border-status-overdue/30 space-y-3">
               <div>
                 <div className="text-body-sm font-bold text-status-overdue">
-                  Hapus Seluruh Data Garapan & Proyek
+                  {isEn ? "Delete All Farming Data & Projects" : "Hapus Seluruh Data Garapan & Proyek"}
                 </div>
                 <p className="text-caption text-text-secondary">
-                  Menghapus SEMUA proyek, catatan linimasa, dan tugas di akun ini dari Supabase.
+                  {isEn
+                    ? "Permanently delete ALL projects, timeline notes, and tasks in this account from Supabase."
+                    : "Menghapus SEMUA proyek, catatan linimasa, dan tugas di akun ini dari Supabase."}
                 </p>
               </div>
 
               <div className="pt-1 space-y-2">
                 <label className="block text-caption text-text-secondary">
-                  Ketik <strong className="text-text-primary font-mono font-bold">HAPUS</strong> untuk mengonfirmasi:
+                  {isEn ? (
+                    <>
+                      Type <strong className="text-text-primary font-mono font-bold">DELETE</strong> to confirm:
+                    </>
+                  ) : (
+                    <>
+                      Ketik <strong className="text-text-primary font-mono font-bold">HAPUS</strong> untuk mengonfirmasi:
+                    </>
+                  )}
                 </label>
                 <div className="flex items-center gap-2 max-w-sm">
                   <input
                     type="text"
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value)}
-                    placeholder="Ketik HAPUS"
+                    placeholder={isEn ? "Type DELETE" : "Ketik HAPUS"}
                     className="w-full px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.1] text-caption font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-status-overdue"
                   />
                   <button
                     type="button"
                     onClick={handleDeleteAllProjects}
-                    disabled={isDeleting || deleteConfirmText.trim().toUpperCase() !== "HAPUS"}
+                    disabled={isDeleting || !["HAPUS", "DELETE"].includes(deleteConfirmText.trim().toUpperCase())}
                     className="px-3.5 py-1.5 rounded-xl bg-status-overdue text-white hover:bg-status-overdue/90 disabled:opacity-40 text-caption font-semibold transition-all shrink-0 inline-flex items-center gap-1.5 shadow-md shadow-status-overdue/20"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isDeleting ? "Menghapus..." : "Hapus Semua"}</span>
+                    <span>{isDeleting ? (isEn ? "Deleting..." : "Menghapus...") : (isEn ? "Delete All" : "Hapus Semua")}</span>
                   </button>
                 </div>
               </div>

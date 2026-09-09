@@ -44,7 +44,7 @@ export function CreateProjectModal({
   onProjectCreated,
   initialFolderId,
 }: CreateProjectModalProps) {
-  const { locale } = useTranslation();
+  const { locale, isEn } = useTranslation();
   // Input method: "telegram_link" vs "manual_paste"
   const [method, setMethod] = useState<"telegram_link" | "manual_paste">("telegram_link");
 
@@ -260,7 +260,7 @@ export function CreateProjectModal({
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setErrorMessage("Nama proyek wajib diisi.");
+      setErrorMessage(isEn ? "Project name is required." : "Nama proyek wajib diisi.");
       return;
     }
 
@@ -274,7 +274,7 @@ export function CreateProjectModal({
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setErrorMessage("Sesi login berakhir. Silakan login kembali.");
+        setErrorMessage(isEn ? "Login session expired. Please sign in again." : "Sesi login berakhir. Silakan login kembali.");
         setIsSaving(false);
         return;
       }
@@ -336,7 +336,7 @@ export function CreateProjectModal({
       handleClose();
     } catch (err: any) {
       console.error("Save project error:", err);
-      setErrorMessage(err?.message || "Gagal menyimpan proyek.");
+      setErrorMessage(err?.message || (isEn ? "Failed to save project." : "Gagal menyimpan proyek."));
     } finally {
       setIsSaving(false);
     }
@@ -346,8 +346,8 @@ export function CreateProjectModal({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Tambah Proyek Airdrop Baru"
-      description="Simpan garapan dari link Telegram atau ketik manual, lengkapi sosmed, akun email, dan wallet yang digunakan."
+      title={isEn ? "Add New Airdrop Project" : "Tambah Proyek Airdrop Baru"}
+      description={isEn ? "Save airdrop from Telegram link or paste manually, fill in socials, email accounts, and wallets used." : "Simpan garapan dari link Telegram atau ketik manual, lengkapi sosmed, akun email, dan wallet yang digunakan."}
       maxWidth="xl"
     >
       <div className="space-y-4">
@@ -363,7 +363,7 @@ export function CreateProjectModal({
             }`}
           >
             <Send className="w-3.5 h-3.5" />
-            <span>Via Link Telegram</span>
+            <span>{isEn ? "Via Telegram Link" : "Via Link Telegram"}</span>
           </button>
 
           <button
@@ -376,7 +376,7 @@ export function CreateProjectModal({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Ketik / Paste Manual</span>
+            <span>{isEn ? "Type / Paste Manually" : "Ketik / Paste Manual"}</span>
           </button>
         </div>
 
@@ -394,7 +394,7 @@ export function CreateProjectModal({
           {method === "telegram_link" && (
             <div className="space-y-2">
               <label className="block text-caption font-medium text-text-secondary">
-                Link Postingan Telegram
+                {isEn ? "Telegram Post Link" : "Link Postingan Telegram"}
               </label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -405,7 +405,7 @@ export function CreateProjectModal({
                     type="url"
                     value={telegramUrl}
                     onChange={(e) => setTelegramUrl(e.target.value)}
-                    placeholder="https://t.me/dutacryptoairdrop/1234 atau airdropfind/..."
+                    placeholder={isEn ? "https://t.me/dutacryptoairdrop/1234 or airdropfind/..." : "https://t.me/dutacryptoairdrop/1234 atau airdropfind/..."}
                     className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-link-teal/50"
                   />
                 </div>
@@ -416,7 +416,7 @@ export function CreateProjectModal({
                   className="px-4 py-2 rounded-xl bg-link-teal text-black font-semibold text-caption hover:bg-link-teal/90 disabled:opacity-40 transition-all shrink-0 flex items-center gap-1.5 shadow-sm"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isFetchingTelegram ? "animate-spin" : ""}`} />
-                  <span>{isFetchingTelegram ? "Mengambil..." : "Ambil Pesan"}</span>
+                  <span>{isFetchingTelegram ? (isEn ? "Fetching..." : "Mengambil...") : (isEn ? "Fetch Post" : "Ambil Pesan")}</span>
                 </button>
               </div>
 
@@ -424,7 +424,7 @@ export function CreateProjectModal({
                 <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between text-[11px] text-text-secondary">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-status-completed" />
-                    <span>Sumber: <strong>{channelSource.channelName}</strong> ({channelSource.channelHandle})</span>
+                    <span>{isEn ? "Source: " : "Sumber: "}<strong>{channelSource.channelName}</strong> ({channelSource.channelHandle})</span>
                   </div>
                   <a
                     href={telegramPostUrl}
@@ -432,7 +432,7 @@ export function CreateProjectModal({
                     rel="noreferrer"
                     className="text-link-teal hover:underline inline-flex items-center gap-0.5"
                   >
-                    <span>Buka Pesan Asli</span>
+                    <span>{isEn ? "Open Original Post" : "Buka Pesan Asli"}</span>
                     <ExternalLink className="w-2.5 h-2.5" />
                   </a>
                 </div>
@@ -444,7 +444,7 @@ export function CreateProjectModal({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-caption font-medium text-text-secondary">
-                {method === "telegram_link" ? "Isi Postingan Telegram Asli" : "Paste Postingan Asli / Panduan"}
+                {method === "telegram_link" ? (isEn ? "Original Telegram Post Content" : "Isi Postingan Telegram Asli") : (isEn ? "Paste Original Post / Guide" : "Paste Postingan Asli / Panduan")}
               </label>
 
               {(() => {
@@ -461,7 +461,7 @@ export function CreateProjectModal({
                         ? "bg-status-completed/20 text-status-completed border border-status-completed/40"
                         : "bg-white/[0.04] text-text-primary hover:bg-white/[0.08] border border-white/[0.1]"
                     }`}
-                    title="Terjemahkan teks postingan"
+                    title={isEn ? "Translate post text" : "Terjemahkan teks postingan"}
                   >
                     <Languages className={`w-3.5 h-3.5 ${isTranslating ? "animate-spin text-accent" : ""}`} />
                     <span>
@@ -482,8 +482,8 @@ export function CreateProjectModal({
               onChange={(e) => handleManualTextChange(e.target.value)}
               placeholder={
                 method === "telegram_link"
-                  ? "Teks postingan akan otomatis muncul di sini setelah Anda mengklik 'Ambil Pesan'..."
-                  : "Paste teks postingan dari Telegram, Discord, atau Twitter di sini..."
+                  ? (isEn ? "Post content will appear here automatically after you click 'Fetch Post'..." : "Teks postingan akan otomatis muncul di sini setelah Anda mengklik 'Ambil Pesan'...")
+                  : (isEn ? "Paste post text from Telegram, Discord, or Twitter here..." : "Paste teks postingan dari Telegram, Discord, atau Twitter di sini...")
               }
               className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 leading-relaxed font-sans no-scrollbar resize-none"
             />
@@ -493,13 +493,13 @@ export function CreateProjectModal({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1">
               <label className="block text-caption font-medium text-text-secondary mb-1">
-                Nama Proyek <span className="text-status-overdue">*</span>
+                {isEn ? "Project Name" : "Nama Proyek"} <span className="text-status-overdue">*</span>
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Contoh: MINARA, Monad"
+                placeholder={isEn ? "e.g. MINARA, Monad" : "Contoh: MINARA, Monad"}
                 className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50"
                 required
               />
@@ -507,14 +507,14 @@ export function CreateProjectModal({
 
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1">
-                Folder Kategori
+                {isEn ? "Category Folder" : "Folder Kategori"}
               </label>
               <select
                 value={folderId}
                 onChange={(e) => setFolderId(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-[#0d121b] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent/50 cursor-pointer"
               >
-                <option value="">Tanpa Folder (Semua)</option>
+                <option value="">{isEn ? "No Folder (All)" : "Tanpa Folder (Semua)"}</option>
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>
                     📁 {f.name}
@@ -525,13 +525,13 @@ export function CreateProjectModal({
 
             <div>
               <label className="block text-caption font-medium text-text-secondary mb-1">
-                Jaringan / Chain
+                {isEn ? "Network / Chain" : "Jaringan / Chain"}
               </label>
               <input
                 type="text"
                 value={chain}
                 onChange={(e) => setChain(e.target.value)}
-                placeholder="Contoh: EVM, Solana, Base"
+                placeholder={isEn ? "e.g. EVM, Solana, Base" : "Contoh: EVM, Solana, Base"}
                 className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50"
               />
             </div>
@@ -542,14 +542,14 @@ export function CreateProjectModal({
             <div className="flex items-center justify-between">
               <span className="text-caption font-semibold text-text-primary flex items-center gap-1.5">
                 <Globe className="w-3.5 h-3.5 text-accent" />
-                <span>Link & Sosial Media Proyek</span>
+                <span>{isEn ? "Project Links & Social Media" : "Link & Sosial Media Proyek"}</span>
               </span>
-              <span className="text-[11px] text-text-tertiary">Otomatis terisi jika ada di teks</span>
+              <span className="text-[11px] text-text-tertiary">{isEn ? "Auto-filled if found in text" : "Otomatis terisi jika ada di teks"}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
-                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">Website / Portal</label>
+                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">{isEn ? "Website / Portal" : "Website / Portal"}</label>
                 <input
                   type="url"
                   value={websiteUrl}
@@ -560,7 +560,7 @@ export function CreateProjectModal({
               </div>
 
               <div>
-                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">DApp / Web App Testnet</label>
+                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">{isEn ? "DApp / Testnet Web App" : "DApp / Web App Testnet"}</label>
                 <input
                   type="url"
                   value={dappUrl}
@@ -576,7 +576,7 @@ export function CreateProjectModal({
                   type="text"
                   value={twitterUrl}
                   onChange={(e) => setTwitterUrl(e.target.value)}
-                  placeholder="https://x.com/... atau @handle"
+                  placeholder={isEn ? "https://x.com/... or @handle" : "https://x.com/... atau @handle"}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-caption text-text-primary focus:outline-none focus:border-accent"
                 />
               </div>
@@ -598,12 +598,12 @@ export function CreateProjectModal({
           <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-2.5">
             <div className="flex items-center gap-1.5 text-caption font-semibold text-text-primary">
               <AtSign className="w-3.5 h-3.5 text-link-teal" />
-              <span>Akun / Email yang Dipakai Garap (Non-sensitif)</span>
+              <span>{isEn ? "Account / Email Used for Farming (Non-sensitive)" : "Akun / Email yang Dipakai Garap (Non-sensitif)"}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <div>
-                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">Jenis Akun</label>
+                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">{isEn ? "Account Type" : "Jenis Akun"}</label>
                 <select
                   value={accountPlatform}
                   onChange={(e) => setAccountPlatform(e.target.value)}
@@ -615,23 +615,23 @@ export function CreateProjectModal({
                   <option value="Telegram">Telegram</option>
                   <option value="Google">Google</option>
                   <option value="GitHub">GitHub</option>
-                  <option value="Lainnya">Lainnya</option>
+                  <option value="Lainnya">{isEn ? "Other" : "Lainnya"}</option>
                 </select>
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">Username / Alamat Email</label>
+                <label className="block text-[11px] font-mono text-text-secondary mb-0.5">{isEn ? "Username / Email Address" : "Username / Alamat Email"}</label>
                 <input
                   type="text"
                   value={accountValue}
                   onChange={(e) => setAccountValue(e.target.value)}
-                  placeholder="Misal: user@gmail.com atau @handle_airdrop"
+                  placeholder={isEn ? "e.g. user@gmail.com or @handle_airdrop" : "Misal: user@gmail.com atau @handle_airdrop"}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.08] text-caption text-text-primary focus:outline-none focus:border-link-teal font-mono"
                 />
               </div>
             </div>
             <p className="text-[11px] text-text-tertiary">
-              Catatan untuk mengingat identitas akun yang Anda daftarkan pada proyek ini agar tidak tertukar.
+              {isEn ? "Notes to help you remember the registered identity on this project." : "Catatan untuk mengingat identitas akun yang Anda daftarkan pada proyek ini agar tidak tertukar."}
             </p>
           </div>
 
@@ -640,10 +640,10 @@ export function CreateProjectModal({
             <div className="flex items-center justify-between">
               <span className="text-caption font-semibold text-text-primary flex items-center gap-1.5">
                 <Wallet className="w-3.5 h-3.5 text-amber-400" />
-                <span>Wallet yang Digunakan</span>
+                <span>{isEn ? "Wallet Used" : "Wallet yang Digunakan"}</span>
               </span>
               <span className="text-[11px] text-text-tertiary">
-                {selectedWalletIds.length > 0 ? `${selectedWalletIds.length} dipilih` : "Opsional"}
+                {selectedWalletIds.length > 0 ? (isEn ? `${selectedWalletIds.length} selected` : `${selectedWalletIds.length} dipilih`) : (isEn ? "Optional" : "Opsional")}
               </span>
             </div>
 
@@ -685,7 +685,7 @@ export function CreateProjectModal({
               </div>
             ) : (
               <p className="text-[11px] text-text-tertiary">
-                Belum ada wallet tersimpan di akun Anda. Anda dapat menambahkan wallet nanti di tab Wallets & Accounts atau melalui workstation proyek.
+                {isEn ? "No wallets saved in your account yet. You can add wallets later in the Wallets tab or through the project workstation." : "Belum ada wallet tersimpan di akun Anda. Anda dapat menambahkan wallet nanti di tab Wallets & Accounts atau melalui workstation proyek."}
               </p>
             )}
           </div>
@@ -693,7 +693,7 @@ export function CreateProjectModal({
           {/* FOOTER ACTIONS */}
           <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/[0.08]">
             <ButtonSecondary type="button" onClick={handleClose} disabled={isSaving}>
-              Batal
+              {isEn ? "Cancel" : "Batal"}
             </ButtonSecondary>
 
             <ButtonPrimary
@@ -704,12 +704,12 @@ export function CreateProjectModal({
               {isSaving ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Menyimpan Proyek...</span>
+                  <span>{isEn ? "Saving Project..." : "Menyimpan Proyek..."}</span>
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Simpan Proyek Airdrop</span>
+                  <span>{isEn ? "Save Airdrop Project" : "Simpan Proyek Airdrop"}</span>
                 </>
               )}
             </ButtonPrimary>

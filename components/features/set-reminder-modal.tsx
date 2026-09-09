@@ -14,6 +14,7 @@ import {
   decodeFrequency,
   formatReminderSchedule,
 } from "@/lib/supabase/reminders-helper";
+import { useTranslation } from "@/lib/i18n/context";
 
 type ReminderRow = Database["public"]["Tables"]["reminders"]["Row"];
 
@@ -39,6 +40,7 @@ export function SetReminderModal({
   editingReminder,
   onReminderSaved,
 }: SetReminderModalProps) {
+  const { isEn } = useTranslation();
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     defaultProjectId || ""
@@ -196,7 +198,7 @@ export function SetReminderModal({
       onClose();
     } catch (err: any) {
       console.error("Save reminder error:", err);
-      setError(err?.message || "Gagal menyimpan pengingat.");
+      setError(err?.message || (isEn ? "Failed to save reminder." : "Gagal menyimpan pengingat."));
     } finally {
       setLoading(false);
     }
@@ -210,8 +212,16 @@ export function SetReminderModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editingReminder ? "Ubah Jadwal Pengingat Proyek" : "Pasang Pengingat Proyek"}
-      description="Pilih proyek dan atur waktu pengingat harian atau mingguan agar kamu siap menggarap sesuai jadwal."
+      title={
+        editingReminder
+          ? (isEn ? "Edit Project Reminder Schedule" : "Ubah Jadwal Pengingat Proyek")
+          : (isEn ? "Set Project Reminder" : "Pasang Pengingat Proyek")
+      }
+      description={
+        isEn
+          ? "Choose a project and set daily or weekly reminders so you never miss a farming schedule."
+          : "Pilih proyek dan atur waktu pengingat harian atau mingguan agar kamu siap menggarap sesuai jadwal."
+      }
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -224,7 +234,7 @@ export function SetReminderModal({
         {/* 1. Project Selector */}
         <div>
           <label className="block text-body-sm font-medium text-text-secondary mb-1">
-            Pilih Proyek Airdrop <span className="text-status-overdue">*</span>
+            {isEn ? "Select Airdrop Project" : "Pilih Proyek Airdrop"} <span className="text-status-overdue">*</span>
           </label>
           <select
             value={selectedProjectId}
@@ -233,7 +243,9 @@ export function SetReminderModal({
             disabled={loading}
             className="w-full h-10 bg-bg-elevated-2 text-text-primary text-body-sm px-3 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent transition-colors"
           >
-            <option value="">-- Pilih Proyek yang Ingin Diingatkan --</option>
+            <option value="">
+              {isEn ? "-- Select Project to Set Reminder --" : "-- Pilih Proyek yang Ingin Diingatkan --"}
+            </option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} {p.chain ? `(${p.chain})` : ""}
@@ -245,7 +257,7 @@ export function SetReminderModal({
         {/* 2. Schedule Pattern Selector */}
         <div className="space-y-2">
           <label className="block text-body-sm font-medium text-text-secondary">
-            Pola Notifikasi <span className="text-status-overdue">*</span>
+            {isEn ? "Notification Pattern" : "Pola Notifikasi"} <span className="text-status-overdue">*</span>
           </label>
 
           <div className="grid grid-cols-3 gap-2">
@@ -270,7 +282,7 @@ export function SetReminderModal({
                 )}
               </div>
               <div className="text-caption font-semibold text-text-primary">
-                Setiap Hari
+                {isEn ? "Every Day" : "Setiap Hari"}
               </div>
               <div className="text-[11px] text-text-tertiary">Daily reminder</div>
             </button>
@@ -296,9 +308,11 @@ export function SetReminderModal({
                 )}
               </div>
               <div className="text-caption font-semibold text-text-primary">
-                Hari Tertentu
+                {isEn ? "Specific Days" : "Hari Tertentu"}
               </div>
-              <div className="text-[11px] text-text-tertiary">Pilih hari seminggu</div>
+              <div className="text-[11px] text-text-tertiary">
+                {isEn ? "Pick days of week" : "Pilih hari seminggu"}
+              </div>
             </button>
 
             {/* Once / Specific Date */}
@@ -322,9 +336,11 @@ export function SetReminderModal({
                 )}
               </div>
               <div className="text-caption font-semibold text-text-primary">
-                Tanggal Spesifik
+                {isEn ? "Specific Date" : "Tanggal Spesifik"}
               </div>
-              <div className="text-[11px] text-text-tertiary">Sekali pada tgl X</div>
+              <div className="text-[11px] text-text-tertiary">
+                {isEn ? "Once on date X" : "Sekali pada tgl X"}
+              </div>
             </button>
           </div>
         </div>
@@ -333,11 +349,17 @@ export function SetReminderModal({
         {scheduleType === "weekly" && (
           <div className="p-3 rounded-lg bg-bg-elevated-2 border border-border-hairline space-y-2">
             <span className="text-[12px] font-medium text-text-secondary block">
-              Pilih Hari Pengingat (Setiap minggu pada hari yang dipilih):
+              {isEn
+                ? "Select Reminder Days (Repeats weekly on chosen days):"
+                : "Pilih Hari Pengingat (Setiap minggu pada hari yang dipilih):"}
             </span>
             <div className="grid grid-cols-7 gap-1.5">
               {DAYS_OF_WEEK.map((d) => {
                 const isSelected = selectedDays.includes(d.id);
+                const dayLabel = isEn
+                  ? ({ mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" } as Record<string, string>)[d.id] || d.label
+                  : d.label;
+
                 return (
                   <button
                     key={d.id}
@@ -349,7 +371,7 @@ export function SetReminderModal({
                         : "bg-bg-elevated text-text-secondary border-border-hairline hover:border-border-hairline-strong hover:text-text-primary"
                     }`}
                   >
-                    {d.label}
+                    {dayLabel}
                   </button>
                 );
               })}
@@ -361,7 +383,7 @@ export function SetReminderModal({
         {scheduleType === "once" && (
           <div className="p-3 rounded-lg bg-bg-elevated-2 border border-border-hairline space-y-1.5">
             <label className="text-[12px] font-medium text-text-secondary block">
-              Pilih Tanggal Pengingat:
+              {isEn ? "Select Reminder Date:" : "Pilih Tanggal Pengingat:"}
             </label>
             <input
               type="date"
@@ -378,9 +400,11 @@ export function SetReminderModal({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-body-sm font-medium text-text-secondary">
-              Jam Notifikasi <span className="text-status-overdue">*</span>
+              {isEn ? "Notification Time" : "Jam Notifikasi"} <span className="text-status-overdue">*</span>
             </label>
-            <span className="text-[11px] text-text-tertiary">Default: 07:00 Pagi</span>
+            <span className="text-[11px] text-text-tertiary">
+              {isEn ? "Default: 07:00 AM" : "Default: 07:00 Pagi"}
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -405,9 +429,9 @@ export function SetReminderModal({
                     ? "bg-accent/15 border-accent text-accent font-bold"
                     : "bg-bg-elevated-2 border-border-hairline text-text-secondary hover:text-text-primary"
                 }`}
-                title="Pukul 07:00 Pagi (Standar)"
+                title={isEn ? "07:00 AM (Standard)" : "Pukul 07:00 Pagi (Standar)"}
               >
-                07:00 (Pagi)
+                07:00 ({isEn ? "AM" : "Pagi"})
               </button>
               <button
                 type="button"
@@ -440,7 +464,8 @@ export function SetReminderModal({
           <div className="flex items-center gap-2 text-text-primary">
             <Bell className="w-4 h-4 text-accent shrink-0" />
             <span>
-              Jadwal: <strong className="text-accent">{previewScheduleText}</strong>
+              {isEn ? "Schedule: " : "Jadwal: "}
+              <strong className="text-accent">{previewScheduleText}</strong>
             </span>
           </div>
         </div>
@@ -448,7 +473,7 @@ export function SetReminderModal({
         {/* 5. Notification Channels */}
         <div>
           <label className="block text-body-sm font-medium text-text-secondary mb-1">
-            Saluran Notifikasi
+            {isEn ? "Notification Channels" : "Saluran Notifikasi"}
           </label>
           <div className="flex items-center gap-4 pt-1">
             <label className="inline-flex items-center gap-2 cursor-pointer text-body-sm text-text-primary">
@@ -476,14 +501,14 @@ export function SetReminderModal({
         {/* Action Buttons */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-hairline">
           <ButtonSecondary type="button" onClick={onClose} disabled={loading}>
-            Batal
+            {isEn ? "Cancel" : "Batal"}
           </ButtonSecondary>
           <ButtonPrimary type="submit" disabled={loading}>
             {loading
-              ? "Menyimpan..."
+              ? (isEn ? "Saving..." : "Menyimpan...")
               : editingReminder
-              ? "Simpan Perubahan"
-              : "Pasang Pengingat"}
+              ? (isEn ? "Save Changes" : "Simpan Perubahan")
+              : (isEn ? "Set Reminder" : "Pasang Pengingat")}
           </ButtonPrimary>
         </div>
       </form>

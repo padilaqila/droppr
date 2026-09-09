@@ -1,11 +1,17 @@
+"use client";
+
 import Link from "next/link";
 import { HeroDotGrid } from "@/components/features/hero-dot-grid";
 import { AuroraWave } from "@/components/features/aurora-wave";
 import { HeroSearchConsole } from "@/components/features/hero-search-console";
 import { ButtonPrimary } from "@/components/ui/button";
 import { Flame } from "lucide-react";
+import { LanguageToggle } from "@/components/ui/language-toggle";
+import { useTranslation } from "@/lib/i18n/context";
 
 export default function MarketingPage() {
+  const { t } = useTranslation();
+
   return (
     <div 
       className="h-screen max-h-screen flex flex-col justify-between bg-bg-base text-text-primary relative overflow-hidden select-none"
@@ -31,11 +37,12 @@ export default function MarketingPage() {
           </span>
         </div>
 
-        {/* Action Button */}
-        <div>
+        {/* Controls: Language Switcher & Action Button */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <LanguageToggle />
           <Link href="/dashboard">
             <ButtonPrimary className="text-body-sm py-1.5 px-3.5 shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-transform">
-              Buka Workspace
+              {t("marketing.openWorkspace")}
             </ButtonPrimary>
           </Link>
         </div>
@@ -61,13 +68,13 @@ export default function MarketingPage() {
 
         {/* Main Headline (Scaled responsively to protect vertical space) */}
         <h1 className="text-heading-2 sm:text-heading-1 md:text-[44px] lg:text-[52px] font-semibold text-text-primary tracking-tight leading-[1.1] max-w-3xl font-sans">
-          Kendali penuh <br />
-          seluruh airdrop kamu
+          {t("marketing.headline1")} <br />
+          {t("marketing.headline2")}
         </h1>
 
         {/* Subtitle */}
         <p className="text-caption sm:text-body-md font-normal text-text-secondary max-w-xl mx-auto leading-relaxed mt-2 font-sans">
-          Satu workspace personal untuk melacak task harian, jadwal snapshot, status wallet, dan reminder klaim token tanpa spreadsheet yang berantakan.
+          {t("marketing.subtitle")}
         </p>
 
         {/* New Stitch-Inspired Airdrop Mission Control Console */}
@@ -78,12 +85,10 @@ export default function MarketingPage() {
       {/* Docked Minimalist Footer */}
       <footer className="h-auto sm:h-12 py-2 sm:py-0 px-4 sm:px-6 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-1 text-caption text-text-tertiary z-20 border-t border-border-hairline/40 shrink-0">
         <div>
-          <span>&copy; 2026 Droppr. Workspace personal airdrop hunter.</span>
+          <span>{t("marketing.footerCopy")}</span>
         </div>
         <div className="hidden sm:flex items-center gap-3 font-mono text-data-mono-sm">
-          <span>Non-custodial & Read-only</span>
-          <span>·</span>
-          <span>Client-side Protected</span>
+          <span>{t("marketing.footerSecurity")}</span>
         </div>
       </footer>
 

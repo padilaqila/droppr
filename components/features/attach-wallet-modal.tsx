@@ -8,6 +8,7 @@ import { Wallet, Plus, Check, Link2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAccount, useConnect } from "wagmi";
 import type { Database } from "@/lib/supabase/database.types";
+import { useTranslation } from "@/lib/i18n/context";
 
 type WalletRow = Database["public"]["Tables"]["wallets"]["Row"];
 
@@ -26,6 +27,7 @@ export function AttachWalletModal({
   assignedWalletIds,
   onWalletsUpdated,
 }: AttachWalletModalProps) {
+  const { isEn } = useTranslation();
   const [activeTab, setActiveTab] = useState<"select" | "new">("select");
   const [userWallets, setUserWallets] = useState<WalletRow[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>(assignedWalletIds);
@@ -81,7 +83,11 @@ export function AttachWalletModal({
   const handleCreateAndAssignWallet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!address.trim()) {
-      setError("Alamat wallet (0x... / address) tidak boleh kosong.");
+      setError(
+        isEn
+          ? "Wallet address (0x... / address) cannot be empty."
+          : "Alamat wallet (0x... / address) tidak boleh kosong."
+      );
       return;
     }
 
@@ -95,7 +101,7 @@ export function AttachWalletModal({
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setError("Sesi login berakhir.");
+        setError(isEn ? "Login session expired." : "Sesi login berakhir.");
         setLoading(false);
         return;
       }
@@ -115,21 +121,26 @@ export function AttachWalletModal({
       if (insertError) throw insertError;
 
       // 2. Link to Project
-      if (newWallet?.id) {
-        await supabase.from("project_wallets").insert({
-          project_id: projectId,
-          wallet_id: newWallet.id,
-        });
+      if (newWallet) {
+        const { error: linkError } = await supabase
+          .from("project_wallets")
+          .insert({
+            project_id: projectId,
+            wallet_id: newWallet.id,
+          });
+
+        if (linkError) throw linkError;
       }
 
+      // Reset & refresh
       setAddress("");
       setLabel("");
       setChain("");
       if (onWalletsUpdated) onWalletsUpdated();
       onClose();
     } catch (err: any) {
-      console.error("Create wallet error:", err);
-      setError(err?.message || "Gagal membuat wallet.");
+      console.error("Create & link wallet error:", err);
+      setError(err?.message || (isEn ? "Failed to save wallet." : "Gagal menyimpan wallet."));
     } finally {
       setLoading(false);
     }
@@ -142,10 +153,15 @@ export function AttachWalletModal({
     try {
       const supabase = createClient() as any;
 
-      // Delete old associations
-      await supabase.from("project_wallets").delete().eq("project_id", projectId);
+      // 1. Delete existing associations for this project
+      const { error: deleteError } = await supabase
+        .from("project_wallets")
+        .delete()
+        .eq("project_id", projectId);
 
-      // Insert selected associations
+      if (deleteError) throw deleteError;
+
+      // 2. Insert new associations
       if (selectedIds.length > 0) {
         const rows = selectedIds.map((walletId) => ({
           project_id: projectId,
@@ -159,7 +175,7 @@ export function AttachWalletModal({
       onClose();
     } catch (err: any) {
       console.error("Save wallet associations error:", err);
-      setError(err?.message || "Gagal memperbarui relasi wallet.");
+      setError(err?.message || (isEn ? "Failed to update wallet associations." : "Gagal memperbarui relasi wallet."));
     } finally {
       setLoading(false);
     }
@@ -169,8 +185,12 @@ export function AttachWalletModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Atur Wallet untuk Project Ini"
-      description="Tentukan wallet yang dipakai untuk airdrop ini agar riwayat dan alur multi-akun tidak tertukar."
+      title={isEn ? "Manage Wallets for this Project" : "Atur Wallet untuk Project Ini"}
+      description={
+        isEn
+          ? "Assign wallets used for this airdrop so multi-account tracking stays organized."
+          : "Tentukan wallet yang dipakai untuk airdrop ini agar riwayat dan alur multi-akun tidak tertukar."
+      }
       maxWidth="lg"
     >
       {/* Tabs */}
@@ -185,7 +205,7 @@ export function AttachWalletModal({
           }`}
         >
           <Wallet className="w-4 h-4" />
-          <span>Pilih dari Daftar ({userWallets.length})</span>
+          <span>{isEn ? `Select from List (${userWallets.length})` : `Pilih dari Daftar (${userWallets.length})`}</span>
         </button>
         <button
           type="button"
@@ -197,7 +217,7 @@ export function AttachWalletModal({
           }`}
         >
           <Plus className="w-4 h-4" />
-          <span>Tambah Wallet Baru</span>
+          <span>{isEn ? "Add New Wallet" : "Tambah Wallet Baru"}</span>
         </button>
       </div>
 
@@ -212,7 +232,9 @@ export function AttachWalletModal({
         <div className="space-y-4">
           {userWallets.length === 0 ? (
             <div className="p-6 text-center text-body-sm text-text-tertiary bg-bg-elevated-2 rounded-md border border-border-hairline">
-              Belum ada wallet tersimpan di akun Anda. Tambahkan wallet pertamamu di tab sebelah.
+              {isEn
+                ? "No wallets saved in your account yet. Add your first wallet in the next tab."
+                : "Belum ada wallet tersimpan di akun Anda. Tambahkan wallet pertamamu di tab sebelah."}
             </div>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -231,7 +253,7 @@ export function AttachWalletModal({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-body-sm font-semibold text-text-primary">
-                          {w.label || "Wallet Tanpa Label"}
+                          {w.label || (isEn ? "Unlabeled Wallet" : "Wallet Tanpa Label")}
                         </span>
                         {w.chain && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated border border-border-hairline font-mono text-text-tertiary">
@@ -261,14 +283,16 @@ export function AttachWalletModal({
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-hairline">
             <ButtonSecondary type="button" onClick={onClose} disabled={loading}>
-              Batal
+              {isEn ? "Cancel" : "Batal"}
             </ButtonSecondary>
             <ButtonPrimary
               type="button"
               onClick={handleSaveAssociations}
               disabled={loading}
             >
-              {loading ? "Menyimpan..." : `Pakai Wallet Terpilih (${selectedIds.length})`}
+              {loading
+                ? (isEn ? "Saving..." : "Menyimpan...")
+                : (isEn ? `Use Selected Wallets (${selectedIds.length})` : `Pakai Wallet Terpilih (${selectedIds.length})`)}
             </ButtonPrimary>
           </div>
         </div>
@@ -280,7 +304,9 @@ export function AttachWalletModal({
           {isConnected && connectedAddress && (
             <div className="p-3 rounded-md bg-accent/10 border border-accent/30 flex items-center justify-between">
               <div className="text-body-sm">
-                <span className="text-text-primary font-medium">Browser Wallet Terdeteksi: </span>
+                <span className="text-text-primary font-medium">
+                  {isEn ? "Browser Wallet Detected: " : "Browser Wallet Terdeteksi: "}
+                </span>
                 <span className="font-mono text-caption text-text-secondary">
                   {connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)}
                 </span>
@@ -291,19 +317,19 @@ export function AttachWalletModal({
                 className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1.5"
               >
                 <Link2 className="w-3 h-3 text-accent" />
-                <span>Gunakan Ini</span>
+                <span>{isEn ? "Use This" : "Gunakan Ini"}</span>
               </ButtonSecondary>
             </div>
           )}
 
           <div>
             <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Label / Identitas Wallet <span className="text-status-overdue">*</span>
+              {isEn ? "Wallet Label / Identity" : "Label / Identitas Wallet"} <span className="text-status-overdue">*</span>
             </label>
             <Input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Contoh: Main EVM, Akun Tuyul 1, Backpack Solana"
+              placeholder={isEn ? "e.g. Main EVM, Sybil Account 1, Backpack Solana" : "Contoh: Main EVM, Akun Tuyul 1, Backpack Solana"}
               required
               disabled={loading}
             />
@@ -311,39 +337,43 @@ export function AttachWalletModal({
 
           <div>
             <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Alamat Publik (Address) <span className="text-status-overdue">*</span>
+              {isEn ? "Public Address" : "Alamat Publik (Address)"} <span className="text-status-overdue">*</span>
             </label>
             <Input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="0x... atau address public chain lainnya"
+              placeholder={isEn ? "0x... or other public chain address" : "0x... atau address public chain lainnya"}
               className="font-mono text-data-mono-sm"
               required
               disabled={loading}
             />
             <p className="text-[11px] text-text-tertiary mt-1">
-              Hanya masukkan alamat publik. Droppr tidak pernah meminta private key.
+              {isEn
+                ? "Only enter public addresses. Droppr never asks for private keys."
+                : "Hanya masukkan alamat publik. Droppr tidak pernah meminta private key."}
             </p>
           </div>
 
           <div>
             <label className="block text-body-sm font-medium text-text-secondary mb-1">
-              Chain / Jaringan (Opsional)
+              {isEn ? "Chain / Network (Optional)" : "Chain / Jaringan (Opsional)"}
             </label>
             <Input
               value={chain}
               onChange={(e) => setChain(e.target.value)}
-              placeholder="Contoh: EVM, Solana, Cosmos, Sui"
+              placeholder={isEn ? "e.g. EVM, Solana, Cosmos, Sui" : "Contoh: EVM, Solana, Cosmos, Sui"}
               disabled={loading}
             />
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-hairline">
             <ButtonSecondary type="button" onClick={onClose} disabled={loading}>
-              Batal
+              {isEn ? "Cancel" : "Batal"}
             </ButtonSecondary>
             <ButtonPrimary type="submit" disabled={loading}>
-              {loading ? "Menyimpan..." : "Simpan & Pasang ke Project"}
+              {loading
+                ? (isEn ? "Saving..." : "Menyimpan...")
+                : (isEn ? "Save & Assign to Project" : "Simpan & Pasang ke Project")}
             </ButtonPrimary>
           </div>
         </form>

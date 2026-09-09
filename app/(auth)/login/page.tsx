@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ButtonPrimary } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslation } from "@/lib/i18n/context";
 import { 
   AlertCircle, 
   Loader2, 
@@ -18,6 +19,7 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -66,10 +68,10 @@ export default function LoginPage() {
             <Flame className="w-5 h-5" />
           </div>
           <h2 className="text-2xl font-bold font-sans text-text-primary tracking-tight">
-            Masuk ke Droppr
+            {t("auth.loginTitle")}
           </h2>
           <p className="text-body-sm text-text-secondary font-sans">
-            Masukkan email & kata sandi untuk mengakses workspace.
+            {t("auth.loginSubtitle")}
           </p>
         </div>
 
@@ -86,7 +88,7 @@ export default function LoginPage() {
           {/* Email Input */}
           <div className="space-y-1.5">
             <label className="block text-caption font-semibold text-text-secondary font-sans">
-              Email
+              {t("auth.emailLabel")}
             </label>
             <div className="relative flex items-center">
               <input
@@ -107,7 +109,7 @@ export default function LoginPage() {
           {/* Password Input */}
           <div className="space-y-1.5">
             <label className="block text-caption font-semibold text-text-secondary font-sans">
-              Kata Sandi
+              {t("auth.passwordLabel")}
             </label>
             <div className="relative flex items-center">
               <input
@@ -149,11 +151,11 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Memverifikasi...</span>
+                  <span>{t("auth.processing")}</span>
                 </>
               ) : (
                 <>
-                  <span>Masuk ke Workspace</span>
+                  <span>{t("auth.signInButton")}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -163,12 +165,12 @@ export default function LoginPage() {
 
         {/* Footer Link */}
         <div className="border-t border-white/10 pt-4 text-center text-body-sm text-text-secondary font-sans">
-          Belum punya akun?{" "}
+          {t("auth.noAccount")}{" "}
           <Link
             href="/register"
             className="text-link-teal hover:underline font-semibold"
           >
-            Daftar sekarang
+            {t("auth.registerLink")}
           </Link>
         </div>
 

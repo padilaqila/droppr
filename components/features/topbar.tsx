@@ -27,7 +27,7 @@ export interface TopbarProps {
 
 export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, isEn } = useTranslation();
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   return (
@@ -39,7 +39,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
           <button
             type="button"
             onClick={onOpenMobileNav}
-            aria-label="Buka Menu Navigasi"
+            aria-label={isEn ? "Open Navigation Menu" : "Buka Menu Navigasi"}
             className="md:hidden p-1.5 -ml-1 mr-0.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
           >
             <Menu className="w-5 h-5" />
@@ -74,7 +74,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
           <button
             type="button"
             onClick={() => setIsProjectModalOpen(true)}
-            aria-label="Tambah Project"
+            aria-label={t("topbar.addProject")}
             className="inline-flex items-center gap-1 sm:gap-1.5 bg-bg-elevated text-text-primary border border-border-hairline text-body-sm font-semibold rounded-md px-2.5 sm:px-3 py-1.5 hover:bg-bg-elevated-2 transition-colors"
           >
             <Plus className="w-4 h-4 text-accent shrink-0" />
@@ -91,7 +91,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
           <Link
             href="/reminders"
             prefetch={false}
-            aria-label="Notifikasi & Pengingat"
+            aria-label={t("topbar.notificationsTitle")}
             className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 border border-border-hairline transition-colors relative shrink-0"
             title={t("topbar.notificationsTitle")}
           >

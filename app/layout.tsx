@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "@/styles/tokens.css";
 import "@/styles/globals.css";
+import { LanguageProvider } from "@/lib/i18n/context";
 
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -37,7 +38,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-bg-base text-text-primary antialiased">
-        {children}
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );
