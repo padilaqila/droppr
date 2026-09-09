@@ -803,7 +803,7 @@ export function DashboardClientView({
                           )}
 
                           <StatusBadge
-                            status={proj.status.replace("_", "-") as ProjectStatus}
+                            status={proj.status}
                           />
 
                           {/* Dynamic Priority Pill */}

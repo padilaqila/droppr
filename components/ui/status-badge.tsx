@@ -9,16 +9,22 @@ export type ProjectStatus =
   | "waiting"
   | "ready-claim"
   | "completed"
-  | "overdue";
+  | "overdue"
+  | "not_started"
+  | "in_progress"
+  | "ready_to_claim"
+  | "ready-to-claim"
+  | "ready-to_claim"
+  | (string & {});
 
 interface StatusBadgeProps {
-  status: ProjectStatus;
+  status?: ProjectStatus | null;
   label?: string;
   className?: string;
 }
 
 const statusConfig: Record<
-  ProjectStatus,
+  string,
   { defaultLabelId: string; defaultLabelEn: string; bgClass: string; textClass: string }
 > = {
   "not-started": {
@@ -27,7 +33,19 @@ const statusConfig: Record<
     bgClass: "bg-badge-bg-not-started",
     textClass: "text-status-not-started",
   },
+  not_started: {
+    defaultLabelId: "Belum Mulai",
+    defaultLabelEn: "Not Started",
+    bgClass: "bg-badge-bg-not-started",
+    textClass: "text-status-not-started",
+  },
   "in-progress": {
+    defaultLabelId: "Sedang Dikerjakan",
+    defaultLabelEn: "In Progress",
+    bgClass: "bg-badge-bg-in-progress",
+    textClass: "text-status-in-progress",
+  },
+  in_progress: {
     defaultLabelId: "Sedang Dikerjakan",
     defaultLabelEn: "In Progress",
     bgClass: "bg-badge-bg-in-progress",
@@ -40,6 +58,24 @@ const statusConfig: Record<
     textClass: "text-status-waiting",
   },
   "ready-claim": {
+    defaultLabelId: "Siap Klaim",
+    defaultLabelEn: "Ready to Claim",
+    bgClass: "bg-badge-bg-ready-claim",
+    textClass: "text-status-ready-claim",
+  },
+  ready_to_claim: {
+    defaultLabelId: "Siap Klaim",
+    defaultLabelEn: "Ready to Claim",
+    bgClass: "bg-badge-bg-ready-claim",
+    textClass: "text-status-ready-claim",
+  },
+  "ready-to-claim": {
+    defaultLabelId: "Siap Klaim",
+    defaultLabelEn: "Ready to Claim",
+    bgClass: "bg-badge-bg-ready-claim",
+    textClass: "text-status-ready-claim",
+  },
+  "ready-to_claim": {
     defaultLabelId: "Siap Klaim",
     defaultLabelEn: "Ready to Claim",
     bgClass: "bg-badge-bg-ready-claim",
@@ -59,9 +95,29 @@ const statusConfig: Record<
   },
 };
 
+const fallbackConfig = {
+  defaultLabelId: "Belum Mulai",
+  defaultLabelEn: "Not Started",
+  bgClass: "bg-badge-bg-not-started",
+  textClass: "text-status-not-started",
+};
+
 export function StatusBadge({ status, label, className = "" }: StatusBadgeProps) {
   const { isEn } = useTranslation();
-  const config = statusConfig[status];
+  const rawStatus = (status || "").toLowerCase().trim();
+
+  let config = statusConfig[rawStatus];
+  if (!config) {
+    const normalized = rawStatus.replace(/_/g, "-");
+    config = statusConfig[normalized];
+  }
+  if (!config) {
+    if (rawStatus.includes("claim")) config = statusConfig["ready-claim"];
+    else if (rawStatus.includes("progress")) config = statusConfig["in-progress"];
+    else if (rawStatus.includes("wait")) config = statusConfig["waiting"];
+    else if (rawStatus.includes("done") || rawStatus.includes("complete")) config = statusConfig["completed"];
+    else config = fallbackConfig;
+  }
 
   return (
     <span

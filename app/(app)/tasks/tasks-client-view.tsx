@@ -508,7 +508,7 @@ export function TasksClientView({
             const rawSocial = (project.social_links as Record<string, any>) || {};
             const dappUrl = rawSocial.dapp_url || rawSocial.website;
             const claimUrl = rawSocial.claim_url;
-            const badgeStatus = project.status.replace("_", "-") as ProjectStatus;
+            const badgeStatus = project.status as ProjectStatus;
             const channelSource = getChannelLogo(rawSocial.telegram_post_url || rawSocial.channel);
             const projectUpdates = updates.filter((u) => u.project_id === project.id);
             const projectReminders = reminders.filter((r) => r.project_id === project.id && r.is_active);

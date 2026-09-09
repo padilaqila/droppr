@@ -610,7 +610,7 @@ export function TodayTaskGuideModal({
                   </span>
                 )}
 
-                <StatusBadge status={project.status.replace("_", "-") as ProjectStatus} />
+                <StatusBadge status={project.status} />
               </div>
 
               {/* Source Channel Identity & Schedule */}

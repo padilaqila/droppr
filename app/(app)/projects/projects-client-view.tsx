@@ -1019,7 +1019,7 @@ export function ProjectsClientView({
             const isSelected = selectedProjectIds.includes(proj.id);
             const isDragging = draggingProjectIds.includes(proj.id);
             const isPriority = isProjectPriority(proj);
-            const badgeStatus = proj.status.replace("_", "-") as BadgeProjectStatus;
+            const badgeStatus = proj.status as BadgeProjectStatus;
             const folder = folders.find((f) => f.id === proj.folder_id);
             const social = (proj.social_links as Record<string, any>) || {};
 
@@ -1204,7 +1204,7 @@ export function ProjectsClientView({
               const isSelected = selectedProjectIds.includes(proj.id);
               const isDragging = draggingProjectIds.includes(proj.id);
               const isPriority = isProjectPriority(proj);
-              const badgeStatus = proj.status.replace("_", "-") as BadgeProjectStatus;
+              const badgeStatus = proj.status as BadgeProjectStatus;
               const folder = folders.find((f) => f.id === proj.folder_id);
               const social = (proj.social_links as Record<string, any>) || {};
 
