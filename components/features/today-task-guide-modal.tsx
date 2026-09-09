@@ -157,10 +157,17 @@ export function extractGuideAndOriginalPost(
   }
 
   // If content was structured with synth template
-  if (content.includes("### Panduan Garapan:") || content.includes("#### 📋 Langkah Pengerjaan")) {
+  if (content.includes("### Panduan Garapan:") || content.includes("#### 📋 Langkah Pengerjaan") || content.includes("#### Langkah Pengerjaan")) {
+    const stripped = content
+      .replace(/^###\s*Panduan Garapan:[\s\S]*?(?=####|---|$)/i, "")
+      .replace(/####\s*.*Langkah Pengerjaan[\s\S]*?(?=####|---|$)/i, "")
+      .replace(/####\s*.*Tautan Penting[\s\S]*?(?=####|---|$)/i, "")
+      .replace(/^---+\s*/gm, "")
+      .trim();
+
     return {
       formattedGuide: content,
-      originalPost: socialRaw,
+      originalPost: socialRaw || stripped,
     };
   }
 
@@ -169,67 +176,6 @@ export function extractGuideAndOriginalPost(
     formattedGuide: "",
     originalPost: socialRaw || content,
   };
-}
-
-/**
- * Parses markdown links [Label](url), raw URLs, and **bold text** into interactive elements
- */
-function renderInteractiveInline(text: string): React.ReactNode[] {
-  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"'\)]+)|(\*\*([^*]+)\*\*)/g;
-  const elements: React.ReactNode[] = [];
-  let lastIdx = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIdx) {
-      elements.push(text.slice(lastIdx, match.index));
-    }
-
-    if (match[1] && match[2]) {
-      // [label](url)
-      elements.push(
-        <a
-          key={`md-${match.index}`}
-          href={match[2]}
-          target="_blank"
-          rel="noreferrer"
-          className="text-amber-400 hover:text-amber-300 underline underline-offset-2 inline-flex items-center gap-1 font-medium transition-colors break-all"
-        >
-          <span>{match[1]}</span>
-          <ExternalLink className="w-3 h-3 shrink-0 inline" />
-        </a>
-      );
-    } else if (match[3]) {
-      // Raw url
-      elements.push(
-        <a
-          key={`url-${match.index}`}
-          href={match[3]}
-          target="_blank"
-          rel="noreferrer"
-          className="text-amber-400 hover:text-amber-300 underline underline-offset-2 inline-flex items-center gap-1 font-mono text-[12px] transition-colors break-all"
-        >
-          <span>{match[3]}</span>
-          <ExternalLink className="w-3 h-3 shrink-0 inline" />
-        </a>
-      );
-    } else if (match[5]) {
-      // **bold**
-      elements.push(
-        <strong key={`b-${match.index}`} className="font-semibold text-white">
-          {match[5]}
-        </strong>
-      );
-    }
-
-    lastIdx = regex.lastIndex;
-  }
-
-  if (lastIdx < text.length) {
-    elements.push(text.slice(lastIdx));
-  }
-
-  return elements;
 }
 
 interface ParsedSynthGuide {
@@ -339,181 +285,6 @@ function parseSynthGuide(text: string): ParsedSynthGuide {
 }
 
 /**
- * High-end visual renderer for Formatted Guide mode
- */
-function renderFormattedGuideContent(formattedGuide: string) {
-  const parsed = parseSynthGuide(formattedGuide);
-
-  if (parsed.isStructured) {
-    return (
-      <div className="space-y-4">
-        {/* 1. Meta Pills Row (Network, Biaya, Akun) */}
-        {parsed.meta.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 pb-1">
-            {parsed.meta.map((m, idx) => (
-              <div
-                key={idx}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/[0.04] border border-white/10 text-[11.5px]"
-              >
-                <span className="text-white/50 font-medium">{m.label}:</span>
-                <span className="text-white font-semibold">{m.val}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* 2. Direktori Tautan Penting (Grid Card Visual) */}
-        {parsed.links.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-[12px] font-semibold text-amber-400/90 flex items-center gap-1.5 uppercase tracking-wider">
-              <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span>Direktori Tautan Resmi ({parsed.links.length})</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {parsed.links.map((lnk, idx) => {
-                let displayUrl = lnk.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-                if (displayUrl.length > 32) {
-                  displayUrl = displayUrl.slice(0, 29) + "...";
-                }
-
-                let label = lnk.label;
-                const isYouTube = lnk.url.includes("youtube.com") || lnk.url.includes("youtu.be");
-                if (isYouTube) {
-                  label = "Video Panduan YouTube";
-                } else if (label === "Tautan Garapan") {
-                  label = "Tautan Terkait";
-                }
-
-                return (
-                  <a
-                    key={idx}
-                    href={lnk.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group/link flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] hover:border-amber-400/30 transition-all text-left"
-                  >
-                    <div className="min-w-0 flex-1 pr-2">
-                      <span
-                        className={`text-[11px] block font-medium transition-colors ${
-                          isYouTube
-                            ? "text-rose-400 group-hover/link:text-rose-300"
-                            : "text-white/50 group-hover/link:text-amber-400/80"
-                        }`}
-                      >
-                        {label}
-                      </span>
-                      <span className="text-[12px] text-white/90 font-mono truncate block">
-                        {displayUrl}
-                      </span>
-                    </div>
-                    <div className="w-6 h-6 rounded-lg bg-white/[0.05] group-hover/link:bg-amber-400 group-hover/link:text-black flex items-center justify-center text-white/60 transition-colors shrink-0">
-                      {isYouTube ? (
-                        <Video className="w-3.5 h-3.5 text-rose-400 group-hover/link:text-black" />
-                      ) : (
-                        <ExternalLink className="w-3 h-3" />
-                      )}
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 3. Langkah Pengerjaan (Step Timeline Cards) */}
-        {parsed.tasks.length > 0 && (
-          <div className="space-y-2 pt-1">
-            <div className="text-[12px] font-semibold text-amber-400/90 flex items-center gap-1.5 uppercase tracking-wider">
-              <CheckSquare className="w-3.5 h-3.5 text-amber-400" />
-              <span>Langkah Pengerjaan ({parsed.tasks.length})</span>
-            </div>
-            <div className="space-y-1.5">
-              {parsed.tasks.map((st) => (
-                <div
-                  key={st.num}
-                  className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-colors"
-                >
-                  <span className="w-5 h-5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 font-mono text-[10.5px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    {st.num}
-                  </span>
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {st.type && (
-                        <span
-                          className={`text-[9.5px] uppercase font-mono font-bold px-1.5 py-0.2 rounded-md ${
-                            st.type === "HARIAN"
-                              ? "bg-amber-400/20 text-amber-300 border border-amber-400/30"
-                              : "bg-white/[0.06] text-white/60 border border-white/10"
-                          }`}
-                        >
-                          {st.type}
-                        </span>
-                      )}
-                      <span className="text-[12.5px] text-white/90 font-medium leading-relaxed font-sans">
-                        {renderInteractiveInline(st.title)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 4. Catatan Tambahan */}
-        {parsed.notes.length > 0 && (
-          <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1 text-[12px] text-white/70 leading-relaxed font-sans">
-            {parsed.notes.map((note, idx) => (
-              <p key={idx}>{renderInteractiveInline(note)}</p>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Generic Markdown Render jika teks bebas ditulis manual
-  const lines = formattedGuide.split(/\r?\n/);
-  return (
-    <div className="space-y-2 text-body-sm text-white/90 leading-relaxed font-sans">
-      {lines.map((l, idx) => {
-        const line = l.trim();
-        if (!line) return <div key={idx} className="h-2" />;
-
-        if (line.startsWith("### ")) {
-          return (
-            <div key={idx} className="flex items-center gap-2 pt-2 pb-1">
-              <span className="w-1.5 h-3.5 rounded-full bg-amber-400" />
-              <h4 className="text-body-md font-bold text-white tracking-tight">
-                {line.slice(4)}
-              </h4>
-            </div>
-          );
-        }
-        if (line.startsWith("#### ")) {
-          return (
-            <div key={idx} className="pt-2 pb-1 border-b border-white/[0.08] mb-1">
-              <h5 className="text-caption font-semibold text-amber-400 uppercase tracking-wider">
-                {line.slice(5)}
-              </h5>
-            </div>
-          );
-        }
-        if (line.startsWith("- ") || line.startsWith("* ")) {
-          return (
-            <div key={idx} className="flex items-start gap-2 pl-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 shrink-0 mt-2" />
-              <span className="flex-1">{renderInteractiveInline(line.slice(2))}</span>
-            </div>
-          );
-        }
-        return <p key={idx}>{renderInteractiveInline(line)}</p>;
-      })}
-    </div>
-  );
-}
-
-/**
  * Parses markdown links [Label](url) and standalone URLs into interactive links (for raw telegram post)
  */
 function renderInteractiveGuide(text: string) {
@@ -603,9 +374,6 @@ export function TodayTaskGuideModal({
     }
   }, [isOpen]);
 
-  // View mode: formatted markdown guide vs original raw telegram post
-  const [viewMode, setViewMode] = useState<"formatted" | "original">("formatted");
-
   // Guide editing state
   const [isEditingGuide, setIsEditingGuide] = useState(false);
   const [guideInput, setGuideInput] = useState("");
@@ -631,14 +399,64 @@ export function TodayTaskGuideModal({
     return extractGuideAndOriginalPost(project.guide_content, rawSocial);
   }, [project?.guide_content, rawSocial]);
 
+  // Parse structured synth template if present
+  const parsedSynth = React.useMemo(() => {
+    return parseSynthGuide(formattedGuide || project?.guide_content || "");
+  }, [formattedGuide, project?.guide_content]);
+
+  // Unified official links directory (from synth links or social_links)
+  const officialLinks = React.useMemo(() => {
+    const links: Array<{ label: string; url: string }> = [];
+    const seenUrls = new Set<string>();
+
+    const addLink = (label: string, url?: string | null) => {
+      if (!url || typeof url !== "string") return;
+      const cleanUrl = url.trim();
+      if (!cleanUrl || !cleanUrl.startsWith("http")) return;
+      if (seenUrls.has(cleanUrl.toLowerCase())) return;
+      seenUrls.add(cleanUrl.toLowerCase());
+      links.push({ label, url: cleanUrl });
+    };
+
+    // 1. From parsed synth links if available
+    if (parsedSynth.links && parsedSynth.links.length > 0) {
+      for (const l of parsedSynth.links) {
+        addLink(l.label, l.url);
+      }
+    }
+
+    // 2. Supplement from project.social_links
+    addLink("DApp / Testnet", rawSocial.dapp_url);
+    addLink("Website Resmi", rawSocial.website);
+    addLink("Faucet Testnet", rawSocial.faucet_url);
+    addLink("Dokumentasi / Docs", rawSocial.docs_url);
+    addLink("X / Twitter", rawSocial.twitter);
+    addLink("Telegram", rawSocial.telegram);
+    addLink("Postingan Sumber", rawSocial.telegram_post_url);
+    addLink("Discord Server", rawSocial.discord);
+    addLink("Link Referral", rawSocial.ref_link);
+
+    return links;
+  }, [parsedSynth.links, rawSocial]);
+
+  // Pure raw post content (replaces synthetic step checklist)
+  const rawPostContent = React.useMemo(() => {
+    if (originalPost) return originalPost;
+    if (rawSocial.raw_text) return rawSocial.raw_text;
+    if (parsedSynth.isStructured && parsedSynth.notes.length > 0) {
+      return parsedSynth.notes.join("\n\n");
+    }
+    return project?.guide_content || "";
+  }, [originalPost, rawSocial.raw_text, parsedSynth, project?.guide_content]);
+
   // Translation Action info for Original Post
   const originalPostAction = React.useMemo(() => {
-    if (!originalPost) return null;
-    return getTranslationAction(originalPost, locale, showTranslatedOriginal);
-  }, [originalPost, locale, showTranslatedOriginal]);
+    if (!rawPostContent) return null;
+    return getTranslationAction(rawPostContent, locale, showTranslatedOriginal);
+  }, [rawPostContent, locale, showTranslatedOriginal]);
 
   const handleTranslateOriginal = async () => {
-    if (!originalPost) return;
+    if (!rawPostContent) return;
     if (translatedOriginalPost) {
       setShowTranslatedOriginal(!showTranslatedOriginal);
       return;
@@ -646,12 +464,12 @@ export function TodayTaskGuideModal({
 
     setIsTranslatingOriginal(true);
     try {
-      const action = getTranslationAction(originalPost, locale, false);
+      const action = getTranslationAction(rawPostContent, locale, false);
       const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: originalPost,
+          text: rawPostContent,
           targetLang: action.targetLang,
           sourceLang: action.sourceLang,
         }),
@@ -671,20 +489,15 @@ export function TodayTaskGuideModal({
   // Sync guide content when project opens
   React.useEffect(() => {
     if (project) {
-      const separated = extractGuideAndOriginalPost(
-        project.guide_content,
-        (project.social_links as Record<string, any>) || {}
-      );
-      setGuideInput(separated.formattedGuide || project.guide_content || "");
+      setGuideInput(rawPostContent || project.guide_content || "");
       setIsEditingGuide(false);
-      setViewMode("formatted");
       setIsCopied(false);
       setIsDoneState(isProjectDailyDone(project));
       setTranslatedOriginalPost(null);
       setShowTranslatedOriginal(false);
       setIsTranslatingOriginal(false);
     }
-  }, [project]);
+  }, [project, rawPostContent]);
 
   if (!isOpen || !project || !mounted || typeof document === "undefined") return null;
 
@@ -858,39 +671,9 @@ export function TodayTaskGuideModal({
             </button>
           </div>
 
-          {/* Quick Controls Bar: View Mode Switch & Primary Launch Button */}
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-2">
-            {/* View Mode Toggle Pill */}
-            <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/10 self-start no-scrollbar">
-              <button
-                type="button"
-                onClick={() => setViewMode("formatted")}
-                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150 flex items-center gap-1.5 ${
-                  viewMode === "formatted"
-                    ? "bg-amber-400 text-black font-semibold shadow-sm"
-                    : "text-white/70 hover:text-white"
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>{isEn ? "Clean Guide" : "Panduan Rapi"}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setViewMode("original")}
-                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150 flex items-center gap-1.5 ${
-                  viewMode === "original"
-                    ? "bg-sky-400 text-black font-semibold shadow-sm"
-                    : "text-white/70 hover:text-white"
-                }`}
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>{isEn ? "Original Post" : "Postingan Asli"}</span>
-              </button>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
+          {/* Quick Controls Bar: Primary Launch & TG Buttons */}
+          {(telegramPostUrl || primaryActionUrl) && (
+            <div className="mt-3 flex items-center justify-end gap-2 flex-wrap pt-1">
               {telegramPostUrl && (
                 <a
                   href={telegramPostUrl}
@@ -918,227 +701,269 @@ export function TodayTaskGuideModal({
                 </a>
               )}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Modal Scrollable Body */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 no-scrollbar">
-          {viewMode === "formatted" ? (
-            /* MODE 1: CATATAN & PANDUAN LENGKAP RAPI (Hanya panduan tutorial, tanpa teks pesan asli di bawahnya) */
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-body-sm font-bold text-white font-sans flex items-center gap-2">
-                  <span className="w-1.5 h-4 rounded-full bg-amber-400" />
-                  <span>{isEn ? "Complete Notes & Guide" : "Catatan & Panduan Lengkap"}</span>
-                </h3>
+          {/* Header Row: Title & Edit Button */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-body-sm font-bold text-white font-sans flex items-center gap-2">
+              <span className="w-1.5 h-4 rounded-full bg-amber-400" />
+              <span>{isEn ? "Project Guide & Post" : "Catatan & Panduan Lengkap"}</span>
+            </h3>
 
-                {!isEditingGuide && (
+            {!isEditingGuide && (
+              <button
+                type="button"
+                onClick={() => {
+                  setGuideInput(rawPostContent || project.guide_content || "");
+                  setIsEditingGuide(true);
+                }}
+                className="text-[11px] text-white/60 hover:text-amber-300 flex items-center gap-1 transition-colors"
+              >
+                <Edit2 className="w-3 h-3" />
+                <span>{rawPostContent ? (isEn ? "Edit Notes" : "Edit Catatan") : (isEn ? "+ Write Notes" : "+ Tulis Catatan")}</span>
+              </button>
+            )}
+          </div>
+
+          {isEditingGuide ? (
+            /* Editing Area */
+            <div className="space-y-2.5">
+              <textarea
+                value={guideInput}
+                onChange={(e) => setGuideInput(e.target.value)}
+                rows={10}
+                placeholder={isEn ? "Write notes or guide here..." : "Tulis catatan atau panduan di sini..."}
+                className="w-full rounded-xl bg-white/[0.04] border border-white/20 p-3 text-body-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all font-sans leading-relaxed resize-y no-scrollbar"
+              />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-white/40">
+                  {isEn ? "Supports automatic web URLs & Markdown links" : "Mendukung tautan URL web otomatis & format Markdown"}
+                </span>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      setGuideInput(formattedGuide || "");
-                      setIsEditingGuide(true);
+                      setGuideInput(rawPostContent || project.guide_content || "");
+                      setIsEditingGuide(false);
                     }}
-                    className="text-[11px] text-white/60 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                    className="px-3 py-1.5 rounded-lg text-caption text-white/60 hover:text-white transition-colors"
                   >
-                    <Edit2 className="w-3 h-3" />
-                    <span>{formattedGuide ? (isEn ? "Edit Tutorial" : "Edit Tutorial") : (isEn ? "+ Write Tutorial" : "+ Tulis Tutorial")}</span>
+                    {isEn ? "Cancel" : "Batal"}
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={handleSaveGuide}
+                    disabled={isSavingGuide}
+                    className="px-3.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-semibold text-caption transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingGuide ? (isEn ? "Saving..." : "Menyimpan...") : (isEn ? "Save Notes" : "Simpan Catatan")}</span>
+                  </button>
+                </div>
               </div>
-
-              {isEditingGuide ? (
-                <div className="space-y-2.5">
-                  <textarea
-                    value={guideInput}
-                    onChange={(e) => setGuideInput(e.target.value)}
-                    rows={8}
-                    placeholder={isEn ? "Write tutorial or step-by-step guide here...\nExample:\n1. Claim daily faucet at https://faucet.xyz\n2. Open testnet and swap/mint" : "Tulis tutorial atau langkah pengerjaan di sini...\nContoh:\n1. Klaim faucet harian di https://faucet.xyz\n2. Masuk ke web testnet dan lakukan swap/mint"}
-                    className="w-full rounded-xl bg-white/[0.04] border border-white/20 p-3 text-body-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all font-sans leading-relaxed resize-y no-scrollbar"
-                  />
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-white/40">
-                      {isEn ? "Supports automatic web URLs & [Markdown Links](https://link.com)" : "Mendukung tautan URL web otomatis & [Format Markdown](https://link.com)"}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGuideInput(formattedGuide || "");
-                          setIsEditingGuide(false);
-                        }}
-                        className="px-3 py-1.5 rounded-lg text-caption text-white/60 hover:text-white transition-colors"
-                      >
-                        {isEn ? "Cancel" : "Batal"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveGuide}
-                        disabled={isSavingGuide}
-                        className="px-3.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-semibold text-caption transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                      >
-                        <Save className="w-3.5 h-3.5" />
-                        <span>{isSavingGuide ? (isEn ? "Saving..." : "Menyimpan...") : (isEn ? "Save Tutorial" : "Simpan Tutorial")}</span>
-                      </button>
+            </div>
+          ) : (
+            /* Unified Display: Meta + Direktori Tautan Resmi (DIPERTAHANKAN) + Postingan Asli Telegram */
+            <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] shadow-inner space-y-4">
+              {/* 1. Meta Pills Row (Network, Biaya, Akun jika ada) */}
+              {parsedSynth.meta.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pb-1">
+                  {parsedSynth.meta.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/[0.04] border border-white/10 text-[11.5px]"
+                    >
+                      <span className="text-white/50 font-medium">{m.label}:</span>
+                      <span className="text-white font-semibold">{m.val}</span>
                     </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 2. Direktori Tautan Resmi (DIPERTAHANKAN) */}
+              {officialLinks.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[12px] font-semibold text-amber-400/90 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Layers className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{isEn ? `Official Links Directory (${officialLinks.length})` : `Direktori Tautan Resmi (${officialLinks.length})`}</span>
                   </div>
-                </div>
-              ) : formattedGuide ? (
-                <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] shadow-inner">
-                  {renderFormattedGuideContent(formattedGuide)}
-                </div>
-              ) : (
-                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] text-center space-y-3">
-                  <p className="text-body-sm text-white/60 max-w-md mx-auto">
-                    {isEn ? "No structured step-by-step tutorial saved for this project yet. You can write your own guide or read the original source post in the next tab." : "Belum ada tutorial pengerjaan rapi khusus yang disimpan untuk proyek ini. Kamu bisa menulis panduan sendiri atau langsung melihat postingan sumber di tab sebelah."}
-                  </p>
-                  <div className="flex items-center justify-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGuideInput("");
-                        setIsEditingGuide(true);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/15 text-amber-300 border border-amber-400/30 text-caption font-semibold hover:bg-amber-400/25 transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      <span>{isEn ? "Write Notes / Guide" : "Tulis Catatan / Panduan"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("original")}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] text-white/80 border border-white/10 text-caption font-medium hover:bg-white/[0.08] transition-colors"
-                    >
-                      <Send className="w-3.5 h-3.5 text-sky-400" />
-                      <span>{isEn ? "Open Original Post" : "Buka Postingan Asli"}</span>
-                    </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {officialLinks.map((lnk, idx) => {
+                      let displayUrl = lnk.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+                      if (displayUrl.length > 32) {
+                        displayUrl = displayUrl.slice(0, 29) + "...";
+                      }
+
+                      let label = lnk.label;
+                      const isYouTube = lnk.url.includes("youtube.com") || lnk.url.includes("youtu.be");
+                      if (isYouTube) {
+                        label = isEn ? "YouTube Guide Video" : "Video Panduan YouTube";
+                      } else if (label === "Tautan Garapan") {
+                        label = isEn ? "Related Link" : "Tautan Terkait";
+                      }
+
+                      return (
+                        <a
+                          key={idx}
+                          href={lnk.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="group/link flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] hover:border-amber-400/30 transition-all text-left"
+                        >
+                          <div className="min-w-0 flex-1 pr-2">
+                            <span
+                              className={`text-[11px] block font-medium transition-colors ${
+                                isYouTube
+                                  ? "text-rose-400 group-hover/link:text-rose-300"
+                                  : "text-white/50 group-hover/link:text-amber-400/80"
+                              }`}
+                            >
+                              {label}
+                            </span>
+                            <span className="text-[12px] text-white/90 font-mono truncate block">
+                              {displayUrl}
+                            </span>
+                          </div>
+                          <div className="w-6 h-6 rounded-lg bg-white/[0.05] group-hover/link:bg-amber-400 group-hover/link:text-black flex items-center justify-center text-white/60 transition-colors shrink-0">
+                            {isYouTube ? (
+                              <Video className="w-3.5 h-3.5 text-rose-400 group-hover/link:text-black" />
+                            ) : (
+                              <ExternalLink className="w-3 h-3" />
+                            )}
+                          </div>
+                        </a>
+                      );
+                    })}
                   </div>
                 </div>
               )}
-            </div>
-          ) : (
-            /* MODE 2: POSTINGAN ASLI TELEGRAM (Murni teks pesan sumber, tanpa template sintesis) */
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-4 rounded-full bg-sky-400" />
-                  <h3 className="text-body-sm font-bold text-white font-sans">
-                    {isEn ? "Original Telegram Channel Post" : "Postingan Asli Kanal Telegram"}
-                  </h3>
-                </div>
 
-                {/* Action Buttons: Translate & Quick Copy */}
-                <div className="flex items-center gap-2">
-                  {originalPostAction?.shouldShowTranslate && (
-                    <button
-                      type="button"
-                      onClick={handleTranslateOriginal}
-                      disabled={isTranslatingOriginal}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-caption font-medium transition-all ${
-                        showTranslatedOriginal
-                          ? "bg-amber-400/20 text-amber-300 border-amber-400/40"
-                          : "bg-white/[0.05] hover:bg-white/[0.1] text-white/75 hover:text-white border-white/10"
-                      }`}
-                      title={isEn ? "Translate post text" : "Terjemahkan teks postingan"}
-                    >
-                      <Languages className={`w-3.5 h-3.5 ${isTranslatingOriginal ? "animate-spin text-amber-400" : ""}`} />
-                      <span>
-                        {isTranslatingOriginal
-                          ? (locale === "id" ? "Menerjemahkan..." : "Translating...")
-                          : showTranslatedOriginal
-                          ? originalPostAction.revertLabel
-                          : originalPostAction.buttonLabel}
-                      </span>
-                    </button>
-                  )}
-
-                  {originalPost && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const textToCopy = showTranslatedOriginal && translatedOriginalPost ? translatedOriginalPost : originalPost;
-                        handleCopyOriginal(textToCopy);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-caption text-white/75 hover:text-white transition-colors"
-                      title={isEn ? "Copy post content to clipboard" : "Salin isi postingan ke clipboard"}
-                    >
-                      {isCopied ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400 font-medium">{isEn ? "Copied!" : "Tersalin!"}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3 text-sky-400" />
-                          <span>{isEn ? "Copy Post" : "Salin Postingan"}</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Telegram Message Card Container */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#0c1322]/50 border border-sky-500/20 space-y-3 shadow-md">
-                <div className="flex items-center gap-2.5 pb-3 border-b border-white/[0.08]">
-                  {channelSource?.logo ? (
-                    <div className="w-7 h-7 rounded-full overflow-hidden relative shrink-0 border border-white/20">
-                      <Image
-                        src={channelSource.logo}
-                        alt={channelSource.name}
-                        fill
-                        className="object-cover"
-                        sizes="28px"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
-                      <Send className="w-3.5 h-3.5" />
-                    </div>
-                  )}
-
-                  <div className="min-w-0 flex-1">
-                    <span className="text-body-sm font-bold text-white block truncate">
-                      {channelSource?.name || (isEn ? "Telegram Channel" : "Kanal Telegram")}
-                    </span>
-                    <span className="text-[11px] text-sky-400/80 font-mono block truncate">
-                      {channelSource?.handle || (isEn ? "Telegram Channel" : "Kanal Telegram")}
-                    </span>
+              {/* 3. Postingan Asli Telegram (Murni teks postingan asli sumber, menggantikan checklist langkah pengerjaan) */}
+              <div className="space-y-2 pt-2 border-t border-white/[0.08]">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-[12px] font-semibold text-sky-400/90 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Send className="w-3.5 h-3.5 text-sky-400" />
+                    <span>{isEn ? "Original Telegram Post" : "Postingan Asli Telegram"}</span>
                   </div>
 
-                  {telegramPostUrl && (
-                    <a
-                      href={telegramPostUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-caption text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 font-medium shrink-0"
-                    >
-                      <span>{isEn ? "Open in Telegram" : "Buka di Telegram"}</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
+                  {/* Actions: Translate & Quick Copy */}
+                  <div className="flex items-center gap-2">
+                    {originalPostAction?.shouldShowTranslate && (
+                      <button
+                        type="button"
+                        onClick={handleTranslateOriginal}
+                        disabled={isTranslatingOriginal}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-caption font-medium transition-all ${
+                          showTranslatedOriginal
+                            ? "bg-amber-400/20 text-amber-300 border-amber-400/40"
+                            : "bg-white/[0.05] hover:bg-white/[0.1] text-white/75 hover:text-white border-white/10"
+                        }`}
+                        title={isEn ? "Translate post text" : "Terjemahkan teks postingan"}
+                      >
+                        <Languages className={`w-3.5 h-3.5 ${isTranslatingOriginal ? "animate-spin text-amber-400" : ""}`} />
+                        <span>
+                          {isTranslatingOriginal
+                            ? (locale === "id" ? "Menerjemahkan..." : "Translating...")
+                            : showTranslatedOriginal
+                            ? originalPostAction.revertLabel
+                            : originalPostAction.buttonLabel}
+                        </span>
+                      </button>
+                    )}
+
+                    {rawPostContent && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const textToCopy = showTranslatedOriginal && translatedOriginalPost ? translatedOriginalPost : rawPostContent;
+                          handleCopyOriginal(textToCopy);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-caption text-white/75 hover:text-white transition-colors"
+                        title={isEn ? "Copy post content to clipboard" : "Salin isi postingan ke clipboard"}
+                      >
+                        {isCopied ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span className="text-emerald-400 font-medium">{isEn ? "Copied!" : "Tersalin!"}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3 text-sky-400" />
+                            <span>{isEn ? "Copy Post" : "Salin Postingan"}</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Content: Murni postingan asli / hasil terjemahan */}
-                <div className="text-body-sm text-white/85 whitespace-pre-wrap leading-relaxed font-sans space-y-2">
-                  {showTranslatedOriginal && translatedOriginalPost && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-400/10 border border-amber-400/20 text-[10.5px] font-medium text-amber-300 w-fit">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                      <span>{locale === "id" ? "Diterjemahkan ke Bahasa Indonesia" : "Translated to English"}</span>
+                {/* Telegram Message Box */}
+                <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
+                  {channelSource && (
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-white/[0.08]">
+                      {channelSource.logo ? (
+                        <div className="w-6 h-6 rounded-full overflow-hidden relative shrink-0 border border-white/20">
+                          <Image
+                            src={channelSource.logo}
+                            alt={channelSource.name}
+                            fill
+                            className="object-cover"
+                            sizes="24px"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+                          <Send className="w-3 h-3" />
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <span className="text-caption font-bold text-white block truncate">
+                          {channelSource.name}
+                        </span>
+                        <span className="text-[10.5px] text-sky-400/80 font-mono block truncate">
+                          {channelSource.handle}
+                        </span>
+                      </div>
+
+                      {telegramPostUrl && (
+                        <a
+                          href={telegramPostUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 font-medium shrink-0"
+                        >
+                          <span>{isEn ? "Open in TG" : "Buka di TG"}</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      )}
                     </div>
                   )}
-                  <div>
-                    {originalPost ? (
-                      renderInteractiveGuide(
-                        showTranslatedOriginal && translatedOriginalPost
-                          ? translatedOriginalPost
-                          : originalPost
-                      )
-                    ) : (
-                      <span className="text-white/40 italic">
-                        {isEn ? "Original post not yet saved or not found for this project." : "Postingan asli belum tersimpan atau tidak ditemukan untuk proyek ini."}
-                      </span>
+
+                  {/* Content: Raw post / translated */}
+                  <div className="text-body-sm text-white/90 whitespace-pre-wrap leading-relaxed font-sans space-y-2">
+                    {showTranslatedOriginal && translatedOriginalPost && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-400/10 border border-amber-400/20 text-[10.5px] font-medium text-amber-300 w-fit">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span>{locale === "id" ? "Diterjemahkan ke Bahasa Indonesia" : "Translated to English"}</span>
+                      </div>
                     )}
+                    <div>
+                      {rawPostContent ? (
+                        renderInteractiveGuide(
+                          showTranslatedOriginal && translatedOriginalPost
+                            ? translatedOriginalPost
+                            : rawPostContent
+                        )
+                      ) : (
+                        <span className="text-white/40 italic">
+                          {isEn ? "Original post not yet saved or not found for this project." : "Postingan asli belum tersimpan atau tidak ditemukan untuk proyek ini."}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
