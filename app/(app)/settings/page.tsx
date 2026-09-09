@@ -661,7 +661,7 @@ export default function SettingsPage() {
                     {isEn
                       ? 'The translation button automatically switches to '
                       : 'Tombol terjemahan otomatis berubah menjadi '}
-                    <strong className="text-accent font-mono">"Translate to English"</strong>.
+                    <strong className="text-accent font-mono">&quot;Translate to English&quot;</strong>.
                   </p>
                 </div>
 
@@ -673,7 +673,7 @@ export default function SettingsPage() {
                     {isEn
                       ? 'The translation button automatically switches to '
                       : 'Tombol terjemahan otomatis berubah menjadi '}
-                    <strong className="text-link-teal font-mono">{isEn ? '"Translate to Indonesian"' : '"Terjemahkan ke Indonesia"'}</strong>.
+                    <strong className="text-link-teal font-mono">{isEn ? '&quot;Translate to Indonesian&quot;' : '&quot;Terjemahkan ke Indonesia&quot;'}</strong>.
                   </p>
                 </div>
               </div>
@@ -859,7 +859,7 @@ export default function SettingsPage() {
                 <p className="text-[11px] text-text-secondary">
                   {isEn ? (
                     <>
-                      Every day at <strong className="text-text-primary font-mono">07:00 WIB (00:00 UTC)</strong>, the completion status of recurring daily tasks will automatically reset for the new day's cycle.
+                      Every day at <strong className="text-text-primary font-mono">07:00 WIB (00:00 UTC)</strong>, the completion status of recurring daily tasks will automatically reset for the new day&apos;s cycle.
                     </>
                   ) : (
                     <>

@@ -31,6 +31,9 @@ import {
   MessageSquare,
   Layers2,
   Languages,
+  ArrowUpDown,
+  ArrowDown,
+  ArrowUp,
 } from "lucide-react";
 import {
   fetchAirdropFeeds,
@@ -223,6 +226,8 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const [channelFilter, setChannelFilter] = useState<"all" | "dutacryptoairdrop" | "airdropfind">("all");
   const [categoryFilter, setCategoryFilter] = useState<"all" | "testnet" | "retro">("all");
   const [costFilter, setCostFilter] = useState<"all" | "free" | "paid">("all");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [timeRange, setTimeRange] = useState<"all" | "24h" | "7d" | "30d">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Converting to project loading state
@@ -400,53 +405,74 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
 
   // Delete individual feed item
   const handleDeleteFeed = async (feedId: string) => {
+    if (!window.confirm(t("feed.confirmDeleteFeed") || (locale === "en" ? "Delete this airdrop post from your feed?" : "Hapus postingan sinyal airdrop ini dari feed?"))) {
+      return;
+    }
     setFeeds((prev) => prev.filter((f) => f.id !== feedId));
     await deleteAirdropFeed(feedId);
   };
 
-  // Filtered feeds logic (Testnet vs Retro vs Waitlist & Free vs Paid)
+  // Filtered feeds logic (Testnet vs Retro vs Waitlist, Free vs Paid, Time Range & Sort)
   const filteredFeeds = useMemo(() => {
-    return feeds.filter((feed) => {
-      // Channel filter
-      if (channelFilter !== "all" && feed.channel !== channelFilter) {
-        return false;
-      }
-
-      // Category filter (Testnet, Retro/Mainnet, Waitlist)
-      if (categoryFilter !== "all") {
-        if (categoryFilter === "testnet") {
-          const isTestnet =
-            feed.category === "testnet" ||
-            feed.title.toLowerCase().includes("testnet") ||
-            (!isFeedPaid(feed) && feed.category !== "waitlist");
-          if (!isTestnet) return false;
-        } else if (categoryFilter === "retro") {
-          const isRetro = feed.category === "retro" || isFeedPaid(feed);
-          if (!isRetro) return false;
-        }
-      }
-
-      // Cost filter (Gratis vs Berbayar)
-      if (costFilter === "free") {
-        if (!isFeedFree(feed)) return false;
-      } else if (costFilter === "paid") {
-        if (!isFeedPaid(feed)) return false;
-      }
-
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchTitle = feed.title.toLowerCase().includes(q);
-        const matchSummary = (feed.summary || "").toLowerCase().includes(q);
-        const matchRaw = feed.raw_text.toLowerCase().includes(q);
-        if (!matchTitle && !matchSummary && !matchRaw) {
+    return feeds
+      .filter((feed) => {
+        // Channel filter
+        if (channelFilter !== "all" && feed.channel !== channelFilter) {
           return false;
         }
-      }
 
-      return true;
-    });
-  }, [feeds, channelFilter, categoryFilter, costFilter, searchQuery]);
+        // Category filter (Testnet, Retro/Mainnet, Waitlist)
+        if (categoryFilter !== "all") {
+          if (categoryFilter === "testnet") {
+            const isTestnet =
+              feed.category === "testnet" ||
+              feed.title.toLowerCase().includes("testnet") ||
+              (!isFeedPaid(feed) && feed.category !== "waitlist");
+            if (!isTestnet) return false;
+          } else if (categoryFilter === "retro") {
+            const isRetro = feed.category === "retro" || isFeedPaid(feed);
+            if (!isRetro) return false;
+          }
+        }
+
+        // Cost filter (Gratis vs Berbayar)
+        if (costFilter === "free") {
+          if (!isFeedFree(feed)) return false;
+        } else if (costFilter === "paid") {
+          if (!isFeedPaid(feed)) return false;
+        }
+
+        // Time Range filter
+        if (timeRange !== "all") {
+          const now = Date.now();
+          const itemTime = new Date(feed.created_at).getTime();
+          if (!isNaN(itemTime)) {
+            const diffMs = now - itemTime;
+            if (timeRange === "24h" && diffMs > 24 * 60 * 60 * 1000) return false;
+            if (timeRange === "7d" && diffMs > 7 * 24 * 60 * 60 * 1000) return false;
+            if (timeRange === "30d" && diffMs > 30 * 24 * 60 * 60 * 1000) return false;
+          }
+        }
+
+        // Search query
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchTitle = feed.title.toLowerCase().includes(q);
+          const matchSummary = (feed.summary || "").toLowerCase().includes(q);
+          const matchRaw = feed.raw_text.toLowerCase().includes(q);
+          if (!matchTitle && !matchSummary && !matchRaw) {
+            return false;
+          }
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.created_at).getTime() || 0;
+        const timeB = new Date(b.created_at).getTime() || 0;
+        return sortOrder === "desc" ? timeB - timeA : timeA - timeB;
+      });
+  }, [feeds, channelFilter, categoryFilter, costFilter, timeRange, sortOrder, searchQuery]);
 
   // Feeds to display
   const displayedFeeds = filteredFeeds;
@@ -701,6 +727,103 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               <Wallet className="w-3 h-3 text-amber-400" />
               <span>{t("feed.paid")} ({paidCostCount})</span>
             </button>
+          </div>
+        </div>
+
+        {/* Rentang Waktu & Urutan (Menurun / Menanjak) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/[0.06] text-caption">
+          {/* Rentang Waktu Pills */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-text-tertiary" />
+              <span>{t("feed.timeLabel")}</span>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setTimeRange("all")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                timeRange === "all"
+                  ? "bg-white/[0.08] text-text-primary border-white/[0.18] font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              {t("feed.timeAll")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTimeRange("24h")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                timeRange === "24h"
+                  ? "bg-accent/20 text-accent border-accent/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              {t("feed.time24h")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTimeRange("7d")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                timeRange === "7d"
+                  ? "bg-accent/20 text-accent border-accent/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              {t("feed.time7d")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTimeRange("30d")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                timeRange === "30d"
+                  ? "bg-accent/20 text-accent border-accent/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              {t("feed.time30d")}
+            </button>
+          </div>
+
+          {/* Urutan Waktu (Menurun / Menanjak) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1 flex items-center gap-1">
+              <ArrowUpDown className="w-3 h-3 text-text-tertiary" />
+              <span>{t("feed.sortLabel")}</span>
+            </span>
+
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setSortOrder("desc")}
+                className={`px-2.5 py-1 rounded-md text-caption font-medium transition-all flex items-center gap-1.5 ${
+                  sortOrder === "desc"
+                    ? "bg-accent/20 text-accent font-semibold shadow-xs"
+                    : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+                }`}
+                title={locale === "en" ? "Newest posts first (Descending)" : "Postingan paling baru dulu (Menurun)"}
+              >
+                <ArrowDown className="w-3 h-3" />
+                <span>{t("feed.sortNewest")}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSortOrder("asc")}
+                className={`px-2.5 py-1 rounded-md text-caption font-medium transition-all flex items-center gap-1.5 ${
+                  sortOrder === "asc"
+                    ? "bg-accent/20 text-accent font-semibold shadow-xs"
+                    : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+                }`}
+                title={locale === "en" ? "Oldest posts first (Ascending)" : "Postingan paling lama dulu (Menanjak)"}
+              >
+                <ArrowUp className="w-3 h-3" />
+                <span>{t("feed.sortOldest")}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

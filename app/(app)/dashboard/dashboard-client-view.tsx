@@ -303,7 +303,7 @@ export function DashboardClientView({
   const displayedProjects = React.useMemo(() => {
     switch (activeProjectFilter) {
       case "ready":
-        return readyProjects.length > 0 ? readyProjects : projects.slice(0, 5);
+        return readyProjects;
       case "overdue":
         return overdueProjects;
       case "completed_today":
@@ -609,6 +609,8 @@ export function DashboardClientView({
                   ? (isEn ? "No skipped tasks" : "Tidak ada tugas yang sedang dilewati")
                   : activeProjectFilter === "upcoming"
                   ? (isEn ? "No upcoming task schedules" : "Belum ada jadwal tugas mendatang")
+                  : activeProjectFilter === "ready"
+                  ? (isEn ? "Awesome! All tasks for today are done or skipped 🎉" : "Luar biasa! Semua tugas hari ini sudah selesai atau dilewati 🎉")
                   : (isEn ? "All tasks done or not yet scheduled" : "Semua tugas beres atau belum dijadwalkan")}
               </h3>
               <p className="text-caption text-text-secondary max-w-md mx-auto">
@@ -618,6 +620,8 @@ export function DashboardClientView({
                   ? (isEn ? "Mark tasks completed after finishing your daily airdrop tasks." : "Tandai selesai tugas proyek setelah kamu menggarap daily task hari ini.")
                   : activeProjectFilter === "skipped"
                   ? (isEn ? "You can skip daily tasks for specific projects and restore them from this tab." : "Kamu bisa melewati tugas harian proyek tertentu dan memunculkannya kembali di tab ini.")
+                  : activeProjectFilter === "ready"
+                  ? (isEn ? "There are no pending tasks ready to work on right now. Check back at 07:00 WIB for the next daily reset." : "Tidak ada tugas yang perlu dikerjakan saat ini. Garapan harian akan di-reset otomatis besok pukul 07:00 WIB.")
                   : (isEn ? "You can configure periodic reminders or view all projects." : "Kamu bisa mengatur pengingat berkala atau melihat seluruh daftar garapan proyek.")}
               </p>
               <div className="pt-2 flex items-center justify-center gap-2">

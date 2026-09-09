@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Hourglass,
   RefreshCw,
@@ -25,13 +26,25 @@ import {
   ListPlus,
   Trash2,
   FolderPlus,
+  Wallet,
+  AtSign,
+  Mail,
+  MessageSquare,
+  ArrowUpDown,
+  ArrowDown,
+  ArrowUp,
   Clock,
 } from "lucide-react";
+import { useAccount } from "wagmi";
 import { Modal } from "@/components/ui/modal";
 import { ButtonSecondary } from "@/components/ui/button";
 import { ProjectReviewModal } from "@/components/features/project-review-modal";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
+import {
+  fetchQuickPickerIdentities,
+  type UserAccountItem,
+} from "@/lib/supabase/user-accounts";
 import {
   type WaitlistItem,
   fetchWaitlists,
@@ -79,11 +92,13 @@ function getChannelInfo(channelId: string) {
 
 export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps) {
   const router = useRouter();
-  const { isEn } = useTranslation();
+  const { isEn, t } = useTranslation();
   const [waitlists, setWaitlists] = useState<WaitlistItem[]>(initialWaitlists);
   const [activeTab, setActiveTab] = useState<"joined" | "pending">("joined");
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<"all" | "dutacryptoairdrop" | "airdropfind">("all");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [timeRange, setTimeRange] = useState<"all" | "24h" | "7d" | "30d">("all");
 
   // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
@@ -171,6 +186,25 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   const [refLinkInput, setRefLinkInput] = useState("");
   const [isSavingStatus, setIsSavingStatus] = useState(false);
 
+  // Quick Picker states for wallets & accounts
+  const { address: connectedAddress } = useAccount();
+  const [savedWallets, setSavedWallets] = useState<
+    Array<{ id: string; address: string; label: string | null; chain: string | null }>
+  >([]);
+  const [savedAccounts, setSavedAccounts] = useState<UserAccountItem[]>([]);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+
+  const loadIdentities = async () => {
+    try {
+      const data = await fetchQuickPickerIdentities();
+      setSavedWallets(data.wallets);
+      setSavedAccounts(data.accounts);
+      setCurrentUserEmail(data.userEmail);
+    } catch (err) {
+      console.error("Failed to load quick picker identities:", err);
+    }
+  };
+
   // TG Search Update Modal state
   const [tgSearchTarget, setTgSearchTarget] = useState<WaitlistItem | null>(null);
   const [tgSearchChannel, setTgSearchChannel] = useState<"dutacryptoairdrop" | "airdropfind">("dutacryptoairdrop");
@@ -226,6 +260,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   };
 
   useEffect(() => {
+    loadIdentities();
     const supabase = createClient() as any;
     supabase
       .from("projects")
@@ -346,6 +381,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     setTargetItemForJoin(item);
     setAccountInput(item.registered_account || "");
     setRefLinkInput(item.ref_link || "");
+    loadIdentities();
   };
 
   // Save Join / Edit status
@@ -440,26 +476,44 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
 
   // Filtered waitlists
   const filteredWaitlists = useMemo(() => {
-    return waitlists.filter((item) => {
-      // Tab filter
-      if (item.status !== activeTab) return false;
+    return waitlists
+      .filter((item) => {
+        // Tab filter
+        if (item.status !== activeTab) return false;
 
-      // Channel filter
-      if (channelFilter !== "all" && item.channel !== channelFilter) return false;
+        // Channel filter
+        if (channelFilter !== "all" && item.channel !== channelFilter) return false;
 
-      // Search filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchName = item.project_name.toLowerCase().includes(q);
-        const matchTitle = item.title.toLowerCase().includes(q);
-        const matchSummary = (item.summary || "").toLowerCase().includes(q);
-        const matchAccount = (item.registered_account || "").toLowerCase().includes(q);
-        if (!matchName && !matchTitle && !matchSummary && !matchAccount) return false;
-      }
+        // Time range filter
+        if (timeRange !== "all") {
+          const now = Date.now();
+          const itemTime = new Date(item.created_at).getTime();
+          if (!isNaN(itemTime)) {
+            const diffMs = now - itemTime;
+            if (timeRange === "24h" && diffMs > 24 * 60 * 60 * 1000) return false;
+            if (timeRange === "7d" && diffMs > 7 * 24 * 60 * 60 * 1000) return false;
+            if (timeRange === "30d" && diffMs > 30 * 24 * 60 * 60 * 1000) return false;
+          }
+        }
 
-      return true;
-    });
-  }, [waitlists, activeTab, channelFilter, searchQuery]);
+        // Search filter
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchName = item.project_name.toLowerCase().includes(q);
+          const matchTitle = item.title.toLowerCase().includes(q);
+          const matchSummary = (item.summary || "").toLowerCase().includes(q);
+          const matchAccount = (item.registered_account || "").toLowerCase().includes(q);
+          if (!matchName && !matchTitle && !matchSummary && !matchAccount) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.created_at).getTime() || 0;
+        const timeB = new Date(b.created_at).getTime() || 0;
+        return sortOrder === "desc" ? timeB - timeA : timeA - timeB;
+      });
+  }, [waitlists, activeTab, channelFilter, timeRange, sortOrder, searchQuery]);
 
   const joinedCount = useMemo(() => waitlists.filter((w) => w.status === "joined").length, [waitlists]);
   const pendingCount = useMemo(() => waitlists.filter((w) => w.status === "pending").length, [waitlists]);
@@ -600,66 +654,165 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
       )}
 
       {/* Navigation Tabs & Filters (Liquid Frosted Glass) */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        {/* Dual Tabs */}
-        <div className="inline-flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.03] backdrop-blur-md border border-white/[0.08] overflow-x-auto no-scrollbar self-start sm:self-auto">
-          <button
-            onClick={() => setActiveTab("joined")}
-            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
-              activeTab === "joined"
-                ? "bg-status-completed/20 text-status-completed border border-status-completed/30 shadow-xs"
-                : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
-            }`}
-          >
-            <UserCheck className="w-4 h-4 text-status-completed shrink-0" />
-            <span>{isEn ? "Waitlists I Joined" : "Waitlist yang Saya Ikuti"}</span>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-status-completed/20 text-status-completed font-bold">
-              {joinedCount}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("pending")}
-            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
-              activeTab === "pending"
-                ? "bg-accent/20 text-accent border border-accent/30 shadow-xs"
-                : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-accent shrink-0" />
-            <span>{isEn ? "Explore New Waitlists" : "Eksplorasi Waitlist Baru"}</span>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-accent/20 text-accent font-bold">
-              {pendingCount}
-            </span>
-          </button>
-        </div>
-
-        {/* Filters and Search Bar */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Channel selector filter */}
-          <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2">
-            <Filter className="w-3.5 h-3.5 text-text-tertiary" />
-            <select
-              value={channelFilter}
-              onChange={(e) => setChannelFilter(e.target.value as any)}
-              className="bg-transparent text-caption text-text-primary focus:outline-none cursor-pointer pr-1"
+      <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          {/* Dual Tabs */}
+          <div className="inline-flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.03] backdrop-blur-md border border-white/[0.08] overflow-x-auto no-scrollbar self-start sm:self-auto">
+            <button
+              onClick={() => setActiveTab("joined")}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
+                activeTab === "joined"
+                  ? "bg-status-completed/20 text-status-completed border border-status-completed/30 shadow-xs"
+                  : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
             >
-              <option value="all" className="bg-[#0e131b] text-text-primary">{isEn ? "All Channels" : "Semua Channel"}</option>
-              <option value="dutacryptoairdrop" className="bg-[#0e131b] text-text-primary">Duta Crypto</option>
-              <option value="airdropfind" className="bg-[#0e131b] text-text-primary">Airdrop Finder</option>
-            </select>
+              <UserCheck className="w-4 h-4 text-status-completed shrink-0" />
+              <span>{isEn ? "Waitlists I Joined" : "Waitlist yang Saya Ikuti"}</span>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-status-completed/20 text-status-completed font-bold">
+                {joinedCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("pending")}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-caption sm:text-body-sm font-semibold transition-all shrink-0 ${
+                activeTab === "pending"
+                  ? "bg-accent/20 text-accent border border-accent/30 shadow-xs"
+                  : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-accent shrink-0" />
+              <span>{isEn ? "Explore New Waitlists" : "Eksplorasi Waitlist Baru"}</span>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-accent/20 text-accent font-bold">
+                {pendingCount}
+              </span>
+            </button>
           </div>
 
-          {/* Search Box */}
-          <div className="relative flex-1 min-w-[200px] sm:min-w-[240px]">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={isEn ? "Search project / registered email..." : "Cari proyek / email terdaftar..."}
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
-            />
+          {/* Filters and Search Bar */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Channel selector filter */}
+            <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2">
+              <Filter className="w-3.5 h-3.5 text-text-tertiary" />
+              <select
+                value={channelFilter}
+                onChange={(e) => setChannelFilter(e.target.value as any)}
+                className="bg-transparent text-caption text-text-primary focus:outline-none cursor-pointer pr-1"
+              >
+                <option value="all" className="bg-[#0e131b] text-text-primary">{isEn ? "All Channels" : "Semua Channel"}</option>
+                <option value="dutacryptoairdrop" className="bg-[#0e131b] text-text-primary">Duta Crypto</option>
+                <option value="airdropfind" className="bg-[#0e131b] text-text-primary">Airdrop Finder</option>
+              </select>
+            </div>
+
+            {/* Search Box */}
+            <div className="relative flex-1 min-w-[200px] sm:min-w-[240px]">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={isEn ? "Search project / registered email..." : "Cari proyek / email terdaftar..."}
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Rentang Waktu & Urutan (Menurun / Menanjak) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/[0.06] text-caption">
+          {/* Rentang Waktu Pills */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-text-tertiary" />
+              <span>{t("waitlist.timeLabel")}</span>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setTimeRange("all")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                timeRange === "all"
+                  ? "bg-white/[0.08] text-text-primary border-white/[0.18] font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              {t("waitlist.timeAll")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTimeRange("24h")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                timeRange === "24h"
+                  ? "bg-accent/20 text-accent border-accent/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              {t("waitlist.time24h")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTimeRange("7d")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                timeRange === "7d"
+                  ? "bg-accent/20 text-accent border-accent/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              {t("waitlist.time7d")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTimeRange("30d")}
+              className={`px-2.5 py-1 rounded-lg border transition-all ${
+                timeRange === "30d"
+                  ? "bg-accent/20 text-accent border-accent/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              {t("waitlist.time30d")}
+            </button>
+          </div>
+
+          {/* Urutan Waktu (Terbaru / Terlama) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-text-tertiary text-[11px] font-semibold uppercase tracking-wider mr-1 flex items-center gap-1">
+              <ArrowUpDown className="w-3 h-3 text-text-tertiary" />
+              <span>{t("waitlist.sortLabel")}</span>
+            </span>
+
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setSortOrder("desc")}
+                className={`px-2.5 py-1 rounded-md text-caption font-medium transition-all flex items-center gap-1.5 ${
+                  sortOrder === "desc"
+                    ? "bg-accent/20 text-accent font-semibold shadow-xs"
+                    : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+                }`}
+                title={isEn ? "Newest waitlists first (Descending)" : "Waitlist paling baru dulu (Menurun)"}
+              >
+                <ArrowDown className="w-3 h-3" />
+                <span>{t("waitlist.sortNewest")}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSortOrder("asc")}
+                className={`px-2.5 py-1 rounded-md text-caption font-medium transition-all flex items-center gap-1.5 ${
+                  sortOrder === "asc"
+                    ? "bg-accent/20 text-accent font-semibold shadow-xs"
+                    : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+                }`}
+                title={isEn ? "Oldest waitlists first (Ascending)" : "Waitlist paling lama dulu (Menanjak)"}
+              >
+                <ArrowUp className="w-3 h-3" />
+                <span>{t("waitlist.sortOldest")}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -957,19 +1110,170 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
       >
         <form onSubmit={handleSaveJoinStatus} className="space-y-4">
           <div>
-            <label className="block text-caption font-semibold text-text-primary mb-1">
-              {isEn ? "Registered Account / Email" : "Akun / Email Terdaftar"} <span className="text-accent">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-caption font-semibold text-text-primary">
+                {isEn ? "Registered Account / Wallet" : "Akun / Wallet Terdaftar"} <span className="text-accent">*</span>
+              </label>
+              <Link
+                href="/wallets"
+                target="_blank"
+                className="text-[11px] text-accent hover:underline inline-flex items-center gap-1 transition-colors font-medium"
+                title={isEn ? "Manage Wallets & Accounts" : "Kelola Dompet & Akun"}
+              >
+                <span>{isEn ? "Manage Wallets & Accounts" : "Kelola Dompet & Akun"}</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </Link>
+            </div>
+
+            {/* Quick Picker Buttons (Tombol Cepat) */}
+            {(savedWallets.length > 0 || savedAccounts.length > 0 || connectedAddress) && (
+              <div className="mb-2 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1.5">
+                <span className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider block">
+                  {isEn ? "⚡ Quick Select from Saved Identities:" : "⚡ Pilih Cepat dari Dompet & Akun:"}
+                </span>
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-0.5">
+                  {/* Connected Browser Wallet */}
+                  {connectedAddress && (
+                    <button
+                      type="button"
+                      onClick={() => setAccountInput(connectedAddress)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
+                        accountInput.toLowerCase() === connectedAddress.toLowerCase()
+                          ? "bg-accent text-on-accent border-accent font-semibold shadow-xs"
+                          : "bg-white/[0.04] text-accent border-accent/40 hover:bg-accent/15"
+                      }`}
+                      title={`Connected: ${connectedAddress}`}
+                    >
+                      <Wallet className="w-3 h-3" />
+                      <span>
+                        {isEn ? "Connected" : "Terkoneksi"}: {connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)}
+                      </span>
+                      {accountInput.toLowerCase() === connectedAddress.toLowerCase() && (
+                        <Check className="w-3 h-3 stroke-[3]" />
+                      )}
+                    </button>
+                  )}
+
+                  {/* Saved Wallets */}
+                  {savedWallets.map((w) => {
+                    const isSelected = accountInput.toLowerCase() === w.address.toLowerCase();
+                    return (
+                      <button
+                        key={w.id}
+                        type="button"
+                        onClick={() => setAccountInput(w.address)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
+                          isSelected
+                            ? "bg-accent text-on-accent border-accent font-semibold shadow-xs"
+                            : "bg-white/[0.04] text-text-primary border-border-hairline hover:border-accent hover:text-accent"
+                        }`}
+                        title={`${w.label || "Wallet"}: ${w.address}`}
+                      >
+                        <Wallet className="w-3 h-3 text-accent" />
+                        <span>
+                          {w.label ? `${w.label}: ` : ""}
+                          {w.address.slice(0, 6)}...{w.address.slice(-4)}
+                        </span>
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      </button>
+                    );
+                  })}
+
+                  {/* Saved Social Accounts */}
+                  {savedAccounts.map((acc) => {
+                    const isSelected = accountInput.toLowerCase() === acc.handle.toLowerCase();
+                    const isTwitter =
+                      acc.platform.toLowerCase().includes("twitter") ||
+                      acc.platform.toLowerCase().includes("x");
+                    const isDiscord = acc.platform.toLowerCase().includes("discord");
+                    const isTelegram = acc.platform.toLowerCase().includes("telegram");
+                    const isMail =
+                      acc.platform.toLowerCase().includes("email") ||
+                      acc.platform.toLowerCase().includes("mail");
+
+                    return (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => setAccountInput(acc.handle)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
+                          isSelected
+                            ? "bg-accent text-on-accent border-accent font-semibold shadow-xs"
+                            : "bg-white/[0.04] text-text-primary border-border-hairline hover:border-link-teal hover:text-link-teal"
+                        }`}
+                        title={`${acc.label || acc.platform}: ${acc.handle}`}
+                      >
+                        {isTwitter && <AtSign className="w-3 h-3 text-[#1DA1F2]" />}
+                        {isDiscord && <MessageSquare className="w-3 h-3 text-[#5865F2]" />}
+                        {isTelegram && <Send className="w-3 h-3 text-[#229ED9]" />}
+                        {isMail && <Mail className="w-3 h-3 text-accent" />}
+                        {!isTwitter && !isDiscord && !isTelegram && !isMail && (
+                          <UserCheck className="w-3 h-3 text-link-teal" />
+                        )}
+                        <span>{acc.label ? `${acc.label} (${acc.handle})` : acc.handle}</span>
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      </button>
+                    );
+                  })}
+
+                  {/* Quick User Login Email */}
+                  {currentUserEmail &&
+                    !savedAccounts.some(
+                      (a) => a.handle.toLowerCase() === currentUserEmail.toLowerCase()
+                    ) && (
+                      <button
+                        type="button"
+                        onClick={() => setAccountInput(currentUserEmail)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
+                          accountInput.toLowerCase() === currentUserEmail.toLowerCase()
+                            ? "bg-accent text-on-accent border-accent font-semibold shadow-xs"
+                            : "bg-white/[0.04] text-text-secondary border-border-hairline hover:border-accent hover:text-accent"
+                        }`}
+                        title={`Login Email: ${currentUserEmail}`}
+                      >
+                        <Mail className="w-3 h-3 text-accent" />
+                        <span>Email: {currentUserEmail}</span>
+                        {accountInput.toLowerCase() === currentUserEmail.toLowerCase() && (
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        )}
+                      </button>
+                    )}
+                </div>
+              </div>
+            )}
+
+            {savedWallets.length === 0 && savedAccounts.length === 0 && !connectedAddress && (
+              <div className="mb-2 p-2 rounded-lg bg-white/[0.02] border border-border-hairline text-[11px] text-text-tertiary flex items-center justify-between">
+                <span>
+                  {isEn ? "No saved wallets or accounts yet." : "Belum ada wallet atau akun tersimpan."}
+                </span>
+                <Link
+                  href="/wallets"
+                  target="_blank"
+                  className="text-accent hover:underline inline-flex items-center gap-0.5 font-medium"
+                >
+                  <span>{isEn ? "+ Save in Wallets & Accounts" : "+ Catat di Wallets & Akun"}</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </Link>
+              </div>
+            )}
+
             <input
               type="text"
               required
               value={accountInput}
               onChange={(e) => setAccountInput(e.target.value)}
-              placeholder={isEn ? "e.g. hunter@gmail.com / @x_handle / 0x123..." : "Contoh: airdrop_hunter@gmail.com / @username_x / 0x123..."}
-              className="w-full px-3 py-2 rounded-md bg-bg-elevated border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+              placeholder={
+                isEn
+                  ? "e.g. hunter@gmail.com / @x_handle / 0x123..."
+                  : "Contoh: airdrop_hunter@gmail.com / @username_x / 0x123..."
+              }
+              className="w-full px-3 py-2 rounded-md bg-bg-elevated border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent font-mono"
             />
             <p className="text-[11px] text-text-tertiary mt-1">
-              {isEn ? "Note email, wallet, or social handle used when submitting this waitlist." : "Catatan email, wallet, atau handle sosial media yang dipakai saat submit waitlist."}
+              {isEn
+                ? "Note email, wallet, or social handle used when submitting this waitlist."
+                : "Catatan email, wallet, atau handle sosial media yang dipakai saat submit waitlist."}
             </p>
           </div>
 

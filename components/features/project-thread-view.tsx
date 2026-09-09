@@ -206,7 +206,7 @@ function renderInteractivePostText(rawText: string) {
 
 function cleanMessageText(rawText: string): string {
   if (!rawText) return "";
-  let text = cleanDuplicateLinks(rawText);
+  const text = cleanDuplicateLinks(rawText);
   return text
     .replace(/^---+\s*/gm, "")
     .replace(/^#{1,6}\s+.*(?:Catatan|Pesan Asli|Postingan Asli).*/gim, "")

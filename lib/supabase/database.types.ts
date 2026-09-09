@@ -265,6 +265,47 @@ export interface Database {
           }
         ];
       };
+      user_accounts: {
+        Row: {
+          id: string;
+          user_id: string;
+          platform: string;
+          handle: string;
+          label: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          platform: string;
+          handle: string;
+          label?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          platform?: string;
+          handle?: string;
+          label?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_accounts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       reminders: {
         Row: {
           id: string;
