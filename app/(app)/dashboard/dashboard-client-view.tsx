@@ -331,7 +331,7 @@ export function DashboardClientView({
       {/* TOAST NOTIFICATION */}
       {toastMessage && (
         <div className="fixed top-20 right-6 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
-          <div className="px-4 py-2.5 rounded-xl bg-[#14181F]/95 backdrop-blur-xl border border-accent/40 text-text-primary text-body-sm shadow-2xl flex items-center gap-2.5">
+          <div className="px-4 py-2.5 rounded-xl bg-bg-elevated border border-accent/40 text-text-primary text-body-sm shadow-xl flex items-center gap-2.5">
             <Check className="w-4 h-4 text-accent shrink-0" />
             <span className="font-medium">{toastMessage}</span>
           </div>

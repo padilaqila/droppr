@@ -100,11 +100,11 @@ export function InteractivePartnerCards({ onSelectPartner }: { onSelectPartner: 
         <div
           key={partner.id}
           onClick={() => onSelectPartner(partner)}
-          className={`group relative rounded-2xl bg-[#121622]/60 backdrop-blur-xl border border-white/10 ${partner.accentBorder} p-3.5 flex items-center justify-between gap-3 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 shadow-lg`}
+          className={`group relative rounded-2xl bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline ${partner.accentBorder} p-3.5 flex items-center justify-between gap-3 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 shadow-sm`}
         >
           <div className="flex items-center gap-3 min-w-0">
             {/* Interactive Logo Frame with glow */}
-            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-black/50 border border-white/15 shrink-0 group-hover:scale-105 group-hover:border-white/30 transition-all p-1 shadow-md">
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-bg-base border border-border-hairline shrink-0 group-hover:scale-105 transition-all p-1">
               <Image
                 src={partner.logo}
                 alt={partner.name}
@@ -112,12 +112,12 @@ export function InteractivePartnerCards({ onSelectPartner }: { onSelectPartner: 
                 className="object-contain p-1 rounded-lg"
                 sizes="48px"
               />
-              <span className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-status-completed border border-black animate-pulse" />
+              <span className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-status-completed border border-bg-elevated animate-pulse" />
             </div>
 
             <div className="min-w-0 truncate text-left">
               <div className="flex items-center gap-1.5">
-                <span className="text-body-sm font-semibold text-text-primary group-hover:text-white transition-colors truncate">
+                <span className="text-body-sm font-semibold text-text-primary group-hover:text-accent transition-colors truncate">
                   {partner.name}
                 </span>
                 <CheckCircle2 className="w-3.5 h-3.5 text-link-teal shrink-0" />
@@ -132,7 +132,7 @@ export function InteractivePartnerCards({ onSelectPartner }: { onSelectPartner: 
           </div>
 
           <div className="shrink-0 flex items-center">
-            <span className="w-7 h-7 rounded-full bg-white/[0.06] group-hover:bg-white/[0.15] border border-white/10 flex items-center justify-center text-text-secondary group-hover:text-white transition-colors">
+            <span className="w-7 h-7 rounded-full bg-bg-base group-hover:bg-accent group-hover:text-black border border-border-hairline flex items-center justify-center text-text-secondary transition-colors">
               <ExternalLink className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -174,13 +174,13 @@ export function CommunityCreditsModal({
     <div 
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overscroll-contain animate-in fade-in duration-200"
     >
-      {/* Full-screen Backdrop overlay (covers topbar, sidebar, and entire viewport) */}
+      {/* Full-screen Backdrop overlay */}
       <div
-        className="fixed inset-0 bg-black/85 backdrop-blur-xl transition-opacity"
+        className="fixed inset-0 bg-[#07090E]/80 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
       <div
-        className="relative z-10 w-full max-w-lg rounded-2xl bg-[#141824] border border-white/15 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_50px_-10px_rgba(139,127,232,0.3)] p-6 text-left space-y-5 overflow-hidden my-auto"
+        className="relative z-10 w-full max-w-lg rounded-2xl bg-bg-elevated border border-border-hairline shadow-2xl p-6 text-left space-y-5 overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient Top Glow */}
@@ -190,7 +190,7 @@ export function CommunityCreditsModal({
         />
 
         {/* Modal Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
+        <div className="flex items-start justify-between gap-3 border-b border-border-hairline pb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent shadow-sm">
               <HeartHandshake className="w-5 h-5" />
@@ -210,7 +210,7 @@ export function CommunityCreditsModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 flex items-center justify-center text-text-secondary hover:text-white transition-colors"
+            className="w-8 h-8 rounded-lg bg-bg-elevated-2 hover:bg-bg-base border border-border-hairline flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -221,11 +221,11 @@ export function CommunityCreditsModal({
           {PARTNERS.map((partner) => (
             <div
               key={partner.id}
-              className="p-4 rounded-xl bg-white/[0.04] border border-white/10 hover:border-white/20 transition-all space-y-3"
+              className="p-4 rounded-xl bg-bg-base border border-border-hairline hover:border-border-hairline-strong transition-all space-y-3"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-black/60 border border-white/15 p-1 shrink-0">
+                  <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-bg-elevated border border-border-hairline p-1 shrink-0">
                     <Image
                       src={partner.logo}
                       alt={partner.name}

@@ -586,12 +586,12 @@ export function TodayTaskGuideModal({
       className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
       onClick={onClose}
     >
-      {/* Backdrop with Obsidian Blur Overlay (covers full viewport including topbar) */}
-      <div className="fixed inset-0 bg-[#07090E]/85 backdrop-blur-xl transition-opacity" />
+      {/* Dynamic Backdrop Overlay: clean dimming in light mode, obsidian in dark mode */}
+      <div className="fixed inset-0 bg-[#07090E]/80 backdrop-blur-md transition-opacity" />
 
-      {/* Main Frosted Glass Dialog Box */}
+      {/* Main Dialog Box */}
       <div
-        className="relative w-full max-w-3xl rounded-2xl bg-[#0c1017]/90 backdrop-blur-2xl border border-white/[0.12] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85),inset_0_1px_1px_0_rgba(255,255,255,0.12)] text-left z-10 flex flex-col max-h-[90vh] overflow-hidden overscroll-contain my-auto animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-3xl rounded-2xl bg-bg-elevated border border-border-hairline shadow-2xl text-left z-10 flex flex-col max-h-[90vh] overflow-hidden overscroll-contain my-auto animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -600,18 +600,18 @@ export function TodayTaskGuideModal({
         <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-amber-500/30 via-amber-400/80 to-violet-500/30" />
 
         {/* Modal Header */}
-        <div className="px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-4 border-b border-white/[0.08] bg-white/[0.02]">
+        <div className="px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-4 border-b border-border-hairline bg-bg-elevated">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-2 min-w-0 flex-1">
               {/* Project Title & Status */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                <h2 className="text-heading-3 sm:text-heading-2 font-bold text-white font-sans tracking-tight truncate">
+                <h2 className="text-heading-3 sm:text-heading-2 font-bold text-text-primary font-sans tracking-tight truncate">
                   {project.name}
                 </h2>
 
                 {project.chain && (
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/10 text-white/80">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-bg-elevated-2 border border-border-hairline text-text-secondary">
                     {project.chain}
                   </span>
                 )}
@@ -620,14 +620,14 @@ export function TodayTaskGuideModal({
               </div>
 
               {/* Source Channel Identity & Schedule */}
-              <div className="flex items-center gap-3 text-caption text-white/60 font-sans flex-wrap">
+              <div className="flex items-center gap-3 text-caption text-text-secondary font-sans flex-wrap">
                 {/* Source Channel Badge */}
                 {channelSource && (
                   <a
                     href={telegramPostUrl || channelSource.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 text-[11px] font-medium transition-colors group/ch"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-500 dark:text-sky-300 text-[11px] font-medium transition-colors group/ch"
                     title="Buka sumber channel Telegram"
                   >
                     {channelSource.logo ? (
@@ -641,10 +641,10 @@ export function TodayTaskGuideModal({
                         />
                       </div>
                     ) : (
-                      <Send className="w-3 h-3 text-sky-400 shrink-0" />
+                      <Send className="w-3 h-3 text-sky-500 dark:text-sky-400 shrink-0" />
                     )}
                     <span>{channelSource.name}</span>
-                    <span className="text-sky-400/60 font-mono text-[10px]">
+                    <span className="text-sky-500/70 dark:text-sky-400/60 font-mono text-[10px]">
                       {channelSource.handle}
                     </span>
                     <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover/ch:opacity-100 transition-opacity" />
@@ -652,8 +652,8 @@ export function TodayTaskGuideModal({
                 )}
 
                 {scheduleText && (
-                  <span className="inline-flex items-center gap-1.5 text-amber-300/90 font-medium">
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="inline-flex items-center gap-1.5 text-amber-500 dark:text-amber-300/90 font-medium">
+                    <Clock className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                     <span>{isEn ? `Schedule: ${scheduleText} (07:00 WIB)` : `Jadwal: ${scheduleText} (07:00 WIB)`}</span>
                   </span>
                 )}
@@ -665,7 +665,7 @@ export function TodayTaskGuideModal({
               type="button"
               onClick={onClose}
               aria-label={isEn ? "Close" : "Tutup"}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-elevated-2 transition-colors shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -679,10 +679,10 @@ export function TodayTaskGuideModal({
                   href={telegramPostUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/80 hover:text-white border border-white/10 text-caption font-medium transition-all"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-bg-elevated-2 hover:bg-bg-base text-text-primary border border-border-hairline text-caption font-medium transition-all"
                   title={isEn ? "Open Telegram Post" : "Buka Postingan Telegram"}
                 >
-                  <Send className="w-3.5 h-3.5 text-sky-400" />
+                  <Send className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
                   <span>{isEn ? "Open in TG" : "Buka di TG"}</span>
                   <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                 </a>
@@ -705,10 +705,10 @@ export function TodayTaskGuideModal({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 no-scrollbar">
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 no-scrollbar bg-bg-elevated">
           {/* Header Row: Title & Edit Button */}
           <div className="flex items-center justify-between">
-            <h3 className="text-body-sm font-bold text-white font-sans flex items-center gap-2">
+            <h3 className="text-body-sm font-bold text-text-primary font-sans flex items-center gap-2">
               <span className="w-1.5 h-4 rounded-full bg-amber-400" />
               <span>{isEn ? "Project Guide & Post" : "Catatan & Panduan Lengkap"}</span>
             </h3>
@@ -720,7 +720,7 @@ export function TodayTaskGuideModal({
                   setGuideInput(rawPostContent || project.guide_content || "");
                   setIsEditingGuide(true);
                 }}
-                className="text-[11px] text-white/60 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                className="text-[11px] text-text-secondary hover:text-amber-500 dark:hover:text-amber-300 flex items-center gap-1 transition-colors font-medium"
               >
                 <Edit2 className="w-3 h-3" />
                 <span>{rawPostContent ? (isEn ? "Edit Notes" : "Edit Catatan") : (isEn ? "+ Write Notes" : "+ Tulis Catatan")}</span>
@@ -736,10 +736,10 @@ export function TodayTaskGuideModal({
                 onChange={(e) => setGuideInput(e.target.value)}
                 rows={10}
                 placeholder={isEn ? "Write notes or guide here..." : "Tulis catatan atau panduan di sini..."}
-                className="w-full rounded-xl bg-white/[0.04] border border-white/20 p-3 text-body-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all font-sans leading-relaxed resize-y no-scrollbar"
+                className="w-full rounded-xl bg-bg-base border border-border-hairline p-3 text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all font-sans leading-relaxed resize-y no-scrollbar"
               />
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-white/40">
+                <span className="text-[11px] text-text-tertiary">
                   {isEn ? "Supports automatic web URLs & Markdown links" : "Mendukung tautan URL web otomatis & format Markdown"}
                 </span>
                 <div className="flex items-center gap-2">
@@ -749,7 +749,7 @@ export function TodayTaskGuideModal({
                       setGuideInput(rawPostContent || project.guide_content || "");
                       setIsEditingGuide(false);
                     }}
-                    className="px-3 py-1.5 rounded-lg text-caption text-white/60 hover:text-white transition-colors"
+                    className="px-3 py-1.5 rounded-lg text-caption text-text-secondary hover:text-text-primary transition-colors"
                   >
                     {isEn ? "Cancel" : "Batal"}
                   </button>
@@ -767,17 +767,17 @@ export function TodayTaskGuideModal({
             </div>
           ) : (
             /* Unified Display: Meta + Direktori Tautan Resmi (DIPERTAHANKAN) + Postingan Asli Telegram */
-            <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.08] shadow-inner space-y-4">
+            <div className="p-4 sm:p-5 rounded-2xl bg-bg-base border border-border-hairline space-y-4">
               {/* 1. Meta Pills Row (Network, Biaya, Akun jika ada) */}
               {parsedSynth.meta.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 pb-1">
                   {parsedSynth.meta.map((m, idx) => (
                     <div
                       key={idx}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/[0.04] border border-white/10 text-[11.5px]"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-bg-elevated border border-border-hairline text-[11.5px]"
                     >
-                      <span className="text-white/50 font-medium">{m.label}:</span>
-                      <span className="text-white font-semibold">{m.val}</span>
+                      <span className="text-text-secondary font-medium">{m.label}:</span>
+                      <span className="text-text-primary font-semibold">{m.val}</span>
                     </div>
                   ))}
                 </div>
@@ -786,8 +786,8 @@ export function TodayTaskGuideModal({
               {/* 2. Direktori Tautan Resmi (DIPERTAHANKAN) */}
               {officialLinks.length > 0 && (
                 <div className="space-y-2">
-                  <div className="text-[12px] font-semibold text-amber-400/90 flex items-center gap-1.5 uppercase tracking-wider">
-                    <Layers className="w-3.5 h-3.5 text-amber-400" />
+                  <div className="text-[12px] font-semibold text-amber-500 dark:text-amber-400/90 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Layers className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                     <span>{isEn ? `Official Links Directory (${officialLinks.length})` : `Direktori Tautan Resmi (${officialLinks.length})`}</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -811,25 +811,25 @@ export function TodayTaskGuideModal({
                           href={lnk.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="group/link flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] hover:border-amber-400/30 transition-all text-left"
+                          className="group/link flex items-center justify-between p-2.5 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline hover:border-amber-400/50 transition-all text-left"
                         >
                           <div className="min-w-0 flex-1 pr-2">
                             <span
                               className={`text-[11px] block font-medium transition-colors ${
                                 isYouTube
-                                  ? "text-rose-400 group-hover/link:text-rose-300"
-                                  : "text-white/50 group-hover/link:text-amber-400/80"
+                                  ? "text-rose-500 dark:text-rose-400 group-hover/link:text-rose-600 dark:group-hover/link:text-rose-300"
+                                  : "text-text-secondary group-hover/link:text-amber-500 dark:group-hover/link:text-amber-400"
                               }`}
                             >
                               {label}
                             </span>
-                            <span className="text-[12px] text-white/90 font-mono truncate block">
+                            <span className="text-[12px] text-text-primary font-mono truncate block">
                               {displayUrl}
                             </span>
                           </div>
-                          <div className="w-6 h-6 rounded-lg bg-white/[0.05] group-hover/link:bg-amber-400 group-hover/link:text-black flex items-center justify-center text-white/60 transition-colors shrink-0">
+                          <div className="w-6 h-6 rounded-lg bg-bg-base group-hover/link:bg-amber-400 group-hover/link:text-black flex items-center justify-center text-text-secondary transition-colors shrink-0">
                             {isYouTube ? (
-                              <Video className="w-3.5 h-3.5 text-rose-400 group-hover/link:text-black" />
+                              <Video className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 group-hover/link:text-black" />
                             ) : (
                               <ExternalLink className="w-3 h-3" />
                             )}
@@ -842,10 +842,10 @@ export function TodayTaskGuideModal({
               )}
 
               {/* 3. Postingan Asli Telegram (Murni teks postingan asli sumber, menggantikan checklist langkah pengerjaan) */}
-              <div className="space-y-2 pt-2 border-t border-white/[0.08]">
+              <div className="space-y-2 pt-2 border-t border-border-hairline">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="text-[12px] font-semibold text-sky-400/90 flex items-center gap-1.5 uppercase tracking-wider">
-                    <Send className="w-3.5 h-3.5 text-sky-400" />
+                  <div className="text-[12px] font-semibold text-sky-500 dark:text-sky-400/90 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Send className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
                     <span>{isEn ? "Original Telegram Post" : "Postingan Asli Telegram"}</span>
                   </div>
 
@@ -858,12 +858,12 @@ export function TodayTaskGuideModal({
                         disabled={isTranslatingOriginal}
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-caption font-medium transition-all ${
                           showTranslatedOriginal
-                            ? "bg-amber-400/20 text-amber-300 border-amber-400/40"
-                            : "bg-white/[0.05] hover:bg-white/[0.1] text-white/75 hover:text-white border-white/10"
+                            ? "bg-amber-400/20 text-amber-600 dark:text-amber-300 border-amber-400/40"
+                            : "bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border-border-hairline"
                         }`}
                         title={isEn ? "Translate post text" : "Terjemahkan teks postingan"}
                       >
-                        <Languages className={`w-3.5 h-3.5 ${isTranslatingOriginal ? "animate-spin text-amber-400" : ""}`} />
+                        <Languages className={`w-3.5 h-3.5 ${isTranslatingOriginal ? "animate-spin text-amber-500" : ""}`} />
                         <span>
                           {isTranslatingOriginal
                             ? (locale === "id" ? "Menerjemahkan..." : "Translating...")
@@ -881,17 +881,17 @@ export function TodayTaskGuideModal({
                           const textToCopy = showTranslatedOriginal && translatedOriginalPost ? translatedOriginalPost : rawPostContent;
                           handleCopyOriginal(textToCopy);
                         }}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-caption text-white/75 hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline text-caption text-text-secondary hover:text-text-primary transition-colors"
                         title={isEn ? "Copy post content to clipboard" : "Salin isi postingan ke clipboard"}
                       >
                         {isCopied ? (
                           <>
-                            <Check className="w-3 h-3 text-emerald-400" />
-                            <span className="text-emerald-400 font-medium">{isEn ? "Copied!" : "Tersalin!"}</span>
+                            <Check className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">{isEn ? "Copied!" : "Tersalin!"}</span>
                           </>
                         ) : (
                           <>
-                            <Copy className="w-3 h-3 text-sky-400" />
+                            <Copy className="w-3 h-3 text-sky-500 dark:text-sky-400" />
                             <span>{isEn ? "Copy Post" : "Salin Postingan"}</span>
                           </>
                         )}
@@ -901,11 +901,11 @@ export function TodayTaskGuideModal({
                 </div>
 
                 {/* Telegram Message Box */}
-                <div className="p-4 sm:p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
+                <div className="p-4 sm:p-5 rounded-xl bg-bg-elevated border border-border-hairline space-y-3">
                   {channelSource && (
-                    <div className="flex items-center gap-2.5 pb-3 border-b border-white/[0.08]">
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-border-hairline">
                       {channelSource.logo ? (
-                        <div className="w-6 h-6 rounded-full overflow-hidden relative shrink-0 border border-white/20">
+                        <div className="w-6 h-6 rounded-full overflow-hidden relative shrink-0 border border-border-hairline">
                           <Image
                             src={channelSource.logo}
                             alt={channelSource.name}
@@ -915,16 +915,16 @@ export function TodayTaskGuideModal({
                           />
                         </div>
                       ) : (
-                        <div className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-500 dark:text-sky-400 shrink-0">
                           <Send className="w-3 h-3" />
                         </div>
                       )}
 
                       <div className="min-w-0 flex-1">
-                        <span className="text-caption font-bold text-white block truncate">
+                        <span className="text-caption font-bold text-text-primary block truncate">
                           {channelSource.name}
                         </span>
-                        <span className="text-[10.5px] text-sky-400/80 font-mono block truncate">
+                        <span className="text-[10.5px] text-sky-600 dark:text-sky-400/80 font-mono block truncate">
                           {channelSource.handle}
                         </span>
                       </div>
@@ -934,7 +934,7 @@ export function TodayTaskGuideModal({
                           href={telegramPostUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[11px] text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 font-medium shrink-0"
+                          className="text-[11px] text-sky-500 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300 inline-flex items-center gap-1 font-medium shrink-0"
                         >
                           <span>{isEn ? "Open in TG" : "Buka di TG"}</span>
                           <ExternalLink className="w-2.5 h-2.5" />
@@ -944,10 +944,10 @@ export function TodayTaskGuideModal({
                   )}
 
                   {/* Content: Raw post / translated */}
-                  <div className="text-body-sm text-white/90 whitespace-pre-wrap leading-relaxed font-sans space-y-2">
+                  <div className="text-body-sm text-text-primary whitespace-pre-wrap leading-relaxed font-sans space-y-2">
                     {showTranslatedOriginal && translatedOriginalPost && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-400/10 border border-amber-400/20 text-[10.5px] font-medium text-amber-300 w-fit">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-400/15 border border-amber-400/30 text-[10.5px] font-medium text-amber-700 dark:text-amber-300 w-fit">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                         <span>{locale === "id" ? "Diterjemahkan ke Bahasa Indonesia" : "Translated to English"}</span>
                       </div>
                     )}
@@ -959,7 +959,7 @@ export function TodayTaskGuideModal({
                             : rawPostContent
                         )
                       ) : (
-                        <span className="text-white/40 italic">
+                        <span className="text-text-tertiary italic">
                           {isEn ? "Original post not yet saved or not found for this project." : "Postingan asli belum tersimpan atau tidak ditemukan untuk proyek ini."}
                         </span>
                       )}
@@ -972,7 +972,7 @@ export function TodayTaskGuideModal({
         </div>
 
         {/* Modal Docked Footer */}
-        <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-t border-white/[0.08] bg-white/[0.02] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-t border-border-hairline bg-bg-elevated flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           {/* Left: Quick Actions (Tandai Selesai & Lewati/Tunda) */}
           <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-between sm:justify-start">
             {/* Mark as Done button */}
@@ -982,8 +982,8 @@ export function TodayTaskGuideModal({
               disabled={isMarkingDone}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-caption font-semibold transition-all ${
                 isDoneState
-                  ? "bg-emerald-500/25 border-emerald-500/40 text-emerald-300 shadow-sm hover:bg-emerald-500/35"
-                  : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border-emerald-500/25"
+                  ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-600 dark:text-emerald-300 shadow-sm hover:bg-emerald-500/30"
+                  : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 border-emerald-500/30"
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -996,19 +996,19 @@ export function TodayTaskGuideModal({
               onClick={handleToggleSkipClick}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-caption font-medium transition-all ${
                 isSkipped
-                  ? "bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border-amber-400/30"
-                  : "bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border-white/10"
+                  ? "bg-amber-400/20 hover:bg-amber-400/30 text-amber-700 dark:text-amber-300 border-amber-400/40"
+                  : "bg-bg-elevated-2 hover:bg-bg-base text-text-secondary hover:text-text-primary border-border-hairline"
               }`}
               title={isSkipped ? (isEn ? "Restore project to today's active list" : "Kembalikan proyek ke daftar aktif hari ini") : (isEn ? "Skip / postpone today's work" : "Lewati / tunda pengerjaan hari ini")}
             >
               {isSkipped ? (
                 <>
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                   <span>{isEn ? "Restore to Today" : "Kembalikan ke Hari Ini"}</span>
                 </>
               ) : (
                 <>
-                  <FastForward className="w-3.5 h-3.5 text-white/50" />
+                  <FastForward className="w-3.5 h-3.5 text-text-tertiary" />
                   <span>{isEn ? "Skip Today" : "Lewati Hari Ini"}</span>
                 </>
               )}
@@ -1022,29 +1022,29 @@ export function TodayTaskGuideModal({
                 <button
                   type="button"
                   onClick={() => onOpenReminderModal?.(project.id)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/25 text-caption font-medium transition-all"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 text-amber-700 dark:text-amber-300 border border-amber-400/35 text-caption font-medium transition-all"
                   title={isEn ? "Change reminder time / schedule" : "Ubah jam / jadwal pengingat"}
                 >
-                  <Bell className="w-3.5 h-3.5 text-amber-400" />
+                  <Bell className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                   <span>{isEn ? "Change Schedule" : "Ubah Jadwal"}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleDeleteReminderClick}
                   disabled={isDeletingReminder}
-                  className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/25 text-caption transition-all"
+                  className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30 text-caption transition-all"
                   title={isEn ? "Delete Reminder for This Project" : "Hapus Pengingat Proyek Ini"}
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                 </button>
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => onOpenReminderModal?.(project.id)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/10 text-caption font-medium transition-all"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-bg-elevated-2 hover:bg-bg-base text-text-secondary hover:text-text-primary border border-border-hairline text-caption font-medium transition-all"
               >
-                <Bell className="w-3.5 h-3.5 text-amber-400" />
+                <Bell className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                 <span>{isEn ? "Set Reminder" : "Pasang Pengingat"}</span>
               </button>
             )}
@@ -1052,7 +1052,7 @@ export function TodayTaskGuideModal({
             <Link
               href={`/projects/${project.id}`}
               prefetch={false}
-              className="p-1.5 text-white/40 hover:text-amber-300 rounded-xl hover:bg-white/[0.08] transition-colors"
+              className="p-1.5 text-text-tertiary hover:text-amber-500 dark:hover:text-amber-300 rounded-xl hover:bg-bg-elevated-2 transition-colors"
               title={isEn ? "Open Full Project Workstation" : "Buka Workstation Proyek Penuh"}
             >
               <ArrowRight className="w-4 h-4" />
@@ -1061,7 +1061,7 @@ export function TodayTaskGuideModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white border border-white/10 text-caption font-medium transition-all"
+              className="px-3.5 py-1.5 rounded-xl bg-bg-elevated-2 hover:bg-bg-base text-text-primary border border-border-hairline text-caption font-medium transition-all"
             >
               {isEn ? "Close" : "Tutup"}
             </button>

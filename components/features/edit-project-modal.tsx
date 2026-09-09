@@ -320,7 +320,7 @@ export function EditProjectModal({
                 value={folderId}
                 onChange={(e) => setFolderId(e.target.value)}
                 disabled={isSaving || isDeleting}
-                className="w-full h-10 px-3.5 rounded-xl bg-[#0d121b] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full h-10 px-3.5 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
               >
                 <option value="">{isEn ? "(Unorganized)" : "(Tanpa Folder)"}</option>
                 {folders.map((f) => (
@@ -340,7 +340,7 @@ export function EditProjectModal({
                 value={status}
                 onChange={(e) => setStatus(e.target.value as ProjectStatus)}
                 disabled={isSaving || isDeleting}
-                className="w-full h-10 px-3.5 rounded-xl bg-[#0d121b] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full h-10 px-3.5 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent/50 transition-all cursor-pointer disabled:opacity-50"
               >
                 <option value="not_started">{isEn ? "Not Started" : "Belum Mulai"}</option>
                 <option value="in_progress">{isEn ? "In Progress" : "Sedang Dikerjakan"}</option>

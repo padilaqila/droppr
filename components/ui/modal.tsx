@@ -52,15 +52,15 @@ export function Modal({
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2.5 sm:p-4 overscroll-contain">
-      {/* Full-screen Backdrop overlay (covers topbar, sidebar, and entire viewport) */}
+      {/* Full-screen Backdrop overlay */}
       <div
-        className="fixed inset-0 bg-black/85 backdrop-blur-xl transition-opacity"
+        className="fixed inset-0 bg-[#07090E]/80 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 
       {/* Modal Dialog Content */}
       <div
-        className={`relative w-full ${maxWidthClass} bg-[#0c1017]/95 backdrop-blur-2xl border border-white/[0.12] rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85),inset_0_1px_1px_0_rgba(255,255,255,0.12)] z-10 overflow-hidden flex flex-col max-h-[90vh] overscroll-contain my-auto`}
+        className={`relative w-full ${maxWidthClass} bg-bg-elevated border border-border-hairline rounded-2xl shadow-2xl z-10 overflow-hidden flex flex-col max-h-[90vh] overscroll-contain my-auto`}
         role="dialog"
         aria-modal="true"
       >

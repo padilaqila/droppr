@@ -1009,20 +1009,20 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
         const previewAction = getTranslationAction(previewingFeed.raw_text, locale, showPreviewTranslated);
         return createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overscroll-contain animate-fade-in">
-            {/* Full-screen Backdrop Blur (covers topbar, sidebar, and whole viewport) */}
+            {/* Full-screen Backdrop */}
             <div
-              className="fixed inset-0 bg-black/85 backdrop-blur-xl transition-opacity"
+              className="fixed inset-0 bg-[#07090E]/80 backdrop-blur-md transition-opacity"
               onClick={handleClosePreview}
             />
 
             <div
-              className="relative z-10 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-[#0e131b]/95 backdrop-blur-2xl border border-white/[0.12] shadow-2xl shadow-black/80 overflow-hidden my-auto"
+              className="relative z-10 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-bg-elevated border border-border-hairline shadow-2xl overflow-hidden my-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-center justify-between gap-3 shrink-0 bg-white/[0.02]">
+              <div className="p-4 sm:p-5 border-b border-border-hairline flex items-center justify-between gap-3 shrink-0 bg-bg-elevated">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full overflow-hidden border border-white/20 bg-white/[0.05] shrink-0 flex items-center justify-center shadow-md">
+                  <div className="w-9 h-9 rounded-full overflow-hidden border border-border-hairline bg-bg-base shrink-0 flex items-center justify-center shadow-sm">
                     {getChannelInfo(previewingFeed.channel).logo ? (
                       <Image
                         src={getChannelInfo(previewingFeed.channel).logo!}
@@ -1046,7 +1046,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {/* Translate Button - Only shown if post language is opposite to system language */}
+                  {/* Translate Button */}
                   {previewAction.shouldShowTranslate && (
                     <button
                       type="button"
@@ -1055,7 +1055,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       className={`px-2.5 py-1.5 rounded-lg border text-caption font-medium transition-all flex items-center gap-1.5 ${
                         showPreviewTranslated
                           ? "bg-status-completed/20 text-status-completed border-status-completed/40"
-                          : "bg-white/[0.05] hover:bg-white/[0.1] text-text-secondary hover:text-text-primary border-white/[0.08]"
+                          : "bg-bg-elevated-2 hover:bg-bg-base text-text-secondary hover:text-text-primary border-border-hairline"
                       }`}
                       title="Terjemahkan teks postingan"
                     >
@@ -1079,7 +1079,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       setIsPreviewCopied(true);
                       setTimeout(() => setIsPreviewCopied(false), 2500);
                     }}
-                    className="px-2.5 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-text-secondary hover:text-text-primary border border-white/[0.08] text-caption font-medium transition-all flex items-center gap-1.5"
+                    className="px-2.5 py-1.5 rounded-lg bg-bg-elevated-2 hover:bg-bg-base text-text-secondary hover:text-text-primary border border-border-hairline text-caption font-medium transition-all flex items-center gap-1.5"
                     title="Salin teks postingan Telegram"
                   >
                     {isPreviewCopied ? (
@@ -1098,15 +1098,15 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   <button
                     type="button"
                     onClick={handleClosePreview}
-                    className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-white/[0.08] transition-colors"
+                    className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-elevated-2 transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
 
-              {/* Modal Body: Telegram Raw Text with formatted clickable links */}
-              <div className="p-5 sm:p-6 overflow-y-auto space-y-3 no-scrollbar">
+              {/* Modal Body */}
+              <div className="p-5 sm:p-6 overflow-y-auto space-y-3 no-scrollbar bg-bg-elevated">
                 {showPreviewTranslated && previewTranslatedText && (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-status-completed/10 border border-status-completed/25 text-[11px] font-medium text-status-completed w-fit">
                     <span className="w-1.5 h-1.5 rounded-full bg-status-completed animate-pulse" />
@@ -1118,7 +1118,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   </div>
                 )}
 
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-body-sm text-text-secondary leading-relaxed whitespace-pre-line break-words font-sans selection:bg-accent/30 selection:text-white">
+                <div className="p-4 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary leading-relaxed whitespace-pre-line break-words font-sans selection:bg-accent/30 selection:text-text-primary">
                   {renderInteractiveText(
                     showPreviewTranslated && previewTranslatedText
                       ? previewTranslatedText
@@ -1128,12 +1128,12 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               </div>
 
               {/* Modal Footer */}
-              <div className="p-4 sm:p-5 border-t border-white/[0.08] bg-white/[0.02] flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div className="p-4 sm:p-5 border-t border-border-hairline bg-bg-elevated flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <a
                   href={previewingFeed.source_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-link-teal text-caption font-medium border border-white/[0.08] transition-all"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-bg-elevated-2 hover:bg-bg-base text-link-teal text-caption font-medium border border-border-hairline transition-all"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{t("feed.openTelegram")}</span>

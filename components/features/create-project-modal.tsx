@@ -512,7 +512,7 @@ export function CreateProjectModal({
               <select
                 value={folderId}
                 onChange={(e) => setFolderId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-[#0d121b] border border-white/[0.08] text-body-sm text-text-primary focus:outline-none focus:border-accent/50 cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary focus:outline-none focus:border-accent/50 cursor-pointer"
               >
                 <option value="">{isEn ? "No Folder (All)" : "Tanpa Folder (Semua)"}</option>
                 {folders.map((f) => (
@@ -607,7 +607,7 @@ export function CreateProjectModal({
                 <select
                   value={accountPlatform}
                   onChange={(e) => setAccountPlatform(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-[#0d121b] border border-white/[0.08] text-caption text-text-primary focus:outline-none focus:border-link-teal cursor-pointer"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-bg-base border border-border-hairline text-caption text-text-primary focus:outline-none focus:border-link-teal cursor-pointer"
                 >
                   <option value="Email">Email</option>
                   <option value="Twitter / X">Twitter / X</option>

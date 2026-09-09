@@ -195,4 +195,50 @@ textarea::-webkit-scrollbar {
   color: var(--color-text-tertiary) !important;
 }
 
+/* Light Mode Input Autofill: crisp white background and dark text */
+.light input:-webkit-autofill,
+.light input:-webkit-autofill:hover, 
+.light input:-webkit-autofill:focus, 
+.light input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
+  -webkit-text-fill-color: #14181F !important;
+  caret-color: #14181F !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Light Mode Modal Backdrop: soft modern dimming instead of pitch-black 85% */
+.light .fixed.inset-0.bg-black\/85,
+.light .fixed.inset-0.bg-black\/80,
+.light .fixed.inset-0.bg-\[\#07090E\]\/85,
+.light .fixed.inset-0.bg-\[\#07090E\]\/80,
+.light .fixed.inset-0.bg-\[\#07090e\]\/85,
+.light [class*="bg-\[\#07090E\]"],
+.light [class*="bg-\[\#07090e\]"] {
+  background-color: rgba(20, 24, 31, 0.35) !important;
+}
+
+/* Light Mode Modal Dialog: pure white solid elevated card */
+.light [role="dialog"] {
+  background-color: var(--color-bg-elevated) !important;
+  border-color: var(--color-border-hairline) !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Light Mode Select & Options: clean white dropdowns */
+.light select option {
+  background-color: #FFFFFF !important;
+  color: #14181F !important;
+}
+
+/* Safety Net: Neutralize any remaining hardcoded dark surfaces in light mode */
+.light [class*="bg-\[\#0c1017\]"],
+.light [class*="bg-\[\#0e131b\]"],
+.light [class*="bg-\[\#0d121b\]"],
+.light [class*="bg-\[\#0f1420\]"],
+.light [class*="bg-\[\#101522\]"],
+.light [class*="bg-\[\#121622\]"],
+.light [class*="bg-\[\#141824\]"] {
+  background-color: var(--color-bg-elevated) !important;
+}
+
 
