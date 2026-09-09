@@ -2,6 +2,12 @@
 
 > File ini ditulis oleh agen AI, bukan oleh manusia. Dibaca otomatis di awal sesi (bagian atas file diprioritaskan). Lihat `AGENTS.md` §5 untuk format entri dan aturan pemangkasan.
 
+## [2026-09-09] Hardcoded Dark Background Hex Menyebabkan Bocor Warna Gelap & Kontras Rusak di Mode Terang
+- Apa yang salah: Modal tutorial tugas proyek (`today-task-guide-modal.tsx`) dan beberapa dialog lainnya menampilkan area hitam pekat `#0c1017` di dalam modal putih pada mode terang (light mode), serta backdrop overlay yang terlalu gelap (85% black) dan input autofill yang menghitam.
+- Kenapa terjadi (root cause, bukan cuma gejala): Dialog box dan beberapa container masih menggunakan hardcoded dark Tailwind classes seperti `bg-[#0c1017]/90`, `bg-[#0e131b]`, `bg-[#0d121b]`, dan `bg-[#07090E]/85` alih-alih token semantik (`bg-bg-elevated`, `bg-bg-base`, `border-border-hairline`). Ketika aturan global mode terang menimpa card dalam menjadi putih, warna hitam dasar dialog pembungkus tembus keluar sehingga modal tampak belang dan teks gelap menjadi tidak terbaca.
+- Perbaikan yang dilakukan: (1) Mengubah `today-task-guide-modal.tsx`, `components/ui/modal.tsx`, `feed-client-view.tsx`, `community-credits-modal.tsx`, `create-project-modal.tsx`, `edit-project-modal.tsx`, dan floating action/toast bars menjadi token semantik penuh (`bg-bg-elevated`, `bg-bg-base`, `border-border-hairline`, `text-text-primary`). (2) Menambahkan safety-net komprehensif di `styles/globals.css` untuk mode terang yang menetralkan semua class hex dark tersisa, meredupkan backdrop overlay menjadi soft dim (`rgba(20, 24, 31, 0.35)`), membersihkan background `<option>`, dan memperbaiki browser autofill agar berlatar putih bersih.
+- Aturan ke depan: Jangan pernah menggunakan class warna hex gelap hardcoded (`bg-[#...]`) pada elemen UI yang mendukung tema ganda; selalu gunakan token semantik CSS variables (`bg-bg-elevated`, `bg-bg-base`, `border-border-hairline`).
+
 ## [2026-09-09] Duplikasi URL Link Tautan Telegram Karena Normalisasi Tag Anchor
 - Apa yang salah: Tautan dalam pesan Telegram (misalnya link registrasi atau sumber tweet) muncul ganda seperti "https://hyperanon.org (https://hyperanon.org/)" di modal preview feed, panduan proyek, dan waitlist.
 - Kenapa terjadi (root cause, bukan cuma gejala): Parser scraper Telegram sebelumnya mengonversi semua tag `<a href="$1">$2</a>` menjadi template `$2 ($1)`. Ketika teks tautan ($2) adalah URL yang sama persis dengan atribut href ($1) (hanya beda trailing slash atau protokol), hasilnya menjadi duplikasi link berdampingan.
