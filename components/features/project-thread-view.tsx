@@ -8,6 +8,7 @@ import {
   Trash2,
   Newspaper,
   Clock,
+  Calendar,
   Link as LinkIcon,
   MessageSquare,
   Pin,
@@ -34,6 +35,7 @@ interface ProjectThreadViewProps {
   onOpenTelegramSearch: () => void;
   refreshTrigger?: number;
   onThreadsLoaded?: (threads: ThreadItem[]) => void;
+  onThreadsChange?: (threads: ThreadItem[]) => void;
 }
 
 interface ChannelSource {
@@ -110,6 +112,24 @@ function formatTime(isoString?: string | null, isEn?: boolean): string {
       day: "numeric",
       month: "short",
       year: "numeric",
+    });
+  } catch {
+    return "";
+  }
+}
+
+// Format clear explicit date and time for Telegram updates & timeline entries
+function formatFullDate(isoString?: string | null, isEn?: boolean): string {
+  if (!isoString) return "";
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString(isEn ? "en-US" : "id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return "";
@@ -268,6 +288,7 @@ export function ProjectThreadView({
   onOpenTelegramSearch,
   refreshTrigger = 0,
   onThreadsLoaded,
+  onThreadsChange,
 }: ProjectThreadViewProps) {
   const { locale, isEn } = useTranslation();
   const [threads, setThreads] = useState<ThreadItem[]>([]);
@@ -294,12 +315,13 @@ export function ProjectThreadView({
       const data = await fetchProjectThreads(projectId);
       setThreads(data);
       if (onThreadsLoaded) onThreadsLoaded(data);
+      if (onThreadsChange) onThreadsChange(data);
     } catch (err) {
       console.error("Failed to load project threads:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, onThreadsLoaded]);
+  }, [projectId, onThreadsLoaded, onThreadsChange]);
 
   useEffect(() => {
     loadThreads();
@@ -307,7 +329,10 @@ export function ProjectThreadView({
 
   // Handle delete update item
   const handleDeleteThread = async (threadId: string) => {
-    setThreads((prev) => prev.filter((t) => t.id !== threadId));
+    const updated = threads.filter((t) => t.id !== threadId);
+    setThreads(updated);
+    if (onThreadsChange) onThreadsChange(updated);
+    if (onThreadsLoaded) onThreadsLoaded(updated);
     await deleteProjectThread(projectId, threadId);
   };
 
@@ -337,17 +362,31 @@ export function ProjectThreadView({
       created_at: new Date().toISOString(),
     };
 
-    setThreads((prev) => [optimisticItem, ...prev]);
+    setThreads((prev) => {
+      const next = [optimisticItem, ...prev];
+      if (onThreadsChange) onThreadsChange(next);
+      return next;
+    });
     setInputTitle("");
     setInputSourceUrl("");
     setShowSourceInput(false);
 
     try {
       const created = await createProjectThread(projectId, newItemPayload);
-      setThreads((prev) => prev.map((t) => (t.id === tempId ? created : t)));
+      setThreads((prev) => {
+        const next = prev.map((t) => (t.id === tempId ? created : t));
+        if (onThreadsChange) onThreadsChange(next);
+        if (onThreadsLoaded) onThreadsLoaded(next);
+        return next;
+      });
     } catch (err) {
       console.error("Failed to add update:", err);
-      setThreads((prev) => prev.filter((t) => t.id !== tempId));
+      setThreads((prev) => {
+        const reverted = prev.filter((t) => t.id !== tempId);
+        if (onThreadsChange) onThreadsChange(reverted);
+        if (onThreadsLoaded) onThreadsLoaded(reverted);
+        return reverted;
+      });
     } finally {
       setIsSubmitting(false);
       inputRef.current?.focus();
@@ -602,7 +641,13 @@ export function ProjectThreadView({
           const isLast = idx === threads.length - 1;
           const cleanTitle = cleanHtmlEntities(item.title);
           const cleanContent = cleanHtmlEntities(item.content || "");
-          const hasExtraContent = cleanContent && cleanContent.trim() !== cleanTitle.trim();
+          const isTelegramUpdate = Boolean(item.source_url?.includes("t.me") || item.source_date);
+          const postDate = item.source_date || item.created_at;
+          const fullDateStr = formatFullDate(postDate, isEn);
+          const relativeStr = formatTime(item.created_at, isEn);
+
+          // If content is full post, render it cleanly as original post
+          const displayFullPost = cleanContent && cleanContent.trim().length > 0;
 
           return (
             <div key={item.id} className="flex items-start gap-4 sm:gap-5 group animate-fade-in">
@@ -610,7 +655,11 @@ export function ProjectThreadView({
               <div className="flex flex-col items-center shrink-0 self-stretch relative w-10 sm:w-11">
                 {/* Node Update Icon */}
                 <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 border-link-teal/50 bg-[#0c1017] ring-4 ring-[#07090e] flex items-center justify-center text-link-teal shadow-xl shadow-black/80 shrink-0 z-10 mt-1">
-                  <Newspaper className="w-4 h-4" />
+                  {isTelegramUpdate ? (
+                    <Send className="w-4 h-4 text-link-teal" />
+                  ) : (
+                    <Newspaper className="w-4 h-4" />
+                  )}
                 </div>
 
                 {/* Garis Vertikal ke bawah jika ada update berikutnya */}
@@ -620,20 +669,41 @@ export function ProjectThreadView({
               </div>
 
               {/* Kolom Kanan: Update Card Container */}
-              <div className="flex-1 min-w-0 p-4 sm:p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.2] transition-all duration-200 shadow-xl shadow-black/20 space-y-2.5">
+              <div className="flex-1 min-w-0 p-4 sm:p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.2] transition-all duration-200 shadow-xl shadow-black/20 space-y-3">
                 {/* Header: Badge, Timestamp, Source Link, Delete */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-link-teal/20 text-link-teal border border-link-teal/30 flex items-center gap-1 shadow-xs">
-                      <Newspaper className="w-2.5 h-2.5" />
-                      <span>{isEn ? "Info Update" : "Update Info"}</span>
+                      {isTelegramUpdate ? (
+                        <>
+                          <Send className="w-2.5 h-2.5" />
+                          <span>{isEn ? "Telegram Update" : "Update Telegram"}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Newspaper className="w-2.5 h-2.5" />
+                          <span>{isEn ? "Info Update" : "Catatan Update"}</span>
+                        </>
+                      )}
                     </span>
 
-                    <span className="text-white/20 text-caption">•</span>
-                    <span className="text-[11px] font-mono text-text-tertiary flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-text-tertiary/70" />
-                      <span>{formatTime(item.created_at, isEn)}</span>
-                    </span>
+                    {/* Clear Date & Time Badge */}
+                    {fullDateStr && (
+                      <>
+                        <span className="text-white/20 text-caption">•</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-[11px] font-mono text-text-primary shadow-xs">
+                          <Calendar className="w-3 h-3 text-accent" />
+                          <span className="font-semibold">{fullDateStr}</span>
+                        </span>
+                      </>
+                    )}
+
+                    {relativeStr && (
+                      <span className="text-[11px] font-mono text-text-tertiary flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-text-tertiary/70" />
+                        <span>{relativeStr}</span>
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -644,7 +714,8 @@ export function ProjectThreadView({
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[11px] text-link-teal hover:underline font-medium"
                       >
-                        <span>{isEn ? "Source" : "Sumber"}</span>
+                        <Send className="w-3 h-3" />
+                        <span>{item.source_url.includes("t.me") ? (isEn ? "Open in TG" : "Buka di TG") : (isEn ? "Source" : "Sumber")}</span>
                         <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     )}
@@ -660,18 +731,16 @@ export function ProjectThreadView({
                   </div>
                 </div>
 
-                {/* Content */}
-                <div className="space-y-2">
+                {/* Content: 100% Full Original Post */}
+                {displayFullPost ? (
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] text-body-sm text-text-secondary leading-relaxed whitespace-pre-line break-words font-sans selection:bg-accent/30 selection:text-white">
+                    {renderInteractivePostText(cleanContent)}
+                  </div>
+                ) : (
                   <div className="text-body-sm text-text-primary font-medium leading-relaxed">
                     {renderInteractivePostText(cleanTitle)}
                   </div>
-
-                  {hasExtraContent && (
-                    <div className="text-body-sm text-text-secondary leading-relaxed whitespace-pre-line p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                      {renderInteractivePostText(cleanContent)}
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           );

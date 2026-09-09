@@ -482,7 +482,7 @@ export function DashboardClientView({
                 <Flame className={`w-3.5 h-3.5 ${activeProjectFilter === "ready" ? "text-on-accent" : "text-accent"}`} />
                 <span>{t("dashboard.tabs.ready")}</span>
                 <span
-                  className={`ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold ${
+                  className={`ml-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ${
                     activeProjectFilter === "ready"
                       ? "bg-black/20 text-on-accent"
                       : "bg-bg-elevated-2 text-text-secondary border border-border-hairline"
@@ -505,7 +505,7 @@ export function DashboardClientView({
                 <AlertCircle className={`w-3.5 h-3.5 ${activeProjectFilter === "overdue" ? "text-white" : "text-status-overdue"}`} />
                 <span>{t("dashboard.tabs.overdue")}</span>
                 <span
-                  className={`ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold ${
+                  className={`ml-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ${
                     activeProjectFilter === "overdue"
                       ? "bg-black/20 text-white"
                       : overdueProjects.length > 0
@@ -530,7 +530,7 @@ export function DashboardClientView({
                 <CheckCircle2 className={`w-3.5 h-3.5 ${activeProjectFilter === "completed_today" ? "text-white" : "text-status-completed"}`} />
                 <span>{t("dashboard.tabs.completedToday")}</span>
                 <span
-                  className={`ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold ${
+                  className={`ml-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ${
                     activeProjectFilter === "completed_today"
                       ? "bg-black/20 text-white"
                       : completedTodayProjects.length > 0
@@ -554,7 +554,7 @@ export function DashboardClientView({
               >
                 <Clock className="w-3.5 h-3.5 text-text-tertiary" />
                 <span>{t("dashboard.tabs.upcoming")}</span>
-                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-bg-elevated-2 border border-border-hairline text-text-secondary">
+                <span className="ml-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-bg-elevated-2 border border-border-hairline text-text-secondary">
                   {upcomingProjects.length}
                 </span>
               </button>
@@ -571,7 +571,7 @@ export function DashboardClientView({
               >
                 <FastForward className="w-3.5 h-3.5 text-text-tertiary" />
                 <span>{t("dashboard.tabs.skipped")}</span>
-                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-bg-elevated-2 border border-border-hairline text-text-secondary">
+                <span className="ml-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-bg-elevated-2 border border-border-hairline text-text-secondary">
                   {skippedProjects.length}
                 </span>
               </button>
@@ -587,7 +587,7 @@ export function DashboardClientView({
                 }`}
               >
                 <span>{t("dashboard.tabs.all")}</span>
-                <span className="ml-0.5 px-1.5 py-0.2 rounded font-mono text-[10px] font-bold bg-bg-elevated-2 border border-border-hairline text-text-secondary">
+                <span className="ml-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-bg-elevated-2 border border-border-hairline text-text-secondary">
                   {projects.length}
                 </span>
               </button>
@@ -939,7 +939,7 @@ export function DashboardClientView({
                           {projectName}
                         </span>
                         {isToday && (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-accent text-on-accent font-bold uppercase tracking-wider">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent text-on-accent font-bold uppercase tracking-wider">
                             Hari Ini
                           </span>
                         )}

@@ -45,6 +45,8 @@ import {
 import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 import {
   scanProjectsTelegramBatch,
+  normalizeTgUrl,
+  arePostsSimilar,
   type BatchTelegramItem,
   type ProjectScanTarget,
 } from "@/lib/supabase/telegram-batch-scanner";
@@ -123,8 +125,12 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
         name: w.project_name,
         chain: "Waitlist",
         status: w.status,
+        sourceUrl: w.source_url,
+        rawText: w.raw_text,
         social_links: {
           telegram_channel: w.channel === "airdropfind" ? "airdropfind" : "dutacryptoairdrop",
+          source_url: w.source_url,
+          telegram_post_url: w.source_url,
         },
       }));
 
@@ -138,8 +144,8 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
         const uniqueWaitlistsCount = new Set(results.map((r) => r.projectId)).size;
         setBatchNotice(
           isEn
-            ? `Discovered ${results.length} new Telegram update(s) for ${uniqueWaitlistsCount} waitlist(s)! Look for the blue "New" badge on cards.`
-            : `Ditemukan ${results.length} kabar baru dari Telegram untuk ${uniqueWaitlistsCount} waitlist! Periksa badge biru "Baru" di kartu.`
+            ? `Discovered ${results.length} new Telegram update(s) for ${uniqueWaitlistsCount} waitlist(s)! Look for the "+${results.length} New" badge on cards.`
+            : `Ditemukan ${results.length} kabar baru dari Telegram untuk ${uniqueWaitlistsCount} waitlist! Periksa badge "+${results.length} Baru" di kartu.`
         );
       } else {
         setBatchNotice(
@@ -242,26 +248,6 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     setTransferSourceUrl(post.postUrl || "");
     setTransferRawText(post.text || "");
     setTransferTaskList(detectedTasks);
-    setTransferProjectMode(existingProjects.some((p) => p.name.toLowerCase() === waitlist.project_name.toLowerCase()) ? "existing" : "new");
-    if (existingProjects.some((p) => p.name.toLowerCase() === waitlist.project_name.toLowerCase())) {
-      const match = existingProjects.find((p) => p.name.toLowerCase() === waitlist.project_name.toLowerCase());
-      if (match) setSelectedExistingProjectId(match.id);
-    }
-    setTransferTaskType("one_time");
-    setNewTaskInput("");
-    setTransferModalOpen(true);
-  };
-
-  const handleOpenTransferModalFromWaitlistDirect = (waitlist: WaitlistItem) => {
-    setTransferWaitlistRef(waitlist);
-    setTransferProjectName(waitlist.project_name);
-    setTransferSourceUrl(waitlist.source_url || "");
-    setTransferRawText(waitlist.raw_text || "");
-    setTransferTaskList(
-      waitlist.tasks && waitlist.tasks.length > 0
-        ? [...waitlist.tasks]
-        : extractTasksFromText(waitlist.raw_text)
-    );
     setTransferProjectMode(existingProjects.some((p) => p.name.toLowerCase() === waitlist.project_name.toLowerCase()) ? "existing" : "new");
     if (existingProjects.some((p) => p.name.toLowerCase() === waitlist.project_name.toLowerCase())) {
       const match = existingProjects.find((p) => p.name.toLowerCase() === waitlist.project_name.toLowerCase());
@@ -424,8 +410,9 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   // Open TG Search Updates Modal
   const handleOpenTgSearch = async (item: WaitlistItem) => {
     setTgSearchTarget(item);
-    setTgSearchChannel("dutacryptoairdrop");
-    fetchTgUpdates(item.project_name, "dutacryptoairdrop");
+    const targetChannel = item.channel === "airdropfind" ? "airdropfind" : "dutacryptoairdrop";
+    setTgSearchChannel(targetChannel);
+    fetchTgUpdates(item.project_name, targetChannel);
   };
 
   const fetchTgUpdates = async (query: string, ch: "dutacryptoairdrop" | "airdropfind") => {
@@ -531,6 +518,11 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 ? "Check TG Updates"
                 : "Periksa Update TG"}
             </span>
+            {discoveredBatchItems.length > 0 && !isScanningTg && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-link-teal text-on-accent leading-none">
+                +{discoveredBatchItems.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -746,7 +738,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                             title={isEn ? "Click to view newly discovered Telegram updates" : "Klik untuk melihat kabar terbaru dari Telegram"}
                           >
                             <span className="w-1.5 h-1.5 rounded-full bg-link-teal" />
-                            <span>{batchDiscoveredMap.get(item.id)} {isEn ? "New" : "Baru"}</span>
+                            <span>+{batchDiscoveredMap.get(item.id)} {isEn ? "New" : "Baru"}</span>
                           </button>
                         )}
                         {isJoined && (
@@ -872,8 +864,8 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           <Search className="w-3.5 h-3.5" />
                           <span>{isEn ? "TG Update" : "Update TG"}</span>
                           {batchDiscoveredMap.has(item.id) && (
-                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-link-teal text-text-inverse font-mono font-bold">
-                              {batchDiscoveredMap.get(item.id)}
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-link-teal text-on-accent font-mono font-bold leading-none shrink-0 shadow-xs">
+                              +{batchDiscoveredMap.get(item.id)}
                             </span>
                           )}
                         </button>
@@ -1001,7 +993,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             <button
               type="submit"
               disabled={isSavingStatus}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-accent text-text-inverse font-semibold text-body-sm hover:bg-accent-hover disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-accent text-on-accent font-semibold text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-colors"
             >
               {isSavingStatus ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1039,7 +1031,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 }}
                 className={`px-3 py-1 rounded text-caption font-semibold transition-colors ${
                   tgSearchChannel === "dutacryptoairdrop"
-                    ? "bg-accent text-text-inverse"
+                    ? "bg-accent text-on-accent"
                     : "text-text-secondary hover:bg-bg-elevated-2"
                 }`}
               >
@@ -1053,7 +1045,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                 }}
                 className={`px-3 py-1 rounded text-caption font-semibold transition-colors ${
                   tgSearchChannel === "airdropfind"
-                    ? "bg-accent text-text-inverse"
+                    ? "bg-accent text-on-accent"
                     : "text-text-secondary hover:bg-bg-elevated-2"
                 }`}
               >
@@ -1096,13 +1088,24 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
 
                 {tgUpdates.map((post) => {
                   const isCopied = copiedId === post.id;
+                  const isRootPost = Boolean(
+                    tgSearchTarget && (
+                      normalizeTgUrl(post.postUrl) === normalizeTgUrl(tgSearchTarget.source_url) ||
+                      arePostsSimilar(post.text, tgSearchTarget.raw_text)
+                    )
+                  );
+
                   return (
                     <div
                       key={post.id}
-                      className="p-3.5 rounded-lg bg-bg-elevated border border-border-hairline hover:border-border-hairline-strong transition-all space-y-2"
+                      className={`p-3.5 rounded-lg border transition-all space-y-2 ${
+                        isRootPost
+                          ? "bg-bg-elevated/80 border-border-hairline"
+                          : "bg-bg-elevated border-border-hairline hover:border-border-hairline-strong"
+                      }`}
                     >
                       <div className="flex items-center justify-between gap-2 border-b border-border-subtle pb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-caption font-semibold text-text-primary flex items-center gap-1">
                             <Send className="w-3 h-3 text-link-teal" />
                             <span>{post.channelName}</span>
@@ -1110,6 +1113,15 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           <span className="text-[11px] font-mono text-text-tertiary">
                             {formatDate(post.date)}
                           </span>
+                          {isRootPost ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-white/[0.08] text-text-secondary border border-white/15">
+                              {isEn ? "Original Waitlist Post" : "Postingan Pendaftaran Asli"}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-link-teal/15 text-link-teal border border-link-teal/30">
+                              {isEn ? "Latest Update" : "Update Lanjutan"}
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-1.5">
@@ -1149,7 +1161,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                         <button
                           type="button"
                           onClick={() => tgSearchTarget && handleOpenTransferModalFromUpdate(post, tgSearchTarget)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-accent text-text-inverse hover:bg-accent-hover text-[11px] font-semibold transition-colors shadow-xs"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-accent text-on-accent hover:bg-accent-pressed text-[11px] font-semibold transition-colors shadow-xs"
                           title="Ekstrak langkah-langkah tugas dari pesan ini dan pindahkan ke tugas proyek airdrop"
                         >
                           <Rocket className="w-3 h-3" />
@@ -1163,22 +1175,13 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             )}
           </div>
 
-          {/* Footer with Convert to Project option */}
-          <div className="pt-3 border-t border-border-hairline flex items-center justify-between gap-2 shrink-0">
-            {tgSearchTarget && (
-              <button
-                type="button"
-                onClick={() => {
-                  setTgSearchTarget(null);
-                  handleOpenTransferModalFromWaitlistDirect(tgSearchTarget);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent/15 border border-accent/30 text-accent hover:bg-accent/25 text-caption font-semibold transition-colors"
-              >
-                <Rocket className="w-3.5 h-3.5" />
-                <span>Pindahkan Waitlist Ini ke Tugas Droppr</span>
-              </button>
-            )}
-
+          {/* Modal Footer */}
+          <div className="pt-3 border-t border-border-hairline flex items-center justify-between text-caption text-text-tertiary shrink-0">
+            <span>
+              {isEn
+                ? "Data is fetched publicly from Telegram Web without any account/token."
+                : "Data diambil langsung secara publik dari Telegram Web tanpa akun/token."}
+            </span>
             <ButtonSecondary type="button" onClick={() => setTgSearchTarget(null)}>
               {isEn ? "Close" : "Tutup"}
             </ButtonSecondary>
@@ -1306,7 +1309,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   onClick={() => setTransferTaskType("one_time")}
                   className={`px-3 py-1 rounded text-caption font-semibold transition-colors ${
                     transferTaskType === "one_time"
-                      ? "bg-accent text-text-inverse"
+                      ? "bg-accent text-on-accent"
                       : "text-text-secondary hover:bg-bg-elevated-2"
                   }`}
                 >
@@ -1317,7 +1320,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   onClick={() => setTransferTaskType("daily")}
                   className={`px-3 py-1 rounded text-caption font-semibold transition-colors ${
                     transferTaskType === "daily"
-                      ? "bg-accent text-text-inverse"
+                      ? "bg-accent text-on-accent"
                       : "text-text-secondary hover:bg-bg-elevated-2"
                   }`}
                 >
@@ -1428,7 +1431,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               <button
                 type="submit"
                 disabled={isTransferring || transferTaskList.length === 0}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-accent text-text-inverse font-semibold text-body-sm hover:bg-accent-hover disabled:opacity-50 transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-accent text-on-accent font-semibold text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-colors shadow-sm"
               >
                 {isTransferring ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />

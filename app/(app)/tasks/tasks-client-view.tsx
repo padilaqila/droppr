@@ -291,7 +291,7 @@ export function TasksClientView({
             }`}
           >
             <span>{t("tasks.tabs.all")}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-white/[0.06] text-[10px] font-mono">
+            <span className="px-1.5 py-0.5 rounded-full bg-white/[0.06] text-[10px] font-mono leading-none">
               {stats.total}
             </span>
           </button>
@@ -307,7 +307,7 @@ export function TasksClientView({
           >
             <Repeat className="w-3.5 h-3.5 text-amber-400" />
             <span>{t("tasks.tabs.recurring")}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/15 text-[10px] font-mono">
+            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/15 text-[10px] font-mono leading-none">
               {stats.recurring}
             </span>
           </button>
@@ -323,7 +323,7 @@ export function TasksClientView({
           >
             <Zap className="w-3.5 h-3.5 text-sky-400" />
             <span>{t("tasks.tabs.oneTime")}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-sky-500/15 text-[10px] font-mono">
+            <span className="px-1.5 py-0.5 rounded-full bg-sky-500/15 text-[10px] font-mono leading-none">
               {stats.oneTime}
             </span>
           </button>
@@ -339,7 +339,7 @@ export function TasksClientView({
           >
             <PauseCircle className="w-3.5 h-3.5 text-indigo-300" />
             <span>{t("tasks.tabs.waiting")}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/15 text-[10px] font-mono">
+            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-[10px] font-mono leading-none">
               {stats.waiting}
             </span>
           </button>
@@ -355,7 +355,7 @@ export function TasksClientView({
           >
             <Gift className="w-3.5 h-3.5 text-status-completed" />
             <span>{t("tasks.tabs.readyToClaim")}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-status-completed/15 text-[10px] font-mono">
+            <span className="px-1.5 py-0.5 rounded-full bg-status-completed/15 text-[10px] font-mono leading-none">
               {stats.readyToClaim}
             </span>
           </button>

@@ -26,6 +26,22 @@ export interface ProjectScanTarget {
   chain?: string | null;
   status?: string | null;
   social_links?: Record<string, any> | null;
+  sourceUrl?: string | null;
+  rawText?: string | null;
+}
+
+/**
+ * Standardize Telegram post URL for strict matching across domains and query params
+ */
+export function normalizeTgUrl(url?: string | null): string {
+  if (!url) return "";
+  return url
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/^telegram\.me\//, "t.me/")
+    .replace(/\?.*$/, "")
+    .replace(/\/+$/, "");
 }
 
 // Common spam / promotional keywords to filter out from Telegram channels
@@ -69,7 +85,8 @@ function derivePostTitle(text: string): string {
 /**
  * Checks text similarity using word-token jaccard overlap
  */
-function arePostsSimilar(textA: string, textB: string): boolean {
+export function arePostsSimilar(textA?: string | null, textB?: string | null): boolean {
+  if (!textA || !textB) return false;
   const wordsA = new Set(textA.toLowerCase().replace(/[^a-z0-9]/g, " ").split(/\s+/).filter((w) => w.length > 3));
   const wordsB = new Set(textB.toLowerCase().replace(/[^a-z0-9]/g, " ").split(/\s+/).filter((w) => w.length > 3));
 
@@ -86,7 +103,7 @@ function arePostsSimilar(textA: string, textB: string): boolean {
 }
 
 /**
- * Fetch existing source URLs from database for a set of projects to avoid duplicates
+ * Fetch existing source URLs from database for a set of projects/waitlists to avoid duplicates
  */
 async function fetchExistingSourceUrls(projectIds: string[]): Promise<Set<string>> {
   const existingUrls = new Set<string>();
@@ -104,11 +121,11 @@ async function fetchExistingSourceUrls(projectIds: string[]): Promise<Set<string
 
     if (Array.isArray(updatesData)) {
       updatesData.forEach((row: any) => {
-        if (row.source_url) existingUrls.add(row.source_url.toLowerCase().trim());
+        if (row.source_url) existingUrls.add(normalizeTgUrl(row.source_url));
       });
     }
 
-    // 2. From projects.social_links.thread_updates fallback
+    // 2. From projects.social_links.thread_updates fallback & root telegram_post_url
     const { data: projectsData } = await supabase
       .from("projects")
       .select("social_links")
@@ -117,11 +134,28 @@ async function fetchExistingSourceUrls(projectIds: string[]): Promise<Set<string
     if (Array.isArray(projectsData)) {
       projectsData.forEach((row: any) => {
         const sl = row.social_links as Record<string, any> | null;
-        if (sl && Array.isArray(sl.thread_updates)) {
-          sl.thread_updates.forEach((item: any) => {
-            if (item.source_url) existingUrls.add(item.source_url.toLowerCase().trim());
-          });
+        if (sl) {
+          if (sl.telegram_post_url) existingUrls.add(normalizeTgUrl(sl.telegram_post_url));
+          if (sl.source_url) existingUrls.add(normalizeTgUrl(sl.source_url));
+          if (Array.isArray(sl.thread_updates)) {
+            sl.thread_updates.forEach((item: any) => {
+              if (item.source_url) existingUrls.add(normalizeTgUrl(item.source_url));
+            });
+          }
         }
+      });
+    }
+
+    // 3. From waitlists table (for waitlist batch scans)
+    const { data: waitlistsData } = await supabase
+      .from("waitlists")
+      .select("source_url")
+      .in("id", projectIds)
+      .not("source_url", "is", null);
+
+    if (Array.isArray(waitlistsData)) {
+      waitlistsData.forEach((row: any) => {
+        if (row.source_url) existingUrls.add(normalizeTgUrl(row.source_url));
       });
     }
   } catch (err) {
@@ -138,10 +172,10 @@ export async function scanProjectsTelegramBatch(
   projects: ProjectScanTarget[],
   onProgress?: (current: number, total: number, currentProjectName: string) => void
 ): Promise<BatchTelegramItem[]> {
-  // Filter only active projects (in_progress or joined waitlist)
+  // Filter only active projects / waitlists
   const targets = projects.filter((p) => {
     const st = (p.status || "").toLowerCase();
-    return st === "in_progress" || st === "joined" || st === "waiting" || !st;
+    return st === "in_progress" || st === "joined" || st === "waiting" || st === "pending" || !st;
   });
 
   if (targets.length === 0) {
@@ -160,12 +194,21 @@ export async function scanProjectsTelegramBatch(
 
     // Determine target channel (prioritize source channel if present in social_links)
     const sl = proj.social_links || {};
-    const tgSourceUrl = (sl.telegram_post_url || sl.telegram || "").toLowerCase();
+    const tgSourceUrl = (sl.telegram_post_url || sl.source_url || sl.telegram || proj.sourceUrl || "").toLowerCase();
     let preferredChannel: "airdropfind" | "dutacryptoairdrop" = "airdropfind";
 
     if (tgSourceUrl.includes("dutacrypto")) {
       preferredChannel = "dutacryptoairdrop";
     }
+
+    // Collect all root/origin URLs and text for this specific target to strictly prevent self-matching
+    const rootUrls = new Set<string>();
+    if (proj.sourceUrl) rootUrls.add(normalizeTgUrl(proj.sourceUrl));
+    if (sl.telegram_post_url) rootUrls.add(normalizeTgUrl(sl.telegram_post_url));
+    if (sl.source_url) rootUrls.add(normalizeTgUrl(sl.source_url));
+    if (sl.telegram && sl.telegram.includes("t.me/")) rootUrls.add(normalizeTgUrl(sl.telegram));
+
+    const rootText = proj.rawText || (sl.raw_text as string) || "";
 
     try {
       // Fetch search results for project name
@@ -180,19 +223,29 @@ export async function scanProjectsTelegramBatch(
         const validProjectItems: BatchTelegramItem[] = [];
 
         for (const item of rawUpdates) {
-          const cleanPostUrl = (item.postUrl || "").toLowerCase().trim();
+          const cleanPostUrl = normalizeTgUrl(item.postUrl);
 
-          // 1. Skip if URL already in database thread
+          // 1. Skip if URL already in database thread or waitlists
           if (existingUrls.has(cleanPostUrl)) {
             continue;
           }
 
-          // 2. Skip spam / promotional messages
+          // 2. Skip if this is the root / origin post that created this waitlist or project
+          if (rootUrls.has(cleanPostUrl)) {
+            continue;
+          }
+
+          // 3. Skip spam / promotional messages
           if (isSpamTelegramText(item.text)) {
             continue;
           }
 
-          // 3. Skip if duplicate of another item already discovered in this batch
+          // 4. Skip if content is identical or near-identical to the original waitlist / project root post
+          if (rootText && arePostsSimilar(item.text, rootText)) {
+            continue;
+          }
+
+          // 5. Skip if duplicate of another item already discovered in this batch
           const isDup = validProjectItems.some((existing) =>
             arePostsSimilar(existing.text, item.text)
           );

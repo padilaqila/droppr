@@ -17,3 +17,15 @@
 - Kenapa terjadi (root cause, bukan cuma gejala): (1) Chromium secara default menginjeksi pseudo-class `input:-webkit-autofill` dengan background terang dan teks gelap jika tidak dioverride dengan `-webkit-box-shadow inset`. (2) Tombol intip password sebelumnya tidak memiliki `z-index` yang cukup (`z-20`), sehingga terhalang layer autofill browser dan native Edge password reveal (`::-ms-reveal`). (3) Halaman register belum mengimplementasikan state `showPassword` dan `showConfirmPassword`.
 - Perbaikan yang dilakukan: Menambahkan override global `input:-webkit-autofill` di `styles/globals.css` dengan `-webkit-box-shadow: 0 0 0 1000px #0f1420 inset !important` dan teks `#F4F6F8`, menonaktifkan native reveal Chromium/Edge (`input::-ms-reveal, input::-ms-clear { display: none !important; }`), menaikkan kontras warna icon (`text-text-secondary` dengan alignment presisi `top-1/2 -translate-y-1/2` dan `z-10`), serta memasang tombol intip password interaktif (`z-20`, tooltip, hit area nyaman) pada login dan kedua field password register.
 - Aturan ke depan: Setiap form autentikasi gelap WAJIB memiliki CSS override `:-webkit-autofill` dan `::-ms-reveal`, icon input harus memiliki `z-10`, dan tombol aksi di dalam input wajib memiliki `z-20` dengan alignment `top-1/2 -translate-y-1/2`.
+
+## [2026-09-08] FOUC (Flash of Unstyled Content) saat reload di Mode Terang
+- Apa yang salah: Saat menggunakan mode terang, setiap reload halaman muncul flash layar gelap selama beberapa saat sebelum warna terang diterapkan.
+- Kenapa terjadi (root cause, bukan cuma gejala): Class `.light` sebelumnya disematkan ke `<html>` melalui `useEffect` di komponen React yang baru berjalan setelah hidrasi selesai, sedangkan HTML default yang di-render server adalah mode gelap.
+- Perbaikan yang dilakukan: Menambahkan script inline sinkron di `<head>` pada `app/layout.tsx` yang langsung membaca `localStorage.getItem('droppr-theme')` dan menyematkan class `light` ke `documentElement` sebelum paint pertama.
+- Aturan ke depan: State tema tampilan (dark/light) yang tersimpan di localStorage WAJIB diaplikasikan via synchronous inline script di `<head>` layout untuk mencegah FOUC.
+
+## [2026-09-08] 500 Internal Server Error di dev mode akibat stale crashed node process
+- Apa yang salah: Navigasi ke `/dashboard` (dan rute `(app)` lainnya) memunculkan teks "Internal Server Error" (HTTP 500).
+- Kenapa terjadi (root cause, bukan cuma gejala): Setelah runtime error Webpack sebelumnya (`undefined.call`), proses `next dev` yang berjalan di background mengalami memory leak (konsumsi RAM melonjak hingga 5.2 GB) dan compiler cache-nya berada di state korup permanen. Next.js mengembalikan 500 generik ke browser tanpa me-recover modul yang rusak.
+- Perbaikan yang dilakukan: Mematikan proses node lama yang macet/leak, menambahkan graceful error boundary try-catch pada `middleware.ts`, dan menyalakan kembali server `next dev` bersih di port 3000.
+- Aturan ke depan: Jika Next.js dev server menghasilkan 500 generik setelah runtime build error selesai diperbaiki, cek penggunaan memori proses node dan restart proses dev server dari nol.

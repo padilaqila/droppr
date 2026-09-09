@@ -79,14 +79,13 @@ export async function fetchProjectThreads(projectId: string): Promise<ThreadItem
         const cleanedRaw = cleanHtmlEntities(row.content || "");
         const lines = cleanedRaw.split("\n").filter((l: string) => l.trim().length > 0);
         const title = lines[0] || "Update Proyek";
-        const content = lines.slice(1).join("\n").trim() || null;
 
         return {
           id: String(row.id),
           project_id: row.project_id,
           type: (row.type === "task" ? "task" : "news") as "task" | "news",
           title: title,
-          content: content,
+          content: cleanedRaw || null,
           source_url: row.source_url || null,
           source_date: row.created_at,
           status: (row.is_completed ? "done" : (row.type === "task" ? "pending" : "info")) as "pending" | "done" | "info",
@@ -135,7 +134,9 @@ export async function createProjectThread(
     data: { user },
   } = await supabase.auth.getUser();
 
-  const fullContent = item.title + (item.content && item.content !== item.title ? `\n\n${item.content}` : "");
+  const fullContent = item.content?.trim()
+    ? (item.content.includes(item.title) ? item.content.trim() : `${item.title}\n\n${item.content}`.trim())
+    : item.title.trim();
   const nowIso = new Date().toISOString();
   const createdAt = item.source_date || nowIso;
 
@@ -143,6 +144,7 @@ export async function createProjectThread(
     ...item,
     id: "th-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6),
     project_id: projectId,
+    content: fullContent,
     created_at: createdAt,
   };
 
@@ -155,7 +157,7 @@ export async function createProjectThread(
           project_id: projectId,
           user_id: user.id,
           type: item.type === "task" ? "task" : "news",
-          content: fullContent.trim(),
+          content: fullContent,
           is_completed: item.status === "done",
           source_url: item.source_url || null,
           source_platform: item.source_url?.includes("t.me") ? "telegram" : "manual",
@@ -171,7 +173,7 @@ export async function createProjectThread(
           project_id: data.project_id,
           type: data.type === "task" ? "task" : "news",
           title: item.title,
-          content: item.content || null,
+          content: fullContent,
           source_url: data.source_url,
           source_date: data.created_at,
           status: data.is_completed ? "done" : (data.type === "task" ? "pending" : "info"),
@@ -385,19 +387,21 @@ export async function deleteProjectThread(
 ): Promise<void> {
   const supabase = createClient() as any;
 
-  // Try dedicated table
+  // 1. Delete from dedicated table
   try {
     const { error } = await supabase
       .from("project_updates")
       .delete()
       .eq("id", threadId);
 
-    if (!error) return;
-  } catch {
-    // Fall through
+    if (error) {
+      console.warn("Delete from project_updates error:", error);
+    }
+  } catch (err) {
+    console.error("Delete from project_updates exception:", err);
   }
 
-  // Fallback: Delete from projects.social_links
+  // 2. ALWAYS also purge from projects.social_links.thread_updates (fallback / legacy storage)
   try {
     const { data: projData } = await supabase
       .from("projects")
@@ -412,13 +416,15 @@ export async function deleteProjectThread(
 
     const updatedList = existing.filter((t) => t.id !== threadId);
 
-    await supabase
-      .from("projects")
-      .update({
-        social_links: { ...socialLinks, thread_updates: updatedList },
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", projectId);
+    if (existing.length !== updatedList.length) {
+      await supabase
+        .from("projects")
+        .update({
+          social_links: { ...socialLinks, thread_updates: updatedList },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", projectId);
+    }
   } catch (err) {
     console.error("Fallback delete thread error:", err);
   }

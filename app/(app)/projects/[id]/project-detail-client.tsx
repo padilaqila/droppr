@@ -275,10 +275,10 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
             type="button"
             onClick={() => setIsTelegramModalOpen(true)}
             className="!py-1 !px-2.5 text-caption rounded-md bg-link-teal/15 border border-link-teal/30 text-link-teal hover:bg-link-teal/25 transition-colors font-medium inline-flex items-center gap-1.5 shadow-sm"
-            title={isEn ? "Search updates for this project on Telegram" : "Cari update proyek ini di Telegram (Airdrop Finder & Duta Crypto)"}
+            title={isEn ? "Check updates for this project on Telegram" : "Periksa update proyek ini di Telegram (Airdrop Finder & Duta Crypto)"}
           >
             <Send className="w-3 h-3" />
-            <span>{isEn ? "Search TG Updates" : "Cari Update TG"}</span>
+            <span>{isEn ? "Check TG Updates" : "Cek Update TG"}</span>
           </button>
 
           <ButtonSecondary
@@ -413,6 +413,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
             onOpenTelegramSearch={() => setIsTelegramModalOpen(true)}
             refreshTrigger={threadRefreshTrigger}
             onThreadsLoaded={setThreads}
+            onThreadsChange={setThreads}
           />
         </div>
 
@@ -806,6 +807,11 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         telegramPostUrl={telegramPostUrl}
         existingThreads={threads}
         onThreadAdded={() => {
+          setThreadRefreshTrigger((prev) => prev + 1);
+          router.refresh();
+        }}
+        onThreadDeleted={(deletedId) => {
+          setThreads((prev) => prev.filter((t) => t.id !== deletedId));
           setThreadRefreshTrigger((prev) => prev + 1);
           router.refresh();
         }}

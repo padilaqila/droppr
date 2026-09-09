@@ -22,7 +22,6 @@ import {
   Wallet,
   Coins,
   Check,
-  RotateCcw,
   AlertCircle,
   X,
   BookOpen,
@@ -39,7 +38,6 @@ import {
   cleanupExpiredFeeds,
   convertFeedToProject,
   convertFeedToProjectWithAI,
-  resetFeedImportStatus,
   type AirdropFeedItem,
 } from "@/lib/supabase/airdrop-feeds";
 import { ProjectReviewModal } from "@/components/features/project-review-modal";
@@ -226,12 +224,10 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const [categoryFilter, setCategoryFilter] = useState<"all" | "testnet" | "retro">("all");
   const [costFilter, setCostFilter] = useState<"all" | "free" | "paid">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isGroupedByProject, setIsGroupedByProject] = useState(false);
 
   // Converting to project loading state
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [convertedSuccessId, setConvertedSuccessId] = useState<string | null>(null);
-  const [resettingId, setResettingId] = useState<string | null>(null);
   const [reviewingFeed, setReviewingFeed] = useState<AirdropFeedItem | null>(null);
 
   // Telegram original post preview modal state & manual on-demand translation
@@ -337,33 +333,6 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
     }
   };
 
-  // Reset feed imported status
-  const handleResetFeedStatus = async (feedId: string) => {
-    if (resettingId) return;
-    setResettingId(feedId);
-    setErrorMessage(null);
-
-    try {
-      const ok = await resetFeedImportStatus(feedId);
-      if (ok) {
-        setFeeds((prev) =>
-          prev.map((f) =>
-            f.id === feedId ? { ...f, is_imported: false, linked_project_id: null } : f
-          )
-        );
-        if (convertedSuccessId === feedId) {
-          setConvertedSuccessId(null);
-        }
-      } else {
-        setErrorMessage("Gagal mereset status garapan.");
-      }
-    } catch (err: any) {
-      console.error("Reset feed status error:", err);
-      setErrorMessage(err?.message || "Gagal mereset status garapan.");
-    } finally {
-      setResettingId(null);
-    }
-  };
 
   // Sync feed from Telegram
   const handleSyncFeed = async () => {
@@ -479,18 +448,8 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
     });
   }, [feeds, channelFilter, categoryFilter, costFilter, searchQuery]);
 
-  // Feeds to display: either all matching or deduplicated by project
-  const displayedFeeds = useMemo(() => {
-    if (!isGroupedByProject) return filteredFeeds;
-    const seen = new Set<string>();
-    return filteredFeeds.filter((f) => {
-      const key = extractCoreProjectKey(f.title);
-      if (!key) return true;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [filteredFeeds, isGroupedByProject]);
+  // Feeds to display
+  const displayedFeeds = filteredFeeds;
 
   // Counts for category badges
   const testnetCount = useMemo(
@@ -639,34 +598,16 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             </button>
           </div>
 
-          {/* Search bar & Group Toggle */}
-          <div className="flex items-center gap-2.5 flex-1 max-w-lg">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t("feed.searchPlaceholder")}
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
-              />
-            </div>
-
-            {/* Smart Deduplication / Group Toggle */}
-            <button
-              type="button"
-              onClick={() => setIsGroupedByProject(!isGroupedByProject)}
-              className={`px-3 py-2 rounded-xl border text-caption font-medium transition-all flex items-center gap-1.5 shrink-0 ${
-                isGroupedByProject
-                  ? "bg-accent/20 text-accent border-accent/35 font-semibold shadow-xs"
-                  : "bg-white/[0.03] text-text-secondary border-white/[0.08] hover:text-text-primary hover:border-white/[0.2]"
-              }`}
-              title={t("feed.groupTitle")}
-            >
-              <Layers2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t("feed.groupProjects")}</span>
-              <span className="sm:hidden">{t("feed.groupShort")}</span>
-            </button>
+          {/* Search bar */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("feed.searchPlaceholder")}
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
+            />
           </div>
         </div>
 
@@ -919,26 +860,14 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                           <span>{t("feed.alreadyProject")}</span>
                         </span>
 
-                        {feed.linked_project_id && (
-                          <Link
-                            href={`/projects/${feed.linked_project_id}`}
-                            prefetch={false}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-text-primary border border-white/[0.1] text-caption font-medium transition-colors"
-                          >
-                            <span>{t("feed.openProject")}</span>
-                            <ExternalLink className="w-3 h-3 text-text-tertiary" />
-                          </Link>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => handleResetFeedStatus(feed.id)}
-                          disabled={resettingId === feed.id}
-                          className="p-1.5 text-text-tertiary hover:text-text-primary rounded-lg hover:bg-white/[0.05] transition-colors"
-                          title="Reset status"
+                        <Link
+                          href={feed.linked_project_id ? `/projects/${feed.linked_project_id}` : "/projects"}
+                          prefetch={false}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-text-primary border border-white/[0.1] text-caption font-medium transition-colors"
                         >
-                          <RotateCcw className={`w-3.5 h-3.5 ${resettingId === feed.id ? "animate-spin text-accent" : ""}`} />
-                        </button>
+                          <span>{t("feed.openProject")}</span>
+                          <ExternalLink className="w-3 h-3 text-text-tertiary" />
+                        </Link>
                       </div>
                     ) : (
                       <button

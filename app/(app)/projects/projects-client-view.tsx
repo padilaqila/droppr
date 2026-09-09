@@ -118,13 +118,18 @@ export function ProjectsClientView({
     setScanProgress(null);
 
     try {
-      const activeTargets: ProjectScanTarget[] = projects.map((p) => ({
-        id: p.id,
-        name: p.name,
-        chain: p.chain,
-        status: p.status,
-        social_links: p.social_links as any,
-      }));
+      const activeTargets: ProjectScanTarget[] = projects.map((p) => {
+        const sl = (p.social_links as any) || {};
+        return {
+          id: p.id,
+          name: p.name,
+          chain: p.chain,
+          status: p.status,
+          social_links: sl,
+          sourceUrl: sl.telegram_post_url || sl.source_url || null,
+          rawText: p.guide_content || null,
+        };
+      });
 
       const results = await scanProjectsTelegramBatch(activeTargets, (current, total, name) => {
         setScanProgress({ current, total, name });
@@ -569,8 +574,8 @@ export function ProjectsClientView({
                 : (isEn ? "Check TG Updates" : "Periksa Update TG")}
             </span>
             {discoveredBatchItems.length > 0 && !isScanning && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-sky-500 text-black">
-                {discoveredBatchItems.length}
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500 text-black leading-none">
+                +{discoveredBatchItems.length}
               </span>
             )}
           </button>
@@ -615,7 +620,7 @@ export function ProjectsClientView({
         >
           <Folder className={`w-3.5 h-3.5 ${selectedFolderFilter === null ? "text-accent" : "text-text-tertiary"}`} />
           <span>{t("projects.allProjects")}</span>
-          <span className="px-1.5 py-0.2 rounded bg-white/[0.06] text-[10.5px] font-mono text-text-secondary">
+          <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10.5px] font-mono text-text-secondary">
             {projects.length}
           </span>
         </button>
@@ -639,7 +644,7 @@ export function ProjectsClientView({
         >
           <FolderOpen className={`w-3.5 h-3.5 ${selectedFolderFilter === "root" ? "text-accent" : "text-text-tertiary"}`} />
           <span>{t("projects.unorganized")}</span>
-          <span className="px-1.5 py-0.2 rounded bg-white/[0.06] text-[10.5px] font-mono text-text-secondary">
+          <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10.5px] font-mono text-text-secondary">
             {projects.filter((p) => p.folder_id === null).length}
           </span>
         </button>
@@ -673,7 +678,7 @@ export function ProjectsClientView({
               >
                 <Folder className={`w-3.5 h-3.5 ${isSelected ? "text-accent" : "text-text-tertiary group-hover:text-text-secondary"}`} />
                 <span>{f.name}</span>
-                <span className="px-1.5 py-0.2 rounded bg-white/[0.06] text-[10.5px] font-mono text-text-secondary">
+                <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10.5px] font-mono text-text-secondary">
                   {count}
                 </span>
               </button>
@@ -954,11 +959,11 @@ export function ProjectsClientView({
                                 e.stopPropagation();
                                 setIsSyncModalOpen(true);
                               }}
-                              className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 inline-flex items-center gap-1 shrink-0 animate-pulse hover:bg-sky-500/25"
+                              className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 inline-flex items-center gap-1 shrink-0 animate-pulse hover:bg-sky-500/25 leading-none"
                               title={isEn ? "New update available - click to review" : "Update baru tersedia - klik untuk tinjau"}
                             >
                               <Send className="w-2.5 h-2.5" />
-                              <span>{batchDiscoveredMap.get(proj.id)} Baru</span>
+                              <span>+{batchDiscoveredMap.get(proj.id)} Baru</span>
                             </span>
                           )}
                           {social.website && (
@@ -1115,11 +1120,11 @@ export function ProjectsClientView({
                             e.stopPropagation();
                             setIsSyncModalOpen(true);
                           }}
-                          className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 inline-flex items-center gap-1 shrink-0 animate-pulse hover:bg-sky-500/25"
+                          className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 inline-flex items-center gap-1 shrink-0 animate-pulse hover:bg-sky-500/25 leading-none"
                           title={isEn ? "New update available - click to review" : "Update baru tersedia - klik untuk tinjau"}
                         >
                           <Send className="w-2.5 h-2.5" />
-                          <span>{batchDiscoveredMap.get(proj.id)} Baru</span>
+                          <span>+{batchDiscoveredMap.get(proj.id)} Baru</span>
                         </span>
                       )}
                       {social.website && (
