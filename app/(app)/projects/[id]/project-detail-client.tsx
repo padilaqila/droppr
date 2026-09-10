@@ -497,7 +497,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
       {/* ======================================================== */}
       {/* 2. PROJECT IDENTITY & LIFECYCLE HEADER CARD              */}
       {/* ======================================================== */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
+      <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4 relative z-30">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-3 flex-wrap">
@@ -565,7 +565,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         {/* Row 2: Direct Execution Bar + Quick Links */}
         <div className="pt-3 border-t border-white/[0.06] space-y-3">
           {/* Main Execution Controls: 1-Click Completion & Snooze */}
-          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] relative z-20">
             <div className="flex flex-wrap items-center gap-2.5">
               {/* Daily / Weekly / 1-Time Toggle Button */}
               {currentTaskType === "daily" && (
@@ -644,7 +644,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               )}
 
               {/* Snooze / Remind Later Dropdown */}
-              <div className="relative" ref={snoozeRef}>
+              <div className="relative z-30" ref={snoozeRef}>
                 {isSkipped ? (
                   <button
                     type="button"
@@ -670,7 +670,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
 
                 {/* Snooze Options Popover */}
                 {isSnoozeOpen && (
-                  <div className="absolute left-0 top-full mt-2 w-64 p-2 rounded-xl bg-bg-elevated border border-border-hairline-strong shadow-2xl z-40 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute left-0 top-full mt-2 w-64 p-2 rounded-xl bg-bg-elevated border border-border-hairline-strong shadow-2xl shadow-black/80 ring-1 ring-black/40 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-2xl">
                     <div className="px-2.5 py-1 text-[11px] font-mono uppercase text-text-tertiary">
                       {isEn ? "Snooze / Postpone Options" : "Pilihan Penundaan"}
                     </div>
@@ -755,7 +755,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
 
       {/* Lifecycle Special Banners */}
       {currentStatus === "ready_to_claim" && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg shadow-amber-500/5">
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg shadow-amber-500/5 relative z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
               <Gift className="w-5 h-5 animate-pulse" />
@@ -812,7 +812,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
       )}
 
       {currentStatus === "waiting" && (
-        <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg shadow-purple-500/5">
+        <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg shadow-purple-500/5 relative z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center shrink-0 text-purple-400">
               <AlertTriangle className="w-5 h-5" />
@@ -847,7 +847,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
       )}
 
       {currentStatus === "completed" && (
-        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg shadow-emerald-500/5">
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg shadow-emerald-500/5 relative z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 text-emerald-400">
               <Trophy className="w-5 h-5" />
@@ -876,7 +876,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
       )}
 
       {/* Dual-Column Workstation Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start relative z-10">
         {/* LEFT COLUMN: Telegram Channel Post & Thread Timeline (Primary Content) */}
         <div className="lg:col-span-8 xl:col-span-8 2xl:col-span-9 space-y-4">
           {/* Telegram Channel Post & Updates Header */}
