@@ -2,6 +2,12 @@
 
 > File ini ditulis oleh agen AI, bukan oleh manusia. Dibaca otomatis di awal sesi (bagian atas file diprioritaskan). Lihat `AGENTS.md` §5 untuk format entri dan aturan pemangkasan.
 
+## [2026-09-10] Eliminasi Tombol Redundan/Duplikat & Penyederhanaan Header Alur Telegram
+- Apa yang salah: Terdapat tombol-tombol yang redundan di halaman detail proyek: tombol `Post Induk TG` di Quick Links menduplikasi tombol `Buka di TG ↗` di kartu Post Utama, dan tombol `Cek Update TG` / `Tarik Post Telegram` muncul 3 kali di lokasi berdekatan (topbar, wrapper header, dan header internal linimasa).
+- Kenapa terjadi (root cause, bukan cuma gejala): Developer menambahkan tombol aksi di level page wrapper (`project-detail-client.tsx`) dan di Quick Links tanpa menyadari bahwa komponen child (`ProjectThreadView`) sudah mengintegrasikan header linimasa mandiri lengkap dengan tombol modal Telegram serta tombol link ke postingan asli di kartu utamanya.
+- Perbaikan yang dilakukan: (1) Menghapus tombol `Post Induk TG` dari `ProjectQuickLinks`; akses postingan asli difokuskan pada kartu Post Utama sebagai `Buka di TG ↗`. (2) Menghapus tombol `Cek Update TG` dari top breadcrumb bar (hanya menyisakan tombol kembali dan `Edit Info`). (3) Menghapus wrapper header ganda di atas `ProjectThreadView` sehingga `ProjectThreadView` langsung menjadi konten utama kolom kiri. (4) Memastikan satu-satunya tombol `Cek Update TG` berada rapi di header internal linimasa.
+- Aturan ke depan: JANGAN pernah menaruh tombol aksi yang sama di lebih dari satu tempat dalam satu layar; pusatkan tombol pembuka modal atau tautan eksternal pada komponen kontekstual yang paling relevan.
+
 ## [2026-09-10] Redesain Halaman Detail Proyek: Eliminasi Card Raksasa & Paradigma Checklist Mikro yang Membebani
 - Apa yang salah: Halaman detail proyek memaksakan card hero raksasa yang membengkak (-463 baris) dan tab checklist tugas mikro (`InteractiveTaskList`) serta panduan terpisah yang tidak dibutuhkan oleh airdrop hunter.
 - Kenapa terjadi (root cause, bukan cuma gejala): Developer mencoba memadukan paradigma to-do list umum ke dalam halaman detail airdrop, menduplikasi tombol status dan alarm di banyak card terpisah, serta menyembunyikan postingan asli Telegram di balik tab navigator yang kaku. Padahal airdrop hunter hanya butuh postingan Telegram asli (yang sudah berisi langkah lengkap) dan linimasa pembaruannya.
