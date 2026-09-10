@@ -16,7 +16,6 @@ import {
   Copy,
   Check,
   CheckCircle2,
-  Send,
   AtSign,
   X,
   Star,
@@ -29,7 +28,6 @@ import {
   FastForward,
   Timer,
   ChevronDown,
-  MessageSquare,
   Calendar,
   Layers,
   Droplets,
@@ -473,16 +471,6 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
         </Link>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsTelegramModalOpen(true)}
-            className="!py-1 !px-2.5 text-caption rounded-lg bg-link-teal/15 border border-link-teal/30 text-link-teal hover:bg-link-teal/25 transition-colors font-semibold inline-flex items-center gap-1.5 shadow-sm"
-            title={isEn ? "Check updates for this project on Telegram" : "Periksa update proyek ini di Telegram (Airdrop Finder & Duta Crypto)"}
-          >
-            <Send className="w-3 h-3" />
-            <span>{isEn ? "Check TG Updates" : "Cek Update TG"}</span>
-          </button>
-
           <ButtonSecondary
             onClick={() => setIsEditProjectModalOpen(true)}
             className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1"
@@ -879,34 +867,6 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start relative z-10">
         {/* LEFT COLUMN: Telegram Channel Post & Thread Timeline (Primary Content) */}
         <div className="lg:col-span-8 xl:col-span-8 2xl:col-span-9 space-y-4">
-          {/* Telegram Channel Post & Updates Header */}
-          <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/[0.08]">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-[#229ED9]/15 border border-[#229ED9]/30 flex items-center justify-center text-[#229ED9] shrink-0">
-                <MessageSquare className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-body-sm sm:text-body font-bold text-text-primary truncate">
-                  {isEn ? "Telegram Channel Post & Thread Updates" : "Postingan Asli & Linimasa Telegram"}
-                </h2>
-                <p className="text-[11px] text-text-tertiary truncate">
-                  {isEn
-                    ? "Official instructions, steps, and progress updates"
-                    : "Panduan langkah garapan asli dan update perkembangan proyek"}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsTelegramModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-caption font-semibold bg-[#229ED9]/15 hover:bg-[#229ED9]/25 text-[#229ED9] border border-[#229ED9]/30 transition-all shadow-xs shrink-0"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>{isEn ? "Fetch Telegram" : "Tarik Post Telegram"}</span>
-            </button>
-          </div>
-
           {/* Core Content: Original Telegram Post & Thread Updates */}
           <ProjectThreadView
             projectId={project.id}

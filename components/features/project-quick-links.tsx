@@ -47,7 +47,6 @@ export function ProjectQuickLinks({
   const docsUrl = rawSocial.docs_url as string | undefined;
   const twitter = rawSocial.twitter as string | undefined;
   const telegram = rawSocial.telegram as string | undefined;
-  const telegramPostUrl = rawSocial.telegram_post_url as string | undefined;
   const discord = rawSocial.discord as string | undefined;
   const refLink = rawSocial.ref_link as string | undefined;
   const customLinks: CustomLinkItem[] = Array.isArray(rawSocial.custom_links)
@@ -185,20 +184,6 @@ export function ProjectQuickLinks({
             >
               <Send className="w-3 h-3 text-link-teal" />
               <span>Telegram</span>
-            </a>
-          )}
-
-          {telegramPostUrl && (
-            <a
-              href={telegramPostUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-link-teal/15 border border-link-teal/30 text-link-teal hover:bg-link-teal/25 transition-colors text-caption font-semibold"
-              title={isEn ? "Open initial project post on Telegram" : "Buka postingan awal garapan ini di Telegram"}
-            >
-              <Send className="w-3 h-3" />
-              <span>{isEn ? "Parent Post TG" : "Post Induk TG"}</span>
-              <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
             </a>
           )}
 
