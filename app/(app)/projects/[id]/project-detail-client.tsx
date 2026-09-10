@@ -29,13 +29,10 @@ import {
   FastForward,
   Timer,
   ChevronDown,
-  ListTodo,
   MessageSquare,
-  Globe,
   Calendar,
   Layers,
   Droplets,
-  BookOpen,
   CheckSquare,
 } from "lucide-react";
 import {
@@ -51,7 +48,6 @@ import { toggleProjectPriority } from "@/lib/supabase/priority-helper";
 import { ProjectStatusPills } from "@/components/features/project-status-pills";
 import { ProjectQuickLinks } from "@/components/features/project-quick-links";
 import { ProjectThreadView } from "@/components/features/project-thread-view";
-import { InteractiveTaskList } from "@/components/features/interactive-task-list";
 import { AttachWalletModal } from "@/components/features/attach-wallet-modal";
 import { SetReminderModal } from "@/components/features/set-reminder-modal";
 import { EditProjectModal } from "@/components/features/edit-project-modal";
@@ -114,10 +110,6 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
   const [isSnoozeOpen, setIsSnoozeOpen] = useState(false);
   const snoozeRef = useRef<HTMLDivElement>(null);
 
-  // Workstation Tab state ("tasks" | "timeline" | "details")
-  const [activeTab, setActiveTab] = useState<"tasks" | "timeline" | "details">(
-    project.tasks && project.tasks.length > 0 ? "tasks" : "timeline"
-  );
 
   // Live countdown to daily reset (07:00 WIB / 00:00 UTC)
   const [countdown, setCountdown] = useState<string>("");
@@ -453,9 +445,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
   };
 
   const wallets = project.wallets || [];
-  const rawSocial = (project.social_links as Record<string, any>) || {};
-  const telegramPostUrl = rawSocial.telegram_post_url as string | undefined;
-  const completedTasksCount = tasks.filter((t) => t.status === "done").length;
+  const telegramPostUrl = socialLinks?.telegram_post_url as string | undefined;
 
   return (
     <div className="w-full space-y-4 min-w-0 pb-20 font-sans">
@@ -572,44 +562,18 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
           </div>
         </div>
 
-        {/* Quick Launch & Resource Action Bar */}
-        <div className="pt-2 border-t border-white/[0.06]">
-          <ProjectQuickLinks
-            socialLinks={socialLinks}
-            wallets={wallets}
-            onOpenEditModal={() => setIsEditProjectModalOpen(true)}
-            onOpenWalletModal={() => setIsWalletModalOpen(true)}
-          />
-        </div>
-      </div>
-
-      {/* ======================================================== */}
-      {/* 3. HERO EXECUTION & UNIFIED RHYTHM BAR (NEW CORE UX)   */}
-      {/* ======================================================== */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.1] shadow-2xl shadow-black/30 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-          {/* LEFT SIDE: Routine Execution & Snooze Actions */}
-          <div className="space-y-2.5 flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-text-tertiary">
-                {isEn ? "Operational Execution Status" : "Status Eksekusi Garapan"}
-              </span>
-              {isSkipped && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                  <FastForward className="w-2.5 h-2.5" />
-                  <span>{isEn ? "Postponed Today" : "Ditunda Hari Ini"}</span>
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Routine Completion Button */}
+        {/* Row 2: Direct Execution Bar + Quick Links */}
+        <div className="pt-3 border-t border-white/[0.06] space-y-3">
+          {/* Main Execution Controls: 1-Click Completion & Snooze */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Daily / Weekly / 1-Time Toggle Button */}
               {currentTaskType === "daily" && (
                 <button
                   type="button"
                   onClick={handleToggleDailyDone}
                   disabled={isTogglingDaily}
-                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-body-sm font-bold transition-all shadow-md active:scale-[0.98] ${
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-body-sm font-bold transition-all shadow-md active:scale-[0.98] ${
                     isTodayDone
                       ? "bg-status-completed/20 text-status-completed border border-status-completed/40 hover:bg-status-completed/30"
                       : "bg-accent text-on-accent hover:bg-accent-pressed shadow-accent/20"
@@ -639,16 +603,11 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                   type="button"
                   onClick={handleToggleDailyDone}
                   disabled={isTogglingDaily}
-                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-body-sm font-bold transition-all shadow-md active:scale-[0.98] ${
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-body-sm font-bold transition-all shadow-md active:scale-[0.98] ${
                     isTodayDone
                       ? "bg-status-in-progress/20 text-status-in-progress border border-status-in-progress/40 hover:bg-status-in-progress/30"
                       : "bg-accent text-on-accent hover:bg-accent-pressed shadow-accent/20"
                   }`}
-                  title={
-                    isTodayDone
-                      ? (isEn ? "Weekly volume/routine completed! Click to reopen." : "Rutinitas minggu ini sudah selesai! Klik untuk membuka kembali.")
-                      : (isEn ? "Mark weekly routine as completed" : "Tandai Selesai Minggu Ini")
-                  }
                 >
                   {isTodayDone ? (
                     <>
@@ -669,7 +628,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                   type="button"
                   onClick={handleToggleDailyDone}
                   disabled={isTogglingDaily}
-                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-body-sm font-bold transition-all shadow-md active:scale-[0.98] ${
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-body-sm font-bold transition-all shadow-md active:scale-[0.98] ${
                     isTodayDone
                       ? "bg-status-completed/20 text-status-completed border border-status-completed/40 hover:bg-status-completed/30"
                       : "bg-accent text-on-accent hover:bg-accent-pressed shadow-accent/20"
@@ -690,7 +649,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                   <button
                     type="button"
                     onClick={handleCancelSnooze}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] text-text-secondary hover:text-text-primary hover:bg-white/[0.08] border border-white/[0.08] text-caption font-medium transition-all"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border border-amber-500/30 text-caption font-medium transition-all"
                     title={isEn ? "Cancel postponement and mark ready" : "Batalkan penundaan hari ini"}
                   >
                     <X className="w-3.5 h-3.5 text-status-overdue" />
@@ -700,7 +659,7 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                   <button
                     type="button"
                     onClick={() => setIsSnoozeOpen(!isSnoozeOpen)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] text-text-secondary hover:text-text-primary hover:bg-white/[0.08] border border-white/[0.08] text-caption font-medium transition-all"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] text-text-secondary hover:text-text-primary hover:bg-white/[0.08] border border-white/[0.08] text-caption font-medium transition-all"
                     title={isEn ? "Postpone or set a reminder for later" : "Tunda pengerjaan atau ingatkan nanti"}
                   >
                     <Clock className="w-3.5 h-3.5 text-accent" />
@@ -763,135 +722,34 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
                 )}
               </div>
 
-              {/* Reset Countdown / Cadence Info */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[11px] font-mono text-text-tertiary">
-                <Timer className="w-3.5 h-3.5 text-accent" />
-                <span>
-                  {currentTaskType === "daily"
-                    ? `Reset: 07:00 WIB (${countdown})`
-                    : currentTaskType === "weekly"
-                    ? (isEn ? "Cadence: Weekly Volume" : "Siklus: Rutin Mingguan")
-                    : (isEn ? "Cadence: 1-Time Form/Action" : "Siklus: 1x Pengerjaan")}
+              {isSkipped && (
+                <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
+                  <FastForward className="w-3 h-3" />
+                  <span>{isEn ? "Postponed Today" : "Ditunda Hari Ini"}</span>
                 </span>
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT SIDE: Unified Rhythm & Smart Reminder Sync */}
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2.5 lg:w-[380px] shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-text-tertiary">
-                {isEn ? "Routine Cadence & Timed Alarm" : "Ritme Garapan & Alarm Waktu"}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingReminder(primaryReminder || null);
-                  setIsReminderModalOpen(true);
-                }}
-                className="text-[11px] text-accent hover:underline font-semibold inline-flex items-center gap-1"
-              >
-                <Bell className="w-3 h-3" />
-                <span>
-                  {primaryReminder
-                    ? (isEn ? "Edit Alarm" : "Atur Jam")
-                    : (isEn ? "+ Set Alarm" : "+ Pasang Alarm")}
-                </span>
-              </button>
-            </div>
-
-            {/* Routine Type Switcher (1-Click with Auto-sync) */}
-            <div className="grid grid-cols-3 gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/[0.06]">
-              {[
-                {
-                  type: "daily" as const,
-                  label: isEn ? "Daily" : "Harian",
-                  icon: Clock,
-                  desc: isEn ? "Daily to-do list queue" : "Antrean to-do list harian",
-                },
-                {
-                  type: "weekly" as const,
-                  label: isEn ? "Weekly" : "Mingguan",
-                  icon: Repeat,
-                  desc: isEn ? "Weekly volume queue" : "Antrean volume mingguan",
-                },
-                {
-                  type: "one_time" as const,
-                  label: isEn ? "1-Time" : "1x Selesai",
-                  icon: CheckSquare,
-                  desc: isEn ? "Form/claim once" : "Sekali garap tuntas",
-                },
-              ].map((item) => {
-                const Icon = item.icon;
-                const isActive = currentTaskType === item.type;
-                return (
-                  <button
-                    key={item.type}
-                    type="button"
-                    onClick={() => handleTaskTypeChange(item.type)}
-                    className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                      isActive
-                        ? "bg-accent text-on-accent shadow-xs"
-                        : "text-text-secondary hover:text-text-primary hover:bg-white/[0.05]"
-                    }`}
-                    title={item.desc}
-                  >
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Timed Alarm vs Flexible Status Text */}
-            <div className="pt-0.5">
-              {primaryReminder ? (
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-2 text-[11.5px]">
-                  <div className="flex items-center gap-1.5 min-w-0 font-mono text-amber-300">
-                    <Bell className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="truncate">{formatReminderSchedule(primaryReminder.frequency)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingReminder(primaryReminder);
-                        setIsReminderModalOpen(true);
-                      }}
-                      className="text-[10px] font-mono text-amber-300 hover:underline font-semibold"
-                    >
-                      {isEn ? "Edit" : "Ubah"}
-                    </button>
-                    <span className="text-text-disabled">•</span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteReminder(primaryReminder.id)}
-                      className="text-[10px] font-mono text-status-overdue hover:underline font-semibold"
-                    >
-                      {isEn ? "Turn off" : "Matikan"}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-2 text-[11.5px]">
-                  <div className="flex items-center gap-1.5 text-text-tertiary font-mono">
-                    <CheckSquare className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
-                    <span>{isEn ? "Flexible To-Do (No alarm)" : "To-Do Fleksibel (Tanpa alarm)"}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingReminder(null);
-                      setIsReminderModalOpen(true);
-                    }}
-                    className="text-[10.5px] font-mono text-accent hover:underline shrink-0 font-semibold"
-                  >
-                    {isEn ? "+ Set Timed Alarm" : "+ Pasang Alarm Jam"}
-                  </button>
-                </div>
               )}
             </div>
+
+            {/* Reset Countdown / Cadence Info */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[11px] font-mono text-text-tertiary">
+              <Timer className="w-3.5 h-3.5 text-accent" />
+              <span>
+                {currentTaskType === "daily"
+                  ? `Reset: 07:00 WIB (${countdown})`
+                  : currentTaskType === "weekly"
+                  ? (isEn ? "Cadence: Weekly Volume" : "Siklus: Rutin Mingguan")
+                  : (isEn ? "Cadence: 1-Time Form/Action" : "Siklus: 1x Pengerjaan")}
+              </span>
+            </div>
           </div>
+
+          {/* Quick Links & Resources Strip */}
+          <ProjectQuickLinks
+            socialLinks={socialLinks}
+            wallets={wallets}
+            onOpenEditModal={() => setIsEditProjectModalOpen(true)}
+            onOpenWalletModal={() => setIsWalletModalOpen(true)}
+          />
         </div>
       </div>
 
@@ -1019,246 +877,182 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
 
       {/* Dual-Column Workstation Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
-        {/* LEFT COLUMN: Main Execution Hub (Workstation Tabs: Tasks | Timeline | Details) */}
+        {/* LEFT COLUMN: Telegram Channel Post & Thread Timeline (Primary Content) */}
         <div className="lg:col-span-8 xl:col-span-8 2xl:col-span-9 space-y-4">
-          {/* Workstation Tab Bar Navigation */}
-          <div className="flex items-center justify-between border-b border-white/[0.08] pb-1 gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab("tasks")}
-                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium text-caption sm:text-body-sm transition-all relative ${
-                  activeTab === "tasks"
-                    ? "bg-white/[0.08] text-text-primary border border-white/[0.12] shadow-sm font-semibold"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.03] border border-transparent"
-                }`}
-              >
-                <ListTodo className={`w-4 h-4 ${activeTab === "tasks" ? "text-accent" : "text-text-tertiary"}`} />
-                <span>{isEn ? "Task Checklist" : "Checklist Tugas"}</span>
-                {tasks.length > 0 && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded-md text-[11px] font-mono font-semibold ${
-                      activeTab === "tasks"
-                        ? "bg-accent/20 text-accent border border-accent/30"
-                        : "bg-white/[0.05] text-text-tertiary"
-                    }`}
-                  >
-                    {tasks.filter((t) => !!t.completed_at).length}/{tasks.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("timeline")}
-                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium text-caption sm:text-body-sm transition-all relative ${
-                  activeTab === "timeline"
-                    ? "bg-white/[0.08] text-text-primary border border-white/[0.12] shadow-sm font-semibold"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.03] border border-transparent"
-                }`}
-              >
-                <MessageSquare className={`w-4 h-4 ${activeTab === "timeline" ? "text-accent" : "text-text-tertiary"}`} />
-                <span>{isEn ? "Timeline & Updates" : "Linimasa & Update"}</span>
-                {threads.length > 0 && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded-md text-[11px] font-mono font-semibold ${
-                      activeTab === "timeline"
-                        ? "bg-accent/20 text-accent border border-accent/30"
-                        : "bg-white/[0.05] text-text-tertiary"
-                    }`}
-                  >
-                    {threads.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("details")}
-                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium text-caption sm:text-body-sm transition-all relative ${
-                  activeTab === "details"
-                    ? "bg-white/[0.08] text-text-primary border border-white/[0.12] shadow-sm font-semibold"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.03] border border-transparent"
-                }`}
-              >
-                <Globe className={`w-4 h-4 ${activeTab === "details" ? "text-accent" : "text-text-tertiary"}`} />
-                <span>{isEn ? "Sources & Guide" : "Sumber & Panduan"}</span>
-              </button>
+          {/* Telegram Channel Post & Updates Header */}
+          <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/[0.08]">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-[#229ED9]/15 border border-[#229ED9]/30 flex items-center justify-center text-[#229ED9] shrink-0">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-body-sm sm:text-body font-bold text-text-primary truncate">
+                  {isEn ? "Telegram Channel Post & Thread Updates" : "Postingan Asli & Linimasa Telegram"}
+                </h2>
+                <p className="text-[11px] text-text-tertiary truncate">
+                  {isEn
+                    ? "Official instructions, steps, and progress updates"
+                    : "Panduan langkah garapan asli dan update perkembangan proyek"}
+                </p>
+              </div>
             </div>
 
-            {/* Tab Contextual Actions */}
-            <div className="flex items-center gap-2">
-              {activeTab === "timeline" && (
-                <button
-                  type="button"
-                  onClick={() => setIsTelegramModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-caption font-semibold bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary border border-white/[0.08] transition-all"
-                >
-                  <Send className="w-3.5 h-3.5 text-[#229ED9]" />
-                  <span>{isEn ? "Fetch Telegram" : "Tarik Telegram"}</span>
-                </button>
-              )}
-              {activeTab === "details" && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditProjectModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-caption font-semibold bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary border border-white/[0.08] transition-all"
-                >
-                  <Edit2 className="w-3 h-3" />
-                  <span>{isEn ? "Edit Info" : "Edit Info"}</span>
-                </button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsTelegramModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-caption font-semibold bg-[#229ED9]/15 hover:bg-[#229ED9]/25 text-[#229ED9] border border-[#229ED9]/30 transition-all shadow-xs shrink-0"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{isEn ? "Fetch Telegram" : "Tarik Post Telegram"}</span>
+            </button>
           </div>
 
-          {/* TAB 1: Task Checklist */}
-          {activeTab === "tasks" && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <InteractiveTaskList
-                projectId={project.id}
-                initialTasks={tasks}
-                onTasksChange={setTasks}
-                onTasksUpdated={() => router.refresh()}
-              />
-            </div>
-          )}
-
-          {/* TAB 2: Timeline & Telegram Feed */}
-          {activeTab === "timeline" && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <ProjectThreadView
-                projectId={project.id}
-                projectName={project.name}
-                projectChain={project.chain}
-                guideContent={project.guide_content}
-                socialLinks={socialLinks}
-                projectCreatedAt={project.created_at}
-                onOpenTelegramSearch={() => setIsTelegramModalOpen(true)}
-                refreshTrigger={threadRefreshTrigger}
-                onThreadsLoaded={setThreads}
-                onThreadsChange={setThreads}
-              />
-            </div>
-          )}
-
-          {/* TAB 3: Details, Links & Guide Overview */}
-          {activeTab === "details" && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <ProjectQuickLinks
-                socialLinks={socialLinks}
-                wallets={wallets}
-                onOpenEditModal={() => setIsEditProjectModalOpen(true)}
-                onOpenWalletModal={() => setIsWalletModalOpen(true)}
-              />
-
-              {/* Guide / Notes Card */}
-              <div className="p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-accent" />
-                    <h3 className="text-body-sm font-semibold text-text-primary">
-                      {isEn ? "Guide & Strategy Notes" : "Panduan & Catatan Strategi"}
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditProjectModalOpen(true)}
-                    className="p-1.5 text-text-tertiary hover:text-text-primary hover:bg-white/[0.05] rounded-lg transition-colors inline-flex items-center gap-1 text-caption"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    <span>{isEn ? "Edit" : "Ubah"}</span>
-                  </button>
-                </div>
-
-                {project.guide_content ? (
-                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-body-sm text-text-secondary leading-relaxed whitespace-pre-wrap font-sans">
-                    {project.guide_content}
-                  </div>
-                ) : (
-                  <div className="p-6 text-center rounded-xl bg-white/[0.01] border border-dashed border-white/[0.08] space-y-2">
-                    <p className="text-caption text-text-tertiary">
-                      {isEn
-                        ? "No custom guide or strategy notes written for this project yet."
-                        : "Belum ada panduan atau catatan strategi khusus untuk proyek ini."}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditProjectModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 border border-accent/20 text-caption font-semibold transition-all"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>{isEn ? "Write Guide / Strategy" : "Tulis Panduan / Strategi"}</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Project Meta Info Card */}
-              <div className="p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-accent" />
-                  <h3 className="text-body-sm font-semibold text-text-primary">
-                    {isEn ? "Project Metadata" : "Metadata Proyek"}
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-caption">
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
-                    <span className="text-text-tertiary">{isEn ? "Network / Ecosystem" : "Jaringan / Ekosistem"}</span>
-                    <span className="font-semibold text-text-primary uppercase font-mono">{project.chain || "EVM / Multichain"}</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
-                    <span className="text-text-tertiary">{isEn ? "Added to Droppr" : "Ditambahkan ke Droppr"}</span>
-                    <span className="font-mono text-text-secondary">
-                      {new Date(project.created_at).toLocaleDateString(isEn ? "en-US" : "id-ID", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
-                    <span className="text-text-tertiary">{isEn ? "Routine Rhythm" : "Ritme Rutinitas"}</span>
-                    <span className="font-semibold text-accent capitalize font-mono">
-                      {currentTaskType === "daily" ? (isEn ? "Daily" : "Harian") : currentTaskType === "weekly" ? (isEn ? "Weekly" : "Mingguan") : (isEn ? "One-time" : "Sekali Garap")}
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
-                    <span className="text-text-tertiary">{isEn ? "Lifecycle Phase" : "Fase Siklus"}</span>
-                    <span className="font-semibold text-text-primary capitalize font-mono">
-                      {currentStatus.replace("_", " ")}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Core Content: Original Telegram Post & Thread Updates */}
+          <ProjectThreadView
+            projectId={project.id}
+            projectName={project.name}
+            projectChain={project.chain}
+            guideContent={project.guide_content}
+            socialLinks={socialLinks}
+            projectCreatedAt={project.created_at}
+            onOpenTelegramSearch={() => setIsTelegramModalOpen(true)}
+            refreshTrigger={threadRefreshTrigger}
+            onThreadsLoaded={setThreads}
+            onThreadsChange={setThreads}
+          />
         </div>
 
-        {/* RIGHT COLUMN: Utility, Reminders, Wallets & Accounts */}
+        {/* RIGHT COLUMN: Utility, Rhythm, Wallets & Accounts */}
         <div className="lg:col-span-4 xl:col-span-4 2xl:col-span-3 space-y-4">
-          {/* Widget 1: Alarm Waktu & Event */}
+          {/* Widget 1: Ritme Garapan & Alarm Waktu */}
           <div className="p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-accent" />
+                <Clock className="w-4 h-4 text-accent" />
                 <h3 className="text-body-sm font-semibold text-text-primary">
-                  {isEn ? "Timed Alarms & Events" : "Alarm Waktu & Event"} ({reminders.length})
+                  {isEn ? "Routine & Timed Alarm" : "Ritme Garapan & Alarm"}
                 </h3>
               </div>
-              <ButtonSecondary
+              <button
+                type="button"
                 onClick={() => {
-                  setEditingReminder(null);
+                  setEditingReminder(primaryReminder || null);
                   setIsReminderModalOpen(true);
                 }}
-                className="!py-1 !px-2.5 text-caption inline-flex items-center gap-1 rounded-xl bg-white/[0.03] border-white/[0.08]"
+                className="text-[11px] text-accent hover:underline font-semibold inline-flex items-center gap-1"
               >
-                <Plus className="w-3 h-3" />
-                <span>{isEn ? "Set Alarm" : "+ Alarm Jam"}</span>
-              </ButtonSecondary>
+                <Bell className="w-3 h-3" />
+                <span>
+                  {primaryReminder
+                    ? (isEn ? "Edit Alarm" : "Atur Jam")
+                    : (isEn ? "Set Alarm" : "Pasang Alarm")}
+                </span>
+              </button>
             </div>
 
-            {/* Reassuring Contextual Queue Explanation */}
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1.5">
+            {/* Routine Type Switcher */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-text-tertiary">
+                {isEn ? "Routine Rhythm:" : "Tipe Rutinitas:"}
+              </span>
+              <div className="grid grid-cols-3 gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/[0.06]">
+                {[
+                  {
+                    type: "daily" as const,
+                    label: isEn ? "Daily" : "Harian",
+                    icon: Clock,
+                    desc: isEn ? "Daily to-do list queue" : "Antrean to-do list harian",
+                  },
+                  {
+                    type: "weekly" as const,
+                    label: isEn ? "Weekly" : "Mingguan",
+                    icon: Repeat,
+                    desc: isEn ? "Weekly volume queue" : "Antrean volume mingguan",
+                  },
+                  {
+                    type: "one_time" as const,
+                    label: isEn ? "1-Time" : "1x Selesai",
+                    icon: CheckSquare,
+                    desc: isEn ? "Form/claim once" : "Sekali garap tuntas",
+                  },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentTaskType === item.type;
+                  return (
+                    <button
+                      key={item.type}
+                      type="button"
+                      onClick={() => handleTaskTypeChange(item.type)}
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                        isActive
+                          ? "bg-accent text-on-accent shadow-xs"
+                          : "text-text-secondary hover:text-text-primary hover:bg-white/[0.05]"
+                      }`}
+                      title={item.desc}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Timed Alarm Schedule */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-text-tertiary">
+                {isEn ? "Alarm Schedule:" : "Jadwal Alarm Jam:"}
+              </span>
+              {primaryReminder ? (
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-2 text-[11.5px]">
+                  <div className="flex items-center gap-1.5 min-w-0 font-mono text-amber-300">
+                    <Bell className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate">{formatReminderSchedule(primaryReminder.frequency)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingReminder(primaryReminder);
+                        setIsReminderModalOpen(true);
+                      }}
+                      className="text-[10px] font-mono text-amber-300 hover:underline font-semibold"
+                    >
+                      {isEn ? "Edit" : "Ubah"}
+                    </button>
+                    <span className="text-text-disabled">•</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReminder(primaryReminder.id)}
+                      className="text-[10px] font-mono text-status-overdue hover:underline font-semibold"
+                    >
+                      {isEn ? "Turn off" : "Matikan"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-2 text-[11.5px]">
+                  <div className="flex items-center gap-1.5 text-text-tertiary font-mono">
+                    <CheckSquare className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+                    <span>{isEn ? "Flexible (No alarm)" : "Fleksibel (Tanpa alarm)"}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingReminder(null);
+                      setIsReminderModalOpen(true);
+                    }}
+                    className="text-[10.5px] font-mono text-accent hover:underline shrink-0 font-semibold inline-flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>{isEn ? "Set Alarm" : "Pasang Alarm"}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Context Note */}
+            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
               <div className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-status-completed">
                 <CheckCircle2 className="w-3.5 h-3.5 text-status-completed shrink-0" />
                 <span>
@@ -1271,79 +1065,35 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
               </div>
               <p className="text-[11px] text-text-tertiary leading-relaxed">
                 {isEn
-                  ? "This project automatically appears in your Dashboard workspace every day. Timed alarms are optional for time-critical actions (e.g. 14:00 WIB faucet reset or snapshot deadlines)."
-                  : "Proyek ini otomatis antre di Dashboard Anda setiap hari. Pasang alarm waktu khusus jika ada jam reset faucet (misal: 14:00 WIB) atau deadline snapshot agar berdering tepat waktu."}
+                  ? "Daily tasks automatically appear in your Dashboard to-do list. Timed alarms are optional for fixed reset hours."
+                  : "Proyek otomatis antre di Dashboard setiap hari. Pasang alarm jam jika ada reset faucet atau snapshot jam tertentu."}
               </p>
             </div>
 
-            {reminders.length > 0 ? (
-              <div className="space-y-2">
-                {reminders.map((rem) => {
-                  const dateStr = rem.next_trigger_at
-                    ? new Date(rem.next_trigger_at).toLocaleDateString(isEn ? "en-US" : "id-ID", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : (isEn ? "Not set" : "Belum diatur");
-                  const isPast = rem.next_trigger_at
-                    ? new Date(rem.next_trigger_at).getTime() < Date.now()
-                    : false;
-
-                  return (
-                    <div
-                      key={rem.id}
-                      className={`p-3 rounded-xl border text-caption flex items-center justify-between gap-2 transition-all ${
-                        isPast
-                          ? "bg-status-overdue/10 border-status-overdue/30 text-status-overdue"
-                          : "bg-amber-500/10 border-amber-500/20 text-amber-200"
-                      }`}
-                    >
-                      <div className="space-y-0.5 min-w-0">
-                        <div className="flex items-center gap-1.5 font-mono font-semibold">
-                          <Bell className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                          <span>{formatReminderSchedule(rem.frequency)}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[10px] text-text-tertiary font-mono">
-                          <Clock className="w-2.5 h-2.5" />
-                          <span>{isEn ? `Next: ${dateStr}` : `Berikutnya: ${dateStr}`}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingReminder(rem);
-                            setIsReminderModalOpen(true);
-                          }}
-                          className="p-1.5 text-text-tertiary hover:text-text-primary rounded-lg hover:bg-white/[0.05] transition-colors"
-                          title={isEn ? "Edit alarm" : "Ubah alarm"}
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteReminder(rem.id)}
-                          className="p-1.5 text-text-tertiary hover:text-status-overdue rounded-lg hover:bg-white/[0.05] transition-colors"
-                          title={isEn ? "Delete alarm" : "Hapus alarm"}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-xl bg-white/[0.01] border border-dashed border-white/[0.06] text-center space-y-1">
-                <span className="text-[11px] font-mono text-text-secondary font-semibold block">
-                  {isEn ? "🔕 Flexible Mode (No timed alarms)" : "🔕 Mode Fleksibel (Tanpa alarm jam)"}
+            {/* All Reminders List (if multiple) */}
+            {reminders.length > 1 && (
+              <div className="space-y-1.5 pt-1 border-t border-white/[0.06]">
+                <span className="text-[10px] font-mono uppercase text-text-tertiary block">
+                  {isEn ? "All Active Alarms:" : "Semua Alarm Aktif:"}
                 </span>
-                <p className="text-[11px] text-text-tertiary">
-                  {isEn ? "Tasks can be finished flexibly anytime before 07:00 WIB daily reset." : "Bebas dikerjakan kapan saja sebelum reset harian 07:00 WIB."}
-                </p>
+                {reminders.map((rem) => (
+                  <div
+                    key={rem.id}
+                    className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.06] flex items-center justify-between text-[11px]"
+                  >
+                    <span className="font-mono text-text-secondary truncate">
+                      {formatReminderSchedule(rem.frequency)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReminder(rem.id)}
+                      className="text-text-tertiary hover:text-status-overdue transition-colors p-1"
+                      title={isEn ? "Delete alarm" : "Hapus alarm"}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
