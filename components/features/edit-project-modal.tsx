@@ -20,6 +20,15 @@ import {
   Star,
   Lock,
   ShieldCheck,
+  Folder,
+  Clock,
+  Repeat,
+  CheckSquare,
+  PauseCircle,
+  Play,
+  Gift,
+  CheckCircle2,
+  Hourglass,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
@@ -341,7 +350,8 @@ export function EditProjectModal({
                   { value: "", label: isEn ? "(Unorganized)" : "(Tanpa Folder)" },
                   ...folders.map((f) => ({
                     value: f.id,
-                    label: `📁 ${f.name}`,
+                    label: f.name,
+                    icon: <Folder className="w-3.5 h-3.5 text-text-tertiary" />,
                   })),
                 ]}
               />
@@ -354,11 +364,11 @@ export function EditProjectModal({
                 onChange={(val) => setStatus(val as ProjectStatus)}
                 disabled={isSaving || isDeleting}
                 options={[
-                  { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <span className="text-xs">⏸️</span> },
-                  { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <span className="text-xs">⚡</span> },
-                  { value: "waiting", label: isEn ? "Waiting for TGE / Snapshot" : "Menunggu TGE / Snapshot", icon: <span className="text-xs">⏳</span> },
-                  { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <span className="text-xs">🎁</span> },
-                  { value: "completed", label: isEn ? "Completed" : "Selesai / Klaim Selesai", icon: <span className="text-xs">✅</span> },
+                  { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <PauseCircle className="w-3.5 h-3.5 text-text-tertiary" /> },
+                  { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <Play className="w-3.5 h-3.5 text-status-in-progress" /> },
+                  { value: "waiting", label: isEn ? "Waiting for TGE / Snapshot" : "Menunggu TGE / Snapshot", icon: <Hourglass className="w-3.5 h-3.5 text-purple-400" /> },
+                  { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <Gift className="w-3.5 h-3.5 text-amber-400" /> },
+                  { value: "completed", label: isEn ? "Completed" : "Selesai / Klaim Selesai", icon: <CheckCircle2 className="w-3.5 h-3.5 text-status-completed" /> },
                 ]}
               />
             </div>
@@ -370,9 +380,9 @@ export function EditProjectModal({
                 onChange={(val) => setTaskType(val as any)}
                 disabled={isSaving || isDeleting}
                 options={[
-                  { value: "daily", label: isEn ? "Daily Check-in (07:00 WIB)" : "⚡ Check-in Harian", icon: <span className="text-xs">📅</span> },
-                  { value: "weekly", label: isEn ? "Weekly / Periodic" : "🔄 Mingguan / Berkala", icon: <span className="text-xs">🔄</span> },
-                  { value: "one_time", label: isEn ? "One-Time (Set & Forget)" : "🎯 Sekali Selesai", icon: <span className="text-xs">🎯</span> },
+                  { value: "daily", label: isEn ? "Daily Check-in (07:00 WIB)" : "Check-in Harian", icon: <Clock className="w-3.5 h-3.5 text-accent" /> },
+                  { value: "weekly", label: isEn ? "Weekly / Periodic" : "Mingguan / Berkala", icon: <Repeat className="w-3.5 h-3.5 text-link-teal" /> },
+                  { value: "one_time", label: isEn ? "One-Time (Set & Forget)" : "Sekali Selesai", icon: <CheckSquare className="w-3.5 h-3.5 text-status-completed" /> },
                 ]}
               />
             </div>
@@ -381,7 +391,10 @@ export function EditProjectModal({
               <label className="block text-caption font-medium text-text-secondary mb-1.5 flex items-center justify-between">
                 <span>{isEn ? "Claim / Allocation Portal URL" : "Link Portal Klaim / Checker Alokasi"}</span>
                 {status === "ready_to_claim" && (
-                  <span className="text-[11px] text-amber-400 font-bold">🎁 Siap Klaim</span>
+                  <span className="text-[11px] text-amber-400 font-bold inline-flex items-center gap-1">
+                    <Gift className="w-3 h-3" />
+                    <span>Siap Klaim</span>
+                  </span>
                 )}
               </label>
               <input
@@ -428,15 +441,18 @@ export function EditProjectModal({
               type="button"
               onClick={() => setIsPriority(!isPriority)}
               disabled={isSaving || isDeleting}
-              className={`px-3 py-1.5 rounded-xl text-caption font-semibold transition-all border shrink-0 ${
+              className={`px-3 py-1.5 rounded-xl text-caption font-semibold transition-all border shrink-0 inline-flex items-center gap-1.5 ${
                 isPriority
                   ? "bg-accent text-on-accent border-accent shadow-xs"
                   : "bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary border-white/[0.1]"
               }`}
             >
-              {isPriority
-                ? (isEn ? "⭐ Priority Active" : "⭐ Prioritas Aktif")
-                : (isEn ? "Mark Priority" : "Jadikan Prioritas")}
+              <Star className={`w-3.5 h-3.5 ${isPriority ? "fill-on-accent text-on-accent" : "text-text-tertiary"}`} />
+              <span>
+                {isPriority
+                  ? (isEn ? "Priority Active" : "Prioritas Aktif")
+                  : (isEn ? "Mark Priority" : "Jadikan Prioritas")}
+              </span>
             </button>
           </div>
         </div>

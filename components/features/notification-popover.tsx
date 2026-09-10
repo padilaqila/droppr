@@ -261,9 +261,12 @@ export function NotificationPopover() {
               <ArrowRight className="w-3 h-3" />
             </Link>
 
-            <span className="text-[11px] font-mono text-text-tertiary">
-              {priorityCount > 0 && `⭐ ${priorityCount} Prioritas`}
-            </span>
+            {priorityCount > 0 && (
+              <span className="text-[11px] font-mono text-text-tertiary inline-flex items-center gap-1">
+                <Star className="w-3 h-3 text-accent fill-accent" />
+                <span>{priorityCount} Prioritas</span>
+              </span>
+            )}
           </div>
         </div>
       )}

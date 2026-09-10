@@ -25,7 +25,7 @@ import {
 } from "@/lib/supabase/thread-updates";
 import { useTranslation } from "@/lib/i18n/context";
 import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
-import { normalizeTgUrl } from "@/lib/supabase/telegram-batch-scanner";
+import { normalizeTgUrl, arePostsSimilar } from "@/lib/supabase/telegram-batch-scanner";
 
 interface TelegramUpdateModalProps {
   isOpen: boolean;
@@ -101,15 +101,27 @@ export function TelegramUpdateModal({
     }
   }, [isOpen, projectId, refreshActiveThreads]);
 
-  // Check if an item is already in the project thread by exact source_url
+  // Check if an item is already in the project thread by exact/normalized source_url OR text similarity
   const getThreadItemForPost = useCallback(
-    (postUrl: string) => {
+    (postUrl: string, postText?: string) => {
       if (!activeThreads || activeThreads.length === 0 || !postUrl) return null;
       const cleanTarget = postUrl.toLowerCase().trim();
+      const normTarget = normalizeTgUrl(postUrl);
+
       return (
         activeThreads.find((th) => {
-          if (!th.source_url) return false;
-          return th.source_url.toLowerCase().trim() === cleanTarget;
+          // 1. Direct or normalized source_url match
+          if (th.source_url) {
+            const cleanSource = th.source_url.toLowerCase().trim();
+            if (cleanSource === cleanTarget) return true;
+            const normSource = normalizeTgUrl(th.source_url);
+            if (normTarget && normSource && normTarget === normSource) return true;
+          }
+          // 2. High text similarity match (deduplication safeguard)
+          if (postText && th.content && arePostsSimilar(postText, th.content)) {
+            return true;
+          }
+          return false;
         }) || null
       );
     },
@@ -194,8 +206,8 @@ export function TelegramUpdateModal({
   };
 
   // Direct 1-Click Delete from inside the modal
-  const handleRemoveFromThread = async (postUrl: string) => {
-    const threadItem = getThreadItemForPost(postUrl);
+  const handleRemoveFromThread = async (postUrl: string, postText?: string) => {
+    const threadItem = getThreadItemForPost(postUrl, postText);
     if (!threadItem || !projectId || deletingItemId) return;
 
     setDeletingItemId(postUrl);
@@ -400,7 +412,7 @@ export function TelegramUpdateModal({
               </div>
 
               {updates.map((item) => {
-                const threadItem = getThreadItemForPost(item.postUrl);
+                const threadItem = getThreadItemForPost(item.postUrl, item.text);
                 const isAlreadyIn = Boolean(threadItem);
                 const isSavingThis = savingItemId === item.id;
                 const isDeletingThis = deletingItemId === item.postUrl;
@@ -409,9 +421,9 @@ export function TelegramUpdateModal({
                 return (
                   <div
                     key={item.id}
-                    className={`p-3.5 rounded-lg border transition-all ${
+                    className={`p-3.5 rounded-xl border transition-all ${
                       isAlreadyIn
-                        ? "bg-bg-elevated/60 border-status-completed/30 ring-1 ring-status-completed/10"
+                        ? "bg-emerald-500/[0.03] border-emerald-500/35 ring-1 ring-emerald-500/15"
                         : "bg-bg-elevated border-border-hairline hover:border-border-hairline-strong"
                     }`}
                   >
@@ -429,8 +441,20 @@ export function TelegramUpdateModal({
                           <span className="font-semibold">{formatDate(item.date)}</span>
                         </div>
 
+                        {/* Indikator Status Masuk Thread / List */}
+                        {isAlreadyIn ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 inline-flex items-center gap-1 shadow-xs">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            <span>{isEn ? "Already in List" : "Sudah Masuk List"}</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-white/[0.04] text-text-tertiary border border-white/[0.08]">
+                            {isEn ? "Not in List Yet" : "Belum Masuk List"}
+                          </span>
+                        )}
+
                         {telegramPostUrl && normalizeTgUrl(item.postUrl) === normalizeTgUrl(telegramPostUrl) && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-white/[0.08] text-text-secondary border border-white/15">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-link-teal/15 text-link-teal border border-link-teal/30">
                             {isEn ? "Registered Parent Post" : "Postingan Induk Terdaftar"}
                           </span>
                         )}
@@ -471,18 +495,18 @@ export function TelegramUpdateModal({
                     {/* Bottom Action: Single Button or Already in Timeline with Remove option */}
                     <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
                       {isAlreadyIn ? (
-                        <div className="flex items-center justify-between w-full gap-2">
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-status-completed/15 text-status-completed border border-status-completed/30 text-caption font-semibold">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>{isEn ? "Added to Timeline" : "Sudah Ada di Linimasa"}</span>
+                        <div className="flex items-center justify-between w-full gap-2 flex-wrap">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-caption font-semibold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>{isEn ? "Already in Project List" : "Sudah Dimasukkan ke List"}</span>
                           </div>
 
                           {projectId && (
                             <button
                               type="button"
-                              onClick={() => handleRemoveFromThread(item.postUrl)}
+                              onClick={() => handleRemoveFromThread(item.postUrl, item.text)}
                               disabled={isDeletingThis}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-status-overdue/10 hover:bg-status-overdue/20 text-status-overdue border border-status-overdue/30 transition-all text-caption font-semibold disabled:opacity-50"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-status-overdue/10 hover:bg-status-overdue/20 text-status-overdue border border-status-overdue/30 transition-all text-caption font-semibold disabled:opacity-50"
                               title={isEn ? "Remove this update from project timeline" : "Hapus pembaruan ini dari linimasa proyek"}
                             >
                               {isDeletingThis ? (
@@ -490,7 +514,7 @@ export function TelegramUpdateModal({
                               ) : (
                                 <Trash2 className="w-3 h-3" />
                               )}
-                              <span>{isEn ? "Remove from Timeline" : "Hapus dari Linimasa"}</span>
+                              <span>{isEn ? "Remove from List" : "Hapus dari List"}</span>
                             </button>
                           )}
                         </div>
@@ -512,7 +536,7 @@ export function TelegramUpdateModal({
                             ) : (
                               <Plus className="w-3.5 h-3.5" />
                             )}
-                            <span>{isEn ? "+ Add to Timeline" : "+ Tambahkan"}</span>
+                            <span>{isEn ? "Add to Timeline" : "Tambahkan"}</span>
                           </button>
                         </div>
                       )}

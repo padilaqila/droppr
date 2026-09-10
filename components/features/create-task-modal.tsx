@@ -5,6 +5,7 @@ import { Modal } from "@/components/ui/modal";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CustomSelect } from "@/components/ui/select";
+import { CheckSquare, Clock, Repeat, Sliders } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { useTranslation } from "@/lib/i18n/context";
@@ -98,10 +99,10 @@ export function CreateTaskModal({
             onChange={(val) => setType(val as TaskType)}
             disabled={loading}
             options={[
-              { value: "one_time", label: isEn ? "One-time" : "Sekali Saja (One-time)", icon: <span className="text-xs">🎯</span> },
-              { value: "daily", label: isEn ? "Daily" : "Harian (Daily)", icon: <span className="text-xs">🔁</span> },
-              { value: "weekly", label: isEn ? "Weekly" : "Mingguan (Weekly)", icon: <span className="text-xs">📅</span> },
-              { value: "custom", label: isEn ? "Custom" : "Kustom (Custom)", icon: <span className="text-xs">⚙️</span> },
+              { value: "one_time", label: isEn ? "One-time" : "Sekali Saja", icon: <CheckSquare className="w-3.5 h-3.5 text-status-completed" /> },
+              { value: "daily", label: isEn ? "Daily" : "Harian", icon: <Clock className="w-3.5 h-3.5 text-accent" /> },
+              { value: "weekly", label: isEn ? "Weekly" : "Mingguan", icon: <Repeat className="w-3.5 h-3.5 text-link-teal" /> },
+              { value: "custom", label: isEn ? "Custom" : "Kustom", icon: <Sliders className="w-3.5 h-3.5 text-text-tertiary" /> },
             ]}
           />
         </div>

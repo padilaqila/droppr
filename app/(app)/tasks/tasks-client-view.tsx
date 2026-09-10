@@ -23,6 +23,8 @@ import {
   Check,
   RotateCcw,
   Circle,
+  Play,
+  Hourglass,
 } from "lucide-react";
 import { TelegramUpdateModal } from "@/components/features/telegram-update-modal";
 import { CustomSelect } from "@/components/ui/select";
@@ -743,16 +745,16 @@ export function TasksClientView({
                               : "Cukup dikerjakan 1x (misal isi waitlist, bind Discord/Twitter, mint role). Set & forget.")}
                           {opType === "waiting" &&
                             (isEn
-                              ? "⛔ Testnet/farming phase has ended or snapshot taken — no need to spend gas or tx time!"
-                              : "⛔ Fase testnet telah berakhir atau sudah snapshot — STOP buang gas fee atau waktu transaksi!")}
+                              ? "Testnet/farming phase has ended or snapshot taken — no need to spend gas or tx time!"
+                              : "Fase testnet telah berakhir atau sudah snapshot — STOP buang gas fee atau waktu transaksi!")}
                           {opType === "ready_to_claim" &&
                             (isEn
-                              ? "🎉 Token allocation is live! Visit the claim portal below to withdraw your tokens."
-                              : "🎉 Alokasi token telah diumumkan! Kunjungi portal klaim untuk menarik reward airdrop kamu.")}
+                              ? "Token allocation is live! Visit the claim portal below to withdraw your tokens."
+                              : "Alokasi token telah diumumkan! Kunjungi portal klaim untuk menarik reward airdrop kamu.")}
                           {opType === "completed" &&
                             (isEn
-                              ? "✅ Airdrop successfully claimed and rewards landed in your wallet. Great job!"
-                              : "✅ Airdrop telah selesai dan reward sukses diklaim ke dompet Anda.")}
+                              ? "Airdrop successfully claimed and rewards landed in your wallet. Great job!"
+                              : "Airdrop telah selesai dan reward sukses diklaim ke dompet Anda.")}
                         </p>
                       </div>
                     </div>
@@ -766,11 +768,11 @@ export function TasksClientView({
                           disabled={isUpdating}
                           onChange={(newStat) => handleChangeStatus(project, newStat as any)}
                           options={[
-                            { value: "in_progress", label: isEn ? "In Progress" : "⚡ Sedang Dikerjakan" },
-                            { value: "waiting", label: isEn ? "Waiting Snapshot" : "⏳ Menunggu Snapshot" },
-                            { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "🎁 Siap Klaim Reward" },
-                            { value: "completed", label: isEn ? "Completed" : "✅ Selesai Diklaim" },
-                            { value: "not_started", label: isEn ? "Not Started" : "⏸️ Belum Mulai" },
+                            { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <PauseCircle className="w-3.5 h-3.5 text-text-tertiary" /> },
+                            { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <Play className="w-3.5 h-3.5 text-status-in-progress" /> },
+                            { value: "waiting", label: isEn ? "Waiting Snapshot" : "Menunggu Snapshot", icon: <Hourglass className="w-3.5 h-3.5 text-purple-400" /> },
+                            { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <Gift className="w-3.5 h-3.5 text-amber-400" /> },
+                            { value: "completed", label: isEn ? "Completed" : "Selesai Diklaim", icon: <CheckCircle2 className="w-3.5 h-3.5 text-status-completed" /> },
                           ]}
                         />
                       </div>
@@ -824,7 +826,7 @@ export function TasksClientView({
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 border border-amber-400/40 transition-all text-caption font-semibold"
                         >
                           <Gift className="w-3.5 h-3.5" />
-                          <span>{isEn ? "Allocation Live 🎁" : "Siap Klaim 🎁"}</span>
+                          <span>{isEn ? "Allocation Live" : "Siap Klaim"}</span>
                         </button>
                       )}
 

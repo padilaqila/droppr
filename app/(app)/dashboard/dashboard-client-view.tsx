@@ -39,6 +39,8 @@ import type { Database } from "@/lib/supabase/database.types";
 import {
   formatReminderSchedule,
   isReminderActiveToday,
+  isReminderPastDue,
+  decodeFrequency,
 } from "@/lib/supabase/reminders-helper";
 import {
   isProjectDailyDone,
@@ -62,7 +64,7 @@ interface DashboardClientViewProps {
   initialReminders: EnrichedReminder[];
 }
 
-export type TaskTabFilter = "ready" | "overdue" | "completed_today" | "upcoming" | "priority" | "skipped" | "all";
+export type TaskTabFilter = "ready" | "overdue" | "timed" | "completed_today" | "upcoming" | "priority" | "skipped" | "all";
 
 function cleanTaskTitle(text: string): string {
   return text
@@ -276,33 +278,40 @@ export function DashboardClientView({
     return r ? isReminderActiveToday(r.frequency) : false;
   });
 
-  // 1. Ready to work today (has today reminder or active tasks, not done today, not skipped)
+  // 1. Ready to work today: active routine projects that are not completed today and not skipped
   const readyProjects = projects.filter((p) => {
     if (skippedProjectIds.includes(p.id)) return false;
     const pTasks = tasks.filter((t) => t.project_id === p.id);
     if (isProjectDailyDone(p, pTasks)) return false;
-    const r = remindersByProjectId.get(p.id);
-    const isToday = r ? isReminderActiveToday(r.frequency) : false;
-    return isToday || p.status === "in_progress";
+    return p.status === "in_progress";
   });
 
-  // 2. Overdue tasks (projects with today reminder not yet completed past morning)
+  // 2. Overdue tasks: ONLY projects with an active alarm whose scheduled time has PASSED today, and not yet done/skipped
   const overdueProjects = projects.filter((p) => {
     if (skippedProjectIds.includes(p.id)) return false;
     const pTasks = tasks.filter((t) => t.project_id === p.id);
     if (isProjectDailyDone(p, pTasks)) return false;
     const r = remindersByProjectId.get(p.id);
     if (!r) return false;
-    return isReminderActiveToday(r.frequency);
+    return isReminderPastDue(r.frequency, r.next_trigger_at);
   });
 
-  // 3. Completed today
+  // 3. Timed alarms: projects that have a specific time alarm scheduled for today
+  const timedProjects = projects.filter((p) => {
+    if (skippedProjectIds.includes(p.id)) return false;
+    const pTasks = tasks.filter((t) => t.project_id === p.id);
+    if (isProjectDailyDone(p, pTasks)) return false;
+    const r = remindersByProjectId.get(p.id);
+    return !!r && isReminderActiveToday(r.frequency);
+  });
+
+  // 4. Completed today
   const completedTodayProjects = projects.filter((p) => {
     const pTasks = tasks.filter((t) => t.project_id === p.id);
     return isProjectDailyDone(p, pTasks);
   });
 
-  // 4. Upcoming / Tomorrow schedules
+  // 5. Upcoming / Tomorrow schedules
   const upcomingProjects = projects.filter((p) => {
     const r = remindersByProjectId.get(p.id);
     if (!r) return false;
@@ -335,7 +344,7 @@ export function DashboardClientView({
 
     setToastMessage(
       nextPriority
-        ? (isEn ? `⭐ Marked "${proj.name}" as Priority (Protected from deletion)` : `⭐ "${proj.name}" ditandai sebagai Prioritas (Terlindungi dari hapus)`)
+        ? (isEn ? `Marked "${proj.name}" as Priority (Protected from deletion)` : `"${proj.name}" ditandai sebagai Prioritas (Terlindungi dari hapus)`)
         : (isEn ? `Unmarked "${proj.name}" from Priority` : `Tanda Prioritas "${proj.name}" dinonaktifkan`)
     );
 
@@ -347,10 +356,10 @@ export function DashboardClientView({
     }
   };
 
-  // 5. Priority projects
+  // 6. Priority projects
   const priorityProjects = projects.filter(isProjectPriority);
 
-  // 6. Skipped / Postponed today
+  // 7. Skipped / Postponed today
   const skippedProjects = projects.filter((p) => skippedProjectIds.includes(p.id));
 
   // Determine which projects to display based on active tab
@@ -362,6 +371,9 @@ export function DashboardClientView({
         break;
       case "overdue":
         list = overdueProjects;
+        break;
+      case "timed":
+        list = timedProjects;
         break;
       case "completed_today":
         list = completedTodayProjects;
@@ -591,6 +603,32 @@ export function DashboardClientView({
                 </span>
               </button>
 
+              {/* 2b. Ada Alarm Jam */}
+              <button
+                type="button"
+                onClick={() => setActiveProjectFilter("timed")}
+                className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+                  activeProjectFilter === "timed"
+                    ? "bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/40"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
+                }`}
+                title={isEn ? "Projects with specific timed alarms" : "Proyek yang dipasangi alarm jam tertentu"}
+              >
+                <Bell className={`w-3.5 h-3.5 ${activeProjectFilter === "timed" ? "text-amber-400" : "text-text-tertiary"}`} />
+                <span>{isEn ? "Timed Alarms" : "Alarm Jam"}</span>
+                <span
+                  className={`ml-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ${
+                    activeProjectFilter === "timed"
+                      ? "bg-amber-500/30 text-amber-200"
+                      : timedProjects.length > 0
+                      ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                      : "bg-bg-elevated-2 text-text-secondary border border-border-hairline"
+                  }`}
+                >
+                  {timedProjects.length}
+                </span>
+              </button>
+
               {/* 3. Selesai Hari Ini */}
               <button
                 type="button"
@@ -703,6 +741,8 @@ export function DashboardClientView({
               <h3 className="text-body-md font-semibold text-text-primary">
                 {activeProjectFilter === "overdue"
                   ? (isEn ? "Great! No overdue tasks" : "Bagus! Tidak ada tugas yang telat")
+                  : activeProjectFilter === "timed"
+                  ? (isEn ? "No timed alarms scheduled today" : "Tidak ada alarm jam terjadwal hari ini")
                   : activeProjectFilter === "completed_today"
                   ? (isEn ? "No tasks completed today yet" : "Belum ada tugas yang diselesaikan hari ini")
                   : activeProjectFilter === "skipped"
@@ -718,6 +758,8 @@ export function DashboardClientView({
               <p className="text-caption text-text-secondary max-w-md mx-auto">
                 {activeProjectFilter === "overdue"
                   ? (isEn ? "All your projects are on time or already completed." : "Semua garapan kamu masih tepat waktu atau sudah diselesaikan.")
+                  : activeProjectFilter === "timed"
+                  ? (isEn ? "You haven't set specific time alarms (e.g. 14:00 WIB faucet reset) for any projects yet. Standard daily projects remain flexible." : "Belum ada garapan yang dipasangi alarm jam khusus (misal: reset faucet 14:00 WIB). Tugas harian Anda tetap fleksibel dikerjakan kapan saja.")
                   : activeProjectFilter === "completed_today"
                   ? (isEn ? "Mark tasks completed after finishing your daily airdrop tasks." : "Tandai selesai tugas proyek setelah kamu menggarap daily task hari ini.")
                   : activeProjectFilter === "skipped"
@@ -725,7 +767,7 @@ export function DashboardClientView({
                   : activeProjectFilter === "upcoming"
                   ? (isEn ? "No upcoming task schedules" : "Belum ada jadwal tugas mendatang.")
                   : activeProjectFilter === "priority"
-                  ? (isEn ? "Click the ⭐ star on any project card to mark it as Priority and protect it from deletion." : "Klik ikon bintang ⭐ pada kartu proyek untuk menandai sebagai Prioritas & melindunginya dari penghapusan.")
+                  ? (isEn ? "Click the star icon on any project card to mark it as Priority and protect it from deletion." : "Klik ikon bintang pada kartu proyek untuk menandai sebagai Prioritas & melindunginya dari penghapusan.")
                   : activeProjectFilter === "ready"
                   ? (isEn ? "There are no pending tasks ready to work on right now. Check back at 07:00 WIB for the next daily reset." : "Tidak ada tugas yang perlu dikerjakan saat ini. Garapan harian akan di-reset otomatis besok pukul 07:00 WIB.")
                   : (isEn ? "You can configure periodic reminders or view all projects." : "Kamu bisa mengatur pengingat berkala atau melihat seluruh daftar garapan proyek.")}
@@ -760,6 +802,11 @@ export function DashboardClientView({
                 const isSkipped = skippedProjectIds.includes(proj.id);
                 const isDailyDone = isProjectDailyDone(proj, pTasks);
                 const isPriority = isProjectPriority(proj);
+                const isOverdue = projectReminder
+                  ? isReminderPastDue(projectReminder.frequency, projectReminder.next_trigger_at) && !isDailyDone && !isSkipped
+                  : false;
+                const decodedReminder = projectReminder ? decodeFrequency(projectReminder.frequency) : null;
+                const reminderTime = decodedReminder?.timeString || "07:00";
 
                 // Count available links
                 let linkCount = 0;
@@ -797,7 +844,7 @@ export function DashboardClientView({
                             }`}
                             title={
                               isPriority
-                                ? (isEn ? "⭐ Priority Active (Protected from delete) - Click to unmark" : "⭐ Prioritas Aktif (Terlindungi dari hapus) - Klik untuk lepas")
+                                ? (isEn ? "Priority Active (Protected from delete) - Click to unmark" : "Prioritas Aktif (Terlindungi dari hapus) - Klik untuk lepas")
                                 : (isEn ? "Mark as Priority (Protect & Pin)" : "Tandai Prioritas (Lindungi & Sematkan)")
                             }
                           >
@@ -837,33 +884,41 @@ export function DashboardClientView({
                               <FastForward className="w-3 h-3 text-text-tertiary" />
                               <span>{isEn ? "Skipped Today" : "Dilewati Hari Ini"}</span>
                             </span>
-                          ) : activeProjectFilter === "overdue" ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-status-overdue/15 text-status-overdue font-semibold border border-status-overdue/30 flex items-center gap-1">
+                          ) : isOverdue ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-status-overdue/15 text-status-overdue font-semibold border border-status-overdue/30 flex items-center gap-1 font-mono">
                               <AlertCircle className="w-3 h-3 text-status-overdue" />
-                              <span>{isEn ? "Overdue • 07:00 Schedule" : "Telat • Jadwal 07:00 WIB"}</span>
+                              <span>{isEn ? `Overdue • Passed ${reminderTime} WIB` : `Telat • Lewat ${reminderTime} WIB`}</span>
                             </span>
-                          ) : isTodayReminder ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 text-accent font-semibold border border-accent/30 flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-accent" />
-                              <span>{t("dashboard.stats.todaySchedule")}</span>
+                          ) : projectReminder && isTodayReminder ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1 font-mono">
+                              <Bell className="w-3 h-3 text-amber-400" />
+                              <span>{isEn ? `Alarm @ ${reminderTime} WIB` : `Alarm @ ${reminderTime} WIB`}</span>
                             </span>
                           ) : activeProjectFilter === "upcoming" ? (
                             <span className="text-[10px] px-2 py-0.5 rounded bg-accent/10 text-accent font-semibold border border-accent/25 flex items-center gap-1 font-mono">
                               <Timer className="w-3 h-3 text-accent" />
                               <span>{isEn ? `Reset in ${countdown}` : `Reset dlm ${countdown}`}</span>
                             </span>
-                          ) : null}
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-white/[0.03] text-text-tertiary font-semibold border border-white/[0.07] flex items-center gap-1 font-mono">
+                              <Clock className="w-3 h-3 text-text-tertiary" />
+                              <span>{isEn ? "Flexible Daily" : "Harian Fleksibel"}</span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Reminder & Meta Info */}
                         <div className="flex items-center gap-2 text-[11.5px] text-text-tertiary flex-wrap">
-                          {scheduleLabel ? (
-                            <span className="text-accent font-medium flex items-center gap-1">
-                              <Bell className="w-3 h-3 text-accent" />
-                              <span>{isEn ? `Reminder: ${scheduleLabel} @ 07:00` : `Pengingat: ${scheduleLabel} @ 07:00 WIB`}</span>
+                          {projectReminder ? (
+                            <span className="text-amber-400 font-medium flex items-center gap-1 font-mono">
+                              <Bell className="w-3 h-3 text-amber-400" />
+                              <span>{scheduleLabel}</span>
                             </span>
                           ) : (
-                            <span>{isEn ? "Active task" : "Tugas garapan aktif"}</span>
+                            <span className="text-text-tertiary flex items-center gap-1 font-mono">
+                              <CheckSquare className="w-3 h-3 text-text-tertiary" />
+                              <span>{isEn ? "Flexible To-Do List" : "Antrean To-Do List (Fleksibel)"}</span>
+                            </span>
                           )}
                           <span>•</span>
                           <span>{pTasks.length} {isEn ? "steps" : "langkah pengerjaan"}</span>

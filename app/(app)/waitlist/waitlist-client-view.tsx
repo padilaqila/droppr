@@ -34,6 +34,7 @@ import {
   ArrowDown,
   ArrowUp,
   Clock,
+  Zap,
 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { Modal } from "@/components/ui/modal";
@@ -1204,8 +1205,9 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             {/* Quick Picker Buttons (Tombol Cepat) */}
             {(savedWallets.length > 0 || savedAccounts.length > 0 || connectedAddress) && (
               <div className="mb-2 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1.5">
-                <span className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider block">
-                  {isEn ? "⚡ Quick Select from Saved Identities:" : "⚡ Pilih Cepat dari Dompet & Akun:"}
+                <span className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="w-3 h-3 text-accent" />
+                  <span>{isEn ? "Quick Select from Saved Identities:" : "Pilih Cepat dari Dompet & Akun:"}</span>
                 </span>
                 <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-0.5">
                   {/* Connected Browser Wallet */}

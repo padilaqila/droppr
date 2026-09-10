@@ -7,14 +7,23 @@ import { CustomSelect } from "@/components/ui/select";
 import {
   FileText,
   Languages,
+  Globe,
   Send,
   Check,
   AlertCircle,
   RefreshCw,
   ExternalLink,
-  Globe,
   AtSign,
   Wallet,
+  PauseCircle,
+  Play,
+  Hourglass,
+  Gift,
+  CheckCircle2,
+  Clock,
+  Repeat,
+  CheckSquare,
+  Folder,
 } from "lucide-react";
 import { parseAirdropProjectData } from "@/lib/supabase/airdrop-parser";
 import { getTranslationAction } from "@/lib/utils/language-prefs";
@@ -538,11 +547,11 @@ export function CreateProjectModal({
                   value={status}
                   onChange={(val) => setStatus(val as ProjectStatus)}
                   options={[
-                    { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <span className="text-xs">⚡</span> },
-                    { value: "waiting", label: isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE", icon: <span className="text-xs">⏳</span> },
-                    { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <span className="text-xs">🎁</span> },
-                    { value: "completed", label: isEn ? "Completed" : "Selesai Diklaim", icon: <span className="text-xs">✅</span> },
-                    { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <span className="text-xs">⏸️</span> },
+                    { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <Play className="w-3.5 h-3.5 text-status-in-progress" /> },
+                    { value: "waiting", label: isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE", icon: <Hourglass className="w-3.5 h-3.5 text-purple-400" /> },
+                    { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <Gift className="w-3.5 h-3.5 text-amber-400" /> },
+                    { value: "completed", label: isEn ? "Completed" : "Selesai Diklaim", icon: <CheckCircle2 className="w-3.5 h-3.5 text-status-completed" /> },
+                    { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <PauseCircle className="w-3.5 h-3.5 text-text-tertiary" /> },
                   ]}
                 />
               </div>
@@ -553,9 +562,9 @@ export function CreateProjectModal({
                   value={taskType}
                   onChange={(val) => setTaskType(val as any)}
                   options={[
-                    { value: "daily", label: isEn ? "Daily Check-in (07:00 WIB)" : "⚡ Check-in Harian", icon: <span className="text-xs">📅</span> },
-                    { value: "weekly", label: isEn ? "Weekly / Periodic" : "🔄 Mingguan / Berkala", icon: <span className="text-xs">🔄</span> },
-                    { value: "one_time", label: isEn ? "One-Time (Set & Forget)" : "🎯 Sekali Selesai", icon: <span className="text-xs">🎯</span> },
+                    { value: "daily", label: isEn ? "Daily Check-in (07:00 WIB)" : "Check-in Harian", icon: <Clock className="w-3.5 h-3.5 text-accent" /> },
+                    { value: "weekly", label: isEn ? "Weekly / Periodic" : "Mingguan / Berkala", icon: <Repeat className="w-3.5 h-3.5 text-link-teal" /> },
+                    { value: "one_time", label: isEn ? "One-Time (Set & Forget)" : "Sekali Selesai", icon: <CheckSquare className="w-3.5 h-3.5 text-status-completed" /> },
                   ]}
                 />
               </div>
@@ -570,7 +579,8 @@ export function CreateProjectModal({
                     { value: "", label: isEn ? "No Folder (All)" : "Tanpa Folder (Semua)" },
                     ...folders.map((f) => ({
                       value: f.id,
-                      label: `📁 ${f.name}`,
+                      label: f.name,
+                      icon: <Folder className="w-3.5 h-3.5 text-text-tertiary" />,
                     })),
                   ]}
                 />

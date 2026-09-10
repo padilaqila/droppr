@@ -40,6 +40,7 @@ export function normalizeTgUrl(url?: string | null): string {
     .trim()
     .replace(/^https?:\/\//, "")
     .replace(/^telegram\.me\//, "t.me/")
+    .replace(/^t\.me\/s\//, "t.me/")
     .replace(/\?.*$/, "")
     .replace(/\/+$/, "");
 }

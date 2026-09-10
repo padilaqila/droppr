@@ -1,4 +1,9 @@
 import { createClient } from "@/lib/supabase/client";
+import {
+  decodeFrequency,
+  encodeFrequency,
+  calculateNextTrigger,
+} from "@/lib/supabase/reminders-helper";
 
 /**
  * Returns the Date of the most recent daily reset (00:00 UTC / 07:00 WIB).
@@ -171,6 +176,9 @@ export async function updateProjectTaskType(
 
     if (updateErr) throw updateErr;
 
+    // Synchronize existing project reminders so routine and reminder never conflict
+    await syncRoutineWithReminder(projectId, taskType);
+
     return { success: true, taskType };
   } catch (err: any) {
     console.error("updateProjectTaskType error:", err);
@@ -221,6 +229,164 @@ export async function updateProjectLifecycleStatus(
   } catch (err: any) {
     console.error("updateProjectLifecycleStatus error:", err);
     return { success: false, status, error: err };
+  }
+}
+
+/**
+ * Automatically synchronizes an existing project reminder with the selected routine type.
+ * Eliminates contradictory reminder schedules (e.g. daily reminder on a weekly project).
+ */
+export async function syncRoutineWithReminder(
+  projectId: string,
+  newRoutine: "daily" | "weekly" | "one_time" | "recurring"
+): Promise<{ success: boolean; updated?: boolean; error?: any }> {
+  try {
+    const supabase = createClient() as any;
+    const { data: existingReminders, error: fetchErr } = await supabase
+      .from("reminders")
+      .select("*")
+      .eq("project_id", projectId);
+
+    if (fetchErr) throw fetchErr;
+    if (!existingReminders || existingReminders.length === 0) {
+      return { success: true, updated: false };
+    }
+
+    for (const rem of existingReminders) {
+      const decoded = decodeFrequency(rem.frequency);
+      const currentTime = decoded.timeString || "07:00";
+
+      let nextFreq = rem.frequency;
+      let nextTrigger = rem.next_trigger_at;
+
+      if (newRoutine === "daily" || newRoutine === "recurring") {
+        nextFreq = encodeFrequency("daily", currentTime);
+        nextTrigger = calculateNextTrigger("daily", currentTime);
+      } else if (newRoutine === "weekly") {
+        const days = decoded.selectedDays.length > 0 ? decoded.selectedDays : ["mon"];
+        nextFreq = encodeFrequency("weekly", currentTime, days);
+        nextTrigger = calculateNextTrigger("weekly", currentTime, days);
+      } else if (newRoutine === "one_time") {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+        const dateStr = decoded.specificDate || tomorrowStr;
+        nextFreq = encodeFrequency("once", currentTime, [], dateStr);
+        nextTrigger = calculateNextTrigger("once", currentTime, [], dateStr);
+      }
+
+      await supabase
+        .from("reminders")
+        .update({
+          frequency: nextFreq,
+          next_trigger_at: nextTrigger,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", rem.id);
+    }
+
+    return { success: true, updated: true };
+  } catch (err: any) {
+    console.error("syncRoutineWithReminder error:", err);
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Storage key for today's skipped/postponed projects
+ */
+export function getTodaySkippedTasksStorageKey(): string {
+  return `droppr_skipped_tasks_${new Date().toISOString().slice(0, 10)}`;
+}
+
+/**
+ * Checks if a project is skipped/postponed today in localStorage
+ */
+export function isProjectSkippedToday(projectId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(getTodaySkippedTasksStorageKey());
+    if (!raw) return false;
+    const list: string[] = JSON.parse(raw);
+    return Array.isArray(list) && list.includes(projectId);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Toggle or set project skipped/postponed state for today (syncs with Dashboard)
+ */
+export function toggleProjectSkippedToday(projectId: string, skipped: boolean): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const key = getTodaySkippedTasksStorageKey();
+    const raw = localStorage.getItem(key);
+    let list: string[] = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) list = [];
+
+    if (skipped) {
+      if (!list.includes(projectId)) {
+        list.push(projectId);
+      }
+    } else {
+      list = list.filter((id) => id !== projectId);
+    }
+    localStorage.setItem(key, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Snooze reminder for a project by a duration or to a specific hour
+ */
+export async function snoozeReminder(
+  projectId: string,
+  target: "2h" | "tonight" | "tomorrow"
+): Promise<{ success: boolean; nextTrigger?: string; error?: any }> {
+  try {
+    const supabase = createClient() as any;
+    const { data: reminders, error: fetchErr } = await supabase
+      .from("reminders")
+      .select("*")
+      .eq("project_id", projectId);
+
+    if (fetchErr) throw fetchErr;
+    if (!reminders || reminders.length === 0) return { success: true };
+
+    const now = new Date();
+    let nextDate = new Date();
+
+    if (target === "2h") {
+      nextDate = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    } else if (target === "tonight") {
+      nextDate.setHours(20, 0, 0, 0);
+      if (nextDate.getTime() <= now.getTime()) {
+        nextDate.setDate(nextDate.getDate() + 1);
+      }
+    } else if (target === "tomorrow") {
+      nextDate.setDate(nextDate.getDate() + 1);
+      nextDate.setHours(7, 0, 0, 0);
+    }
+
+    const nextTriggerIso = nextDate.toISOString();
+
+    for (const rem of reminders) {
+      await supabase
+        .from("reminders")
+        .update({
+          next_trigger_at: nextTriggerIso,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", rem.id);
+    }
+
+    return { success: true, nextTrigger: nextTriggerIso };
+  } catch (err: any) {
+    console.error("snoozeReminder error:", err);
+    return { success: false, error: err };
   }
 }
 

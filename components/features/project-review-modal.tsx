@@ -28,6 +28,11 @@ import {
   ChevronDown,
   ChevronUp,
   Repeat,
+  PauseCircle,
+  Play,
+  Hourglass,
+  Folder,
+  CheckSquare,
 } from "lucide-react";
 import { parseAirdropProjectData } from "@/lib/supabase/airdrop-parser";
 import { sanitizeSurrogates, sanitizeJsonObject } from "@/lib/supabase/thread-updates";
@@ -408,11 +413,11 @@ export function ProjectReviewModal({
                   value={status}
                   onChange={(val) => setStatus(val as ProjectStatus)}
                   options={[
-                    { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <span className="text-xs">⚡</span> },
-                    { value: "waiting", label: isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE", icon: <span className="text-xs">⏳</span> },
-                    { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <span className="text-xs">🎁</span> },
-                    { value: "completed", label: isEn ? "Completed" : "Selesai Diklaim", icon: <span className="text-xs">✅</span> },
-                    { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <span className="text-xs">⏸️</span> },
+                    { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <PauseCircle className="w-3.5 h-3.5 text-text-tertiary" /> },
+                    { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <Play className="w-3.5 h-3.5 text-status-in-progress" /> },
+                    { value: "waiting", label: isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE", icon: <Hourglass className="w-3.5 h-3.5 text-purple-400" /> },
+                    { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <Gift className="w-3.5 h-3.5 text-amber-400" /> },
+                    { value: "completed", label: isEn ? "Completed" : "Selesai Diklaim", icon: <CheckCircle2 className="w-3.5 h-3.5 text-status-completed" /> },
                   ]}
                 />
               </div>
@@ -423,9 +428,9 @@ export function ProjectReviewModal({
                   value={taskType}
                   onChange={(val) => setTaskType(val as RoutineType)}
                   options={[
-                    { value: "daily", label: isEn ? "Daily Check-in (07:00 WIB)" : "⚡ Check-in Harian", icon: <Clock className="w-3.5 h-3.5 text-amber-400" /> },
-                    { value: "weekly", label: isEn ? "Weekly / Periodic" : "🔄 Mingguan / Berkala", icon: <Repeat className="w-3.5 h-3.5 text-sky-400" /> },
-                    { value: "one_time", label: isEn ? "One-Time (Set & Forget)" : "🎯 Sekali Selesai", icon: <Zap className="w-3.5 h-3.5 text-indigo-300" /> },
+                    { value: "daily", label: isEn ? "Daily Check-in (07:00 WIB)" : "Check-in Harian", icon: <Clock className="w-3.5 h-3.5 text-accent" /> },
+                    { value: "weekly", label: isEn ? "Weekly / Periodic" : "Mingguan / Berkala", icon: <Repeat className="w-3.5 h-3.5 text-link-teal" /> },
+                    { value: "one_time", label: isEn ? "One-Time (Set & Forget)" : "Sekali Selesai", icon: <CheckSquare className="w-3.5 h-3.5 text-status-completed" /> },
                   ]}
                 />
               </div>
@@ -450,7 +455,8 @@ export function ProjectReviewModal({
                     { value: "", label: isEn ? "No Folder" : "Tanpa Folder" },
                     ...folders.map((f) => ({
                       value: f.id,
-                      label: `📁 ${f.name}`,
+                      label: f.name,
+                      icon: <Folder className="w-3.5 h-3.5 text-text-tertiary" />,
                     })),
                   ]}
                 />

@@ -29,6 +29,11 @@ import {
   Send,
   Star,
   ShieldCheck,
+  Play,
+  Hourglass,
+  Gift,
+  CheckCircle2,
+  PauseCircle,
 } from "lucide-react";
 import { StatusBadge, type ProjectStatus as BadgeProjectStatus } from "@/components/ui/status-badge";
 import { CustomSelect } from "@/components/ui/select";
@@ -539,7 +544,7 @@ export function ProjectsClientView({
 
     showToast(
       nextPriority
-        ? (isEn ? `⭐ Marked "${proj.name}" as Priority (Protected from deletion)` : `⭐ "${proj.name}" ditandai sebagai Prioritas (Terlindungi dari hapus)`)
+        ? (isEn ? `Marked "${proj.name}" as Priority (Protected from deletion)` : `"${proj.name}" ditandai sebagai Prioritas (Terlindungi dari hapus)`)
         : (isEn ? `Unmarked "${proj.name}" from Priority` : `Tanda Prioritas "${proj.name}" dinonaktifkan`),
       "success"
     );
@@ -855,11 +860,11 @@ export function ProjectsClientView({
               options={[
                 { value: "all", label: isEn ? "All Status" : "Semua Status", icon: <Filter className="w-3.5 h-3.5 text-text-tertiary" /> },
                 { value: "priority", label: isEn ? "Priority" : "Prioritas", icon: <Star className="w-3.5 h-3.5 text-accent fill-accent" /> },
-                { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <span className="text-xs">⚡</span> },
-                { value: "waiting", label: isEn ? "Waiting Snapshot" : "Menunggu Snapshot", icon: <span className="text-xs">⏳</span> },
-                { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim", icon: <span className="text-xs">🎁</span> },
-                { value: "completed", label: isEn ? "Completed" : "Selesai", icon: <span className="text-xs">✅</span> },
-                { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <span className="text-xs">⏸️</span> },
+                { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <Play className="w-3.5 h-3.5 text-status-in-progress" /> },
+                { value: "waiting", label: isEn ? "Waiting Snapshot" : "Menunggu Snapshot", icon: <Hourglass className="w-3.5 h-3.5 text-purple-400" /> },
+                { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim", icon: <Gift className="w-3.5 h-3.5 text-amber-400" /> },
+                { value: "completed", label: isEn ? "Completed" : "Selesai", icon: <CheckCircle2 className="w-3.5 h-3.5 text-status-completed" /> },
+                { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <PauseCircle className="w-3.5 h-3.5 text-text-tertiary" /> },
               ]}
             />
           </div>
@@ -1069,7 +1074,7 @@ export function ProjectsClientView({
                         }`}
                         title={
                           isPriority
-                            ? (isEn ? "⭐ Priority Active (Protected from delete) - Click to unmark" : "⭐ Prioritas Aktif (Terlindungi dari hapus) - Klik untuk lepas")
+                            ? (isEn ? "Priority Active (Protected from delete) - Click to unmark" : "Prioritas Aktif (Terlindungi dari hapus) - Klik untuk lepas")
                             : (isEn ? "Mark as Priority (Pin & Protect)" : "Tandai Prioritas (Sematkan & Lindungi)")
                         }
                       >
@@ -1259,7 +1264,7 @@ export function ProjectsClientView({
                       }`}
                       title={
                         isPriority
-                          ? (isEn ? "⭐ Priority Active (Protected) - Click to unmark" : "⭐ Prioritas Aktif (Terlindungi) - Klik untuk lepas")
+                          ? (isEn ? "Priority Active (Protected) - Click to unmark" : "Prioritas Aktif (Terlindungi) - Klik untuk lepas")
                           : (isEn ? "Mark as Priority" : "Tandai Prioritas")
                       }
                     >
@@ -1383,10 +1388,11 @@ export function ProjectsClientView({
                   size="sm"
                   variant="subtle"
                   options={[
-                    { value: "root", label: `📂 ${t("projects.unorganized")}` },
+                    { value: "root", label: t("projects.unorganized"), icon: <FolderOpen className="w-3.5 h-3.5 text-text-tertiary" /> },
                     ...folders.map((f) => ({
                       value: f.id,
-                      label: `📁 ${f.name}`,
+                      label: f.name,
+                      icon: <Folder className="w-3.5 h-3.5 text-text-tertiary" />,
                     })),
                   ]}
                 />

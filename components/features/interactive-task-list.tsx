@@ -25,6 +25,7 @@ interface InteractiveTaskListProps {
   projectId: string;
   initialTasks: TaskRow[];
   onTasksUpdated?: () => void;
+  onTasksChange?: (tasks: TaskRow[]) => void;
   showFilters?: boolean;
 }
 
@@ -68,6 +69,7 @@ export function InteractiveTaskList({
   projectId,
   initialTasks,
   onTasksUpdated,
+  onTasksChange,
   showFilters = true,
 }: InteractiveTaskListProps) {
   const { isEn } = useTranslation();
@@ -88,6 +90,12 @@ export function InteractiveTaskList({
   React.useEffect(() => {
     setTasks(initialTasks);
   }, [initialTasks]);
+
+  React.useEffect(() => {
+    if (onTasksChange) {
+      onTasksChange(tasks);
+    }
+  }, [tasks, onTasksChange]);
 
   // Toggle task status optimistically
   const handleToggleTask = async (taskId: string, currentStatus: string) => {
@@ -481,7 +489,7 @@ export function InteractiveTaskList({
               size="sm"
               options={[
                 { value: "one_time", label: isEn ? "Once" : "Sekali" },
-                { value: "daily", label: isEn ? "Daily 🔁" : "Harian 🔁" },
+                { value: "daily", label: isEn ? "Daily" : "Harian" },
                 { value: "weekly", label: isEn ? "Weekly" : "Mingguan" },
               ]}
             />

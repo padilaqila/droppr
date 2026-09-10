@@ -273,3 +273,36 @@ export function isReminderActiveToday(frequencyStr: string | null | undefined): 
 
   return false;
 }
+
+/**
+ * Checks if an active reminder's scheduled time has passed for today (overdue)
+ */
+export function isReminderPastDue(
+  frequencyStr: string | null | undefined,
+  nextTriggerAt?: string | null
+): boolean {
+  if (!frequencyStr) return false;
+
+  // If next_trigger_at is provided and explicitly in the past
+  if (nextTriggerAt) {
+    const triggerTime = new Date(nextTriggerAt).getTime();
+    if (triggerTime < Date.now()) {
+      return true;
+    }
+  }
+
+  // Check based on decoded schedule for today
+  if (!isReminderActiveToday(frequencyStr)) return false;
+
+  const { timeString } = decodeFrequency(frequencyStr);
+  const [hoursStr, minsStr] = (timeString || "07:00").split(":");
+  const schedHours = parseInt(hoursStr || "7", 10);
+  const schedMins = parseInt(minsStr || "0", 10);
+
+  const now = new Date();
+  const currentTotalMins = now.getHours() * 60 + now.getMinutes();
+  const schedTotalMins = schedHours * 60 + schedMins;
+
+  return currentTotalMins > schedTotalMins;
+}
+
