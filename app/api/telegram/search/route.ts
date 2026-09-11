@@ -34,8 +34,10 @@ function parseTelegramHtml(html: string, channel: string, channelName: string): 
     const timeMatch = /<time[^>]*datetime="([^"]+)"/i.exec(block);
     const date = timeMatch ? timeMatch[1] : new Date().toISOString();
 
-    // Extract text content
-    const textMatch = /<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(block);
+    // Extract text content (prioritize js-message_text to get the real update body instead of quoted reply)
+    const textMatch =
+      /<div[^>]*class="[^"]*js-message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(block) ||
+      /<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(block);
     const rawText = textMatch ? textMatch[1] : "";
     const cleanText = cleanTelegramHtml(rawText);
 

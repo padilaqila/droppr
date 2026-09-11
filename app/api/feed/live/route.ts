@@ -121,7 +121,10 @@ async function scrapeTelegramChannel(
       const timeMatch = /<time[^>]*datetime="([^"]+)"/i.exec(block);
       const date = timeMatch ? timeMatch[1] : new Date().toISOString();
 
-      const textMatch = /<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(block);
+      // Prioritize js-message_text so update replies capture the actual update body, not the quoted snippet
+      const textMatch =
+        /<div[^>]*class="[^"]*js-message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(block) ||
+        /<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(block);
       const rawText = textMatch ? textMatch[1] : "";
       const text = cleanTelegramHtml(rawText);
 

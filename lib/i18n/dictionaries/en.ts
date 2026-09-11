@@ -261,6 +261,7 @@ export const en: Dictionary = {
     categoryLabel: "Category:",
     costLabel: "Cost:",
     testnet: "Testnet",
+    airdrop: "Airdrop",
     retro: "Retro",
     free: "Free",
     paid: "Paid",

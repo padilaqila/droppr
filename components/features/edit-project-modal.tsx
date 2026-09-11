@@ -247,20 +247,14 @@ export function EditProjectModal({
     try {
       const supabase = createClient() as any;
 
-      // 1. Revert import status on airdrop_feeds & waitlists if this project came from feed/waitlist
+      // 1. Revert import status on airdrop_feeds if this project came from feed
       const s = (project.social_links as Record<string, any>) || {};
       const sourceUrl = s.telegram_post_url || s.telegram || s.source_url;
 
       if (sourceUrl && typeof sourceUrl === "string") {
-        await Promise.allSettled([
-          supabase.from("airdrop_feeds").update({ is_imported: false }).eq("source_url", sourceUrl.trim()),
-          supabase.from("waitlists").update({ is_imported: false }).eq("source_url", sourceUrl.trim()),
-        ]);
+        await supabase.from("airdrop_feeds").update({ is_imported: false }).eq("source_url", sourceUrl.trim());
       } else if (project.name) {
-        await Promise.allSettled([
-          supabase.from("airdrop_feeds").update({ is_imported: false }).ilike("title", `%${project.name.trim()}%`),
-          supabase.from("waitlists").update({ is_imported: false }).ilike("title", `%${project.name.trim()}%`),
-        ]);
+        await supabase.from("airdrop_feeds").update({ is_imported: false }).ilike("title", `%${project.name.trim()}%`);
       }
 
       // 2. Delete project from database

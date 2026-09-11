@@ -254,6 +254,49 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
       });
   }, []);
 
+  // Realtime Supabase synchronization + Tab Focus auto-refetch
+  useEffect(() => {
+    const supabase = createClient() as any;
+
+    // 1. Realtime channel for waitlists
+    const channel = supabase
+      .channel("shared_waitlists_channel")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "waitlists" },
+        async () => {
+          try {
+            await reloadData();
+          } catch (err) {
+            console.warn("Realtime waitlist reload warning:", err);
+          }
+        }
+      )
+      .subscribe();
+
+    // 2. Tab focus & visibility change fallback (ensures fresh data after sleep/tab switch)
+    let lastRefetch = Date.now();
+    const handleVisibility = async () => {
+      if (document.visibilityState === "visible" && Date.now() - lastRefetch > 20000) {
+        lastRefetch = Date.now();
+        try {
+          await reloadData();
+        } catch (err) {
+          console.warn("Tab focus waitlist reload warning:", err);
+        }
+      }
+    };
+
+    window.addEventListener("focus", handleVisibility);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", handleVisibility);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
   const handleOpenTransferModalFromUpdate = (post: any, waitlist: WaitlistItem) => {
     const detectedTasks = extractTasksFromText(post.text);
     setTransferWaitlistRef(waitlist);
@@ -390,9 +433,23 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
 
   // Delete waitlist
   const handleDelete = async (id: string, projectName?: string) => {
-    const confirmMessage = projectName
-      ? (isEn ? `Delete waitlist "${projectName}"?` : `Hapus waitlist "${projectName}"?`)
-      : (isEn ? "Delete this waitlist item?" : "Hapus item waitlist ini?");
+    const matchingProject = projectName
+      ? existingProjects.find(
+          (p) => p.name.toLowerCase().trim() === projectName.toLowerCase().trim()
+        )
+      : null;
+
+    let confirmMessage = "";
+    if (matchingProject) {
+      confirmMessage = isEn
+        ? `⚠️ Warning: "${projectName}" is currently an active Project in your workspace. Deleting this waitlist will not delete the project or its tasks, but you will lose this waitlist registration record. Continue deleting?`
+        : `⚠️ Perhatian: "${projectName}" saat ini aktif sebagai Proyek di workspace Anda. Menghapus waitlist ini tidak akan menghapus proyek maupun tugasnya, tetapi Anda akan kehilangan riwayat pendaftaran waitlist ini. Tetap ingin menghapus?`;
+    } else {
+      confirmMessage = projectName
+        ? (isEn ? `Delete waitlist "${projectName}"?` : `Hapus waitlist "${projectName}"?`)
+        : (isEn ? "Delete this waitlist item?" : "Hapus item waitlist ini?");
+    }
+
     if (!confirm(confirmMessage)) return;
     const success = await deleteWaitlist(id);
     if (success) {
@@ -433,12 +490,22 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // Set of source URLs that the user has already joined
+  const joinedSourceUrls = useMemo(() => {
+    return new Set(waitlists.filter((w) => w.status === "joined").map((w) => w.source_url));
+  }, [waitlists]);
+
   // Filtered waitlists
   const filteredWaitlists = useMemo(() => {
     return waitlists
       .filter((item) => {
-        // Tab filter
-        if (item.status !== activeTab) return false;
+        // Tab filter: in pending tab, hide items this user has already joined
+        if (activeTab === "joined") {
+          if (item.status !== "joined") return false;
+        } else {
+          if (item.status !== "pending") return false;
+          if (joinedSourceUrls.has(item.source_url)) return false;
+        }
 
         // Channel filter
         if (channelFilter !== "all" && item.channel !== channelFilter) return false;
@@ -472,10 +539,13 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
         const timeB = new Date(b.created_at).getTime() || 0;
         return sortOrder === "desc" ? timeB - timeA : timeA - timeB;
       });
-  }, [waitlists, activeTab, channelFilter, timeRange, sortOrder, searchQuery]);
+  }, [waitlists, activeTab, channelFilter, timeRange, sortOrder, searchQuery, joinedSourceUrls]);
 
   const joinedCount = useMemo(() => waitlists.filter((w) => w.status === "joined").length, [waitlists]);
-  const pendingCount = useMemo(() => waitlists.filter((w) => w.status === "pending").length, [waitlists]);
+  const pendingCount = useMemo(
+    () => waitlists.filter((w) => w.status === "pending" && !joinedSourceUrls.has(w.source_url)).length,
+    [waitlists, joinedSourceUrls]
+  );
 
   const formatDate = (isoString?: string | null) => {
     if (!isoString) return "";

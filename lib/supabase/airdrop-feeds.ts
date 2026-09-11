@@ -60,34 +60,12 @@ export async function syncFeedsWithProjects(
 
     const actuallyExists = Boolean(matchedProjectId);
 
-    // If marked imported in feed, but project no longer exists in projects table
-    if (feed.is_imported && !actuallyExists) {
-      idsToRevert.push(feed.id);
-      return {
-        ...feed,
-        is_imported: false,
-        linked_project_id: null,
-      };
-    }
-
     return {
       ...feed,
       is_imported: actuallyExists,
       linked_project_id: matchedProjectId || null,
     };
   });
-
-  // Revert stale feeds in database asynchronously in the background
-  if (idsToRevert.length > 0) {
-    try {
-      await supabase
-        .from("airdrop_feeds")
-        .update({ is_imported: false })
-        .in("id", idsToRevert);
-    } catch (err) {
-      console.warn("Background feed status sync warning:", err);
-    }
-  }
 
   return syncedFeeds;
 }
@@ -172,12 +150,24 @@ export async function fetchAirdropFeeds(options?: {
 }
 
 /**
- * Delete a feed item by id
+ * Delete a feed item by id (safeguarded: cannot delete if already imported as a project)
  */
 export async function deleteAirdropFeed(feedId: string): Promise<boolean> {
   const supabase = createClient() as any;
 
   try {
+    // Check if feed is already imported into a user project
+    const { data: feed } = await supabase
+      .from("airdrop_feeds")
+      .select("is_imported")
+      .eq("id", feedId)
+      .single();
+
+    if (feed?.is_imported) {
+      console.warn("deleteAirdropFeed rejected: feed is already imported as an active project.");
+      return false;
+    }
+
     const { error } = await supabase
       .from("airdrop_feeds")
       .delete()
@@ -191,7 +181,7 @@ export async function deleteAirdropFeed(feedId: string): Promise<boolean> {
 }
 
 /**
- * Cleanup feeds older than 90 days
+ * Cleanup unimported feeds older than 90 days (preserves all imported project feeds)
  */
 export async function cleanupExpiredFeeds(): Promise<number> {
   const supabase = createClient() as any;
@@ -202,6 +192,7 @@ export async function cleanupExpiredFeeds(): Promise<number> {
       .from("airdrop_feeds")
       .delete()
       .lt("expires_at", nowIso)
+      .eq("is_imported", false)
       .select("id");
 
     if (!error && Array.isArray(data)) {
@@ -253,7 +244,9 @@ export async function convertFeedToProject(feed: AirdropFeedItem): Promise<Conve
 
     // Determine initial project status based on feed category
     const initialStatus =
-      feed.category === "testnet" || feed.category === "retro" ? "in_progress" : "not_started";
+      feed.category === "testnet" || feed.category === "retro" || feed.category === "airdrop"
+        ? "in_progress"
+        : "not_started";
 
     // 2. Insert into projects table
     const { data: projectData, error: projErr } = await supabase

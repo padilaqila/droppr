@@ -63,7 +63,7 @@ function parseDutaCryptoPost(text: string, postUrl: string, date: string): Parse
   const costMatch = text.match(/Cost:\s*([^\n]+)/i);
   let cost = costMatch ? costMatch[1].trim() : null;
 
-  let category: "testnet" | "retro" | "general" = "testnet";
+  let category: "testnet" | "airdrop" | "retro" | "general" = "airdrop";
   const lowerCost = (cost || "").toLowerCase();
 
   const isCostFree =
@@ -71,10 +71,11 @@ function parseDutaCryptoPost(text: string, postUrl: string, date: string): Parse
     lowerCost.includes("gratis") ||
     lowerCost === "$0" ||
     lowerCost === "0" ||
+    /^\$?0(\.0+)?$/.test(lowerCost.trim()) ||
     lowerCost.includes("testnet");
 
   const isCostPaid =
-    lowerCost.includes("$") ||
+    /\$(?!0(\.0+)?(\s|$|\)))[0-9]+/.test(lowerCost) ||
     lowerCost.includes("fee") ||
     lowerCost.includes("gas") ||
     lowerCost.includes("retro") ||
@@ -86,23 +87,19 @@ function parseDutaCryptoPost(text: string, postUrl: string, date: string): Parse
   if (
     lowerText.includes("retro") ||
     lowerTitle.includes("retro") ||
-    isCostPaid ||
-    lowerText.includes("mainnet")
+    (isCostPaid && !isCostFree) ||
+    (lowerText.includes("mainnet") && !lowerText.includes("testnet")) ||
+    /\b(bridge|swap|volume|liquidity|stake)\b/i.test(lowerText)
   ) {
     category = "retro";
     if (!cost || isCostFree) cost = "Berbayar (Gas Fee)";
-  } else if (lowerText.includes("testnet") || lowerTitle.includes("testnet") || isCostFree) {
+  } else if (lowerText.includes("testnet") || lowerTitle.includes("testnet") || lowerText.includes("faucet")) {
     category = "testnet";
     if (!cost) cost = "Gratis (Testnet)";
   } else {
-    // Default fallback based on action requirements
-    if (lowerText.includes("bridge") || lowerText.includes("swap") || lowerText.includes("volume")) {
-      category = "retro";
-      cost = cost || "Berbayar (Gas Fee)";
-    } else {
-      category = "testnet";
-      cost = cost || "Gratis ($0)";
-    }
+    // Default fallback for Free Airdrops / Tasks
+    category = "airdrop";
+    cost = cost || "Gratis ($0)";
   }
 
   // Normalize cost label if it's free
@@ -165,8 +162,13 @@ function parseAirdropFinderPost(text: string, postUrl: string, date: string): Pa
     return null;
   }
 
-  // Pattern: "New Airdrop : ...", "New Airdrops : ...", "New Testnet: ...", "New Retro: ..."
-  const isNewPost = /New\s+(?:Airdrops?|Testnet|Retro)\s*[:|-]/i.test(text);
+  // Exclude non-crypto community jokes (e.g. Jumatan / Pahala)
+  if (/pahala|masjid|sholat|khutbah/i.test(lowerText)) {
+    return null;
+  }
+
+  // Pattern: "New Airdrop : ...", "New Airdrops : ...", "New Guaranteed Airdrops : ...", "New Testnet: ...", "New Retro: ..."
+  const isNewPost = /New\s+(?:Guaranteed\s+)?(?:Airdrops?|Testnet|Retro)\s*[:|-]/i.test(text);
 
   if (!isNewPost) {
     return null;
@@ -174,27 +176,59 @@ function parseAirdropFinderPost(text: string, postUrl: string, date: string): Pa
 
   // Detect cost if mentioned
   let cost = "";
-  const costMatch = text.match(/(?:Cost|Fee):\s*([^\n]+)/i);
+  const costMatch = text.match(/(?:Cost|Fee|Modal):\s*([^\n]+)/i);
   if (costMatch) cost = costMatch[1].trim();
+  const lowerCost = cost.toLowerCase();
 
-  let category: "testnet" | "retro" | "general" = "testnet";
+  const isCostFreeExplicit =
+    lowerCost.includes("free") ||
+    lowerCost.includes("gratis") ||
+    lowerCost === "$0" ||
+    lowerCost === "0" ||
+    /^\$?0(\.0+)?$/.test(lowerCost.trim());
 
-  if (lowerTitle.includes("testnet") || lowerText.includes("testnet") || lowerText.includes("faucet")) {
+  const isCostPaidExplicit =
+    /\$(?!0(\.0+)?(\s|$|\)))[0-9]+/.test(lowerCost) ||
+    lowerCost.includes("fee") ||
+    lowerCost.includes("gas") ||
+    lowerCost.includes("depo") ||
+    lowerCost.includes("modal") ||
+    lowerCost.includes("eth") ||
+    lowerCost.includes("sol");
+
+  let category: "testnet" | "airdrop" | "retro" | "general" = "airdrop";
+
+  // 1. Testnet detection: Faucet, Testnet RPC, Sepolia, Holesky, etc.
+  if (
+    lowerTitle.includes("testnet") ||
+    lowerText.includes("testnet") ||
+    lowerText.includes("faucet") ||
+    lowerText.includes("sepolia") ||
+    lowerText.includes("holesky") ||
+    lowerText.includes("devnet")
+  ) {
     category = "testnet";
     cost = cost || "Gratis (Testnet)";
-  } else if (
+  }
+  // 2. Retroactive detection: On-chain capital actions (Bridge, Swap, Deposit, LP, Stake, Mainnet Gas)
+  else if (
     lowerTitle.includes("retro") ||
     lowerText.includes("retro") ||
-    lowerText.includes("mainnet") ||
-    lowerText.includes("gas fee") ||
-    lowerText.includes("bridge") ||
-    lowerText.includes("volume")
+    isCostPaidExplicit ||
+    (lowerText.includes("mainnet") && !lowerText.includes("testnet")) ||
+    /\b(bridge|swap|volume|liquidity|deposit|depo|stake)\b/i.test(lowerText)
   ) {
     category = "retro";
     cost = cost || "Berbayar (Gas Fee)";
-  } else {
-    category = "testnet";
+  }
+  // 3. Free Web3 Airdrop / Social Quest / Daily Check-in / Points
+  else {
+    category = "airdrop";
     cost = cost || "Gratis ($0)";
+  }
+
+  if (isCostFreeExplicit && !cost.toLowerCase().includes("gratis")) {
+    cost = `Gratis (${cost})`;
   }
 
   // Extract tasks (lines starting with - or ➖)
@@ -329,7 +363,9 @@ export async function POST(_request: NextRequest) {
         try {
           const rawMessages = await fetchChannelMessages(ch.username, oneMonthAgo, 8);
           for (const msg of rawMessages) {
+            // Prioritize js-message_text so update replies capture the actual update body, not the quoted snippet
             const textMatch =
+              /<div[^>]*class="[^"]*js-message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(msg.block) ||
               /<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(msg.block);
             const rawHtml = textMatch ? textMatch[1] : "";
             const cleanText = cleanTelegramHtml(rawHtml);
@@ -369,10 +405,10 @@ export async function POST(_request: NextRequest) {
         };
       });
 
-      // Upsert using onConflict on user_id, source_url
+      // Upsert using onConflict on source_url (shared catalog across users)
       const { data, error } = await (supabase as any)
         .from("airdrop_feeds")
-        .upsert(rows, { onConflict: "user_id,source_url", ignoreDuplicates: true })
+        .upsert(rows, { onConflict: "source_url", ignoreDuplicates: true })
         .select("id");
 
       if (error) {

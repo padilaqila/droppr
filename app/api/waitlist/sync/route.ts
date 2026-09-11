@@ -261,7 +261,9 @@ export async function POST(_request: NextRequest) {
         try {
           const rawMessages = await fetchChannelMessages(ch.username, threeMonthsAgo, 8);
           for (const msg of rawMessages) {
+            // Prioritize js-message_text so update replies capture the actual update body, not the quoted snippet
             const textMatch =
+              /<div[^>]*class="[^"]*js-message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(msg.block) ||
               /<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(msg.block);
             const rawHtml = textMatch ? textMatch[1] : "";
             const cleanText = cleanTelegramHtml(rawHtml);
@@ -301,10 +303,10 @@ export async function POST(_request: NextRequest) {
         };
       });
 
-      // Upsert based on unique constraint user_id, source_url
+      // Upsert based on unique constraint source_url (shared catalog across users)
       const { data, error } = await (supabase as any)
         .from("waitlists")
-        .upsert(rows, { onConflict: "user_id,source_url", ignoreDuplicates: true })
+        .upsert(rows, { onConflict: "source_url", ignoreDuplicates: true })
         .select("id");
 
       if (error) {

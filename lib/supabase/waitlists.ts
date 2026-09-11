@@ -60,6 +60,8 @@ export async function fetchWaitlists(): Promise<WaitlistItem[]> {
 
 /**
  * Update waitlist joined status and registered account info
+ * Supports shared catalog: joining creates a user-isolated joined record
+ * while leaving the shared pending discovery item for other hunters.
  */
 export async function updateWaitlistStatus(
   waitlistId: string,
@@ -71,25 +73,71 @@ export async function updateWaitlistStatus(
   const nowIso = new Date().toISOString();
 
   try {
-    const updatePayload: Record<string, any> = {
-      status,
-      updated_at: nowIso,
-    };
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return false;
+
+    // Fetch target item
+    const { data: targetItem } = await supabase
+      .from("waitlists")
+      .select("*")
+      .eq("id", waitlistId)
+      .single();
+
+    if (!targetItem) return false;
 
     if (status === "joined") {
-      updatePayload.joined_at = nowIso;
-      if (registeredAccount !== undefined) updatePayload.registered_account = registeredAccount;
-      if (refLink !== undefined) updatePayload.ref_link = refLink;
+      // If user already owns this joined row, update registered account & ref link directly
+      if (targetItem.user_id === user.id && targetItem.status === "joined") {
+        const { error } = await supabase
+          .from("waitlists")
+          .update({
+            registered_account: registeredAccount,
+            ref_link: refLink,
+            updated_at: nowIso,
+          })
+          .eq("id", waitlistId);
+        return !error;
+      }
+
+      // If joining from shared pending catalog, insert a personal joined record for this user
+      const { error } = await supabase
+        .from("waitlists")
+        .upsert(
+          {
+            user_id: user.id,
+            project_name: targetItem.project_name,
+            title: targetItem.title,
+            summary: targetItem.summary,
+            channel: targetItem.channel,
+            source_url: targetItem.source_url,
+            raw_text: targetItem.raw_text,
+            status: "joined",
+            registered_account: registeredAccount || null,
+            ref_link: refLink || targetItem.ref_link || null,
+            tasks: targetItem.tasks || [],
+            joined_at: nowIso,
+            created_at: targetItem.created_at || nowIso,
+            expires_at: targetItem.expires_at,
+            updated_at: nowIso,
+          },
+          { onConflict: "user_id,source_url" }
+        );
+
+      return !error;
     } else {
-      updatePayload.joined_at = null;
+      // Unjoin: if this is user's personal row, delete it
+      if (targetItem.user_id === user.id) {
+        const { error } = await supabase
+          .from("waitlists")
+          .delete()
+          .eq("id", waitlistId);
+        return !error;
+      }
+      return true;
     }
-
-    const { error } = await supabase
-      .from("waitlists")
-      .update(updatePayload)
-      .eq("id", waitlistId);
-
-    return !error;
   } catch (err) {
     console.error("updateWaitlistStatus error:", err);
     return false;

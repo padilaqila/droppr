@@ -259,6 +259,7 @@ export const id = {
     categoryLabel: "Kategori:",
     costLabel: "Biaya:",
     testnet: "Testnet",
+    airdrop: "Airdrop",
     retro: "Retro",
     free: "Gratis",
     paid: "Berbayar",

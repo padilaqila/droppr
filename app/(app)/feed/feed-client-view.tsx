@@ -17,6 +17,7 @@ import {
   Clock,
   Zap,
   Flame,
+  Gift,
   Wallet,
   Coins,
   Check,
@@ -41,6 +42,7 @@ import { ProjectReviewModal } from "@/components/features/project-review-modal";
 import { useTranslation } from "@/lib/i18n/context";
 import { getTranslationAction } from "@/lib/utils/language-prefs";
 import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
+import { createClient } from "@/lib/supabase/client";
 
 interface FeedClientViewProps {
   initialFeeds: AirdropFeedItem[];
@@ -76,17 +78,20 @@ export function getChannelInfo(channelId: string) {
 export function isFeedFree(feed: AirdropFeedItem): boolean {
   const costLower = (feed.cost || "").toLowerCase();
   const categoryLower = (feed.category || "").toLowerCase();
-  if (categoryLower === "testnet" || categoryLower === "waitlist") return true;
+  if (categoryLower === "testnet" || categoryLower === "waitlist" || categoryLower === "airdrop") return true;
   if (
     costLower.includes("gratis") ||
     costLower.includes("free") ||
     costLower === "$0" ||
     costLower === "0" ||
+    /^\$?0(\.0+)?$/.test(costLower.trim()) ||
     costLower.includes("testnet") ||
     costLower.includes("faucet")
   ) {
     return true;
   }
+  // Default to free if no cost is specified and not explicitly retro
+  if (!feed.cost && categoryLower !== "retro") return true;
   return false;
 }
 
@@ -94,8 +99,13 @@ export function isFeedPaid(feed: AirdropFeedItem): boolean {
   const costLower = (feed.cost || "").toLowerCase();
   const categoryLower = (feed.category || "").toLowerCase();
   if (categoryLower === "retro") return true;
+
+  // If already confirmed free, it cannot be paid
+  if (isFeedFree(feed)) return false;
+
+  const hasPaidDollar = /\$(?!0(\.0+)?(\s|$|\)))[0-9]+/.test(costLower);
   if (
-    costLower.includes("$") ||
+    hasPaidDollar ||
     costLower.includes("fee") ||
     costLower.includes("gas") ||
     costLower.includes("depo") ||
@@ -108,7 +118,25 @@ export function isFeedPaid(feed: AirdropFeedItem): boolean {
   ) {
     return true;
   }
-  return !isFeedFree(feed);
+  return false;
+}
+
+export function isFeedTestnet(feed: AirdropFeedItem): boolean {
+  if (feed.category === "testnet") return true;
+  const t = (feed.title || "").toLowerCase();
+  const raw = (feed.raw_text || "").toLowerCase();
+  return t.includes("testnet") || raw.includes("testnet") || raw.includes("faucet") || raw.includes("sepolia");
+}
+
+export function isFeedRetro(feed: AirdropFeedItem): boolean {
+  if (feed.category === "retro") return true;
+  if (isFeedTestnet(feed)) return false;
+  return isFeedPaid(feed);
+}
+
+export function isFeedAirdrop(feed: AirdropFeedItem): boolean {
+  if (feed.category === "airdrop") return true;
+  return !isFeedTestnet(feed) && !isFeedRetro(feed);
 }
 
 // Extracts core project name for intelligent grouping and mention counting
@@ -218,7 +246,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
 
   // Filter States
   const [channelFilter, setChannelFilter] = useState<"all" | "dutacryptoairdrop" | "airdropfind">("all");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "testnet" | "retro">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "testnet" | "airdrop" | "retro">("all");
   const [costFilter, setCostFilter] = useState<"all" | "free" | "paid">("all");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [timeRange, setTimeRange] = useState<"all" | "24h" | "7d" | "30d">("all");
@@ -236,6 +264,55 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Realtime Supabase synchronization + Tab Focus auto-refetch
+  useEffect(() => {
+    const supabase = createClient();
+
+    // 1. Supabase Realtime channel for instant push updates when any user syncs
+    const channel = supabase
+      .channel("shared_airdrop_feeds")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "airdrop_feeds" },
+        async () => {
+          try {
+            const updated = await fetchAirdropFeeds();
+            if (updated && updated.length > 0) {
+              setFeeds(updated);
+            }
+          } catch (err) {
+            console.warn("Realtime feed reload warning:", err);
+          }
+        }
+      )
+      .subscribe();
+
+    // 2. Window focus & tab visibility change fallback (ensures fresh data after sleep/tab switch)
+    let lastRefetch = Date.now();
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible" && Date.now() - lastRefetch > 20000) {
+        lastRefetch = Date.now();
+        try {
+          const updated = await fetchAirdropFeeds();
+          if (updated && updated.length > 0) {
+            setFeeds(updated);
+          }
+        } catch (err) {
+          console.warn("Tab focus feed reload warning:", err);
+        }
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   // Lock body scroll when preview modal is open
@@ -363,13 +440,22 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
     return stats;
   }, [feeds]);
 
-  // Delete individual feed item
-  const handleDeleteFeed = async (feedId: string) => {
+  // Delete individual feed item (safeguarded: active projects cannot be deleted from feed)
+  const handleDeleteFeed = async (feed: AirdropFeedItem) => {
+    if (feed.is_imported || feed.linked_project_id) {
+      alert(
+        locale === "en"
+          ? `This airdrop is already saved as an active project in your workspace.\n\nYou cannot delete it from the feed because the project still exists.\n\nTo remove this project, please delete it directly from the Projects page.`
+          : `Postingan airdrop ini sudah tersimpan sebagai Proyek aktif Anda.\n\nAnda tidak dapat menghapusnya langsung dari Feed karena proyek masih ada di direktori Proyek Anda.\n\nJika ingin menghapus garapan ini, silakan hapus langsung melalui halaman Proyek.`
+      );
+      return;
+    }
+
     if (!window.confirm(t("feed.confirmDeleteFeed") || (locale === "en" ? "Delete this airdrop post from your feed?" : "Hapus postingan sinyal airdrop ini dari feed?"))) {
       return;
     }
-    setFeeds((prev) => prev.filter((f) => f.id !== feedId));
-    await deleteAirdropFeed(feedId);
+    setFeeds((prev) => prev.filter((f) => f.id !== feed.id));
+    await deleteAirdropFeed(feed.id);
   };
 
   // Filtered feeds logic (Testnet vs Retro vs Waitlist, Free vs Paid, Time Range & Sort)
@@ -381,18 +467,11 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
           return false;
         }
 
-        // Category filter (Testnet, Retro/Mainnet, Waitlist)
+        // Category filter (Testnet, Airdrop, Retro)
         if (categoryFilter !== "all") {
-          if (categoryFilter === "testnet") {
-            const isTestnet =
-              feed.category === "testnet" ||
-              feed.title.toLowerCase().includes("testnet") ||
-              (!isFeedPaid(feed) && feed.category !== "waitlist");
-            if (!isTestnet) return false;
-          } else if (categoryFilter === "retro") {
-            const isRetro = feed.category === "retro" || isFeedPaid(feed);
-            if (!isRetro) return false;
-          }
+          if (categoryFilter === "testnet" && !isFeedTestnet(feed)) return false;
+          if (categoryFilter === "retro" && !isFeedRetro(feed)) return false;
+          if (categoryFilter === "airdrop" && !isFeedAirdrop(feed)) return false;
         }
 
         // Cost filter (Gratis vs Berbayar)
@@ -438,16 +517,11 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const displayedFeeds = filteredFeeds;
 
   // Counts for category badges
-  const testnetCount = useMemo(
-    () => feeds.filter((f) => f.category === "testnet" || !isFeedPaid(f)).length,
-    [feeds]
-  );
-  const retroCount = useMemo(
-    () => feeds.filter((f) => f.category === "retro" || isFeedPaid(f)).length,
-    [feeds]
-  );
-  const freeCostCount = useMemo(() => feeds.filter((f) => isFeedFree(f)).length, [feeds]);
-  const paidCostCount = useMemo(() => feeds.filter((f) => isFeedPaid(f)).length, [feeds]);
+  const testnetCount = useMemo(() => feeds.filter(isFeedTestnet).length, [feeds]);
+  const airdropCount = useMemo(() => feeds.filter(isFeedAirdrop).length, [feeds]);
+  const retroCount = useMemo(() => feeds.filter(isFeedRetro).length, [feeds]);
+  const freeCostCount = useMemo(() => feeds.filter(isFeedFree).length, [feeds]);
+  const paidCostCount = useMemo(() => feeds.filter(isFeedPaid).length, [feeds]);
 
   return (
     <div className="w-full space-y-6 min-w-0 pb-16 font-sans">
@@ -628,6 +702,19 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             >
               <Zap className="w-3 h-3 text-link-teal" />
               <span>{t("feed.testnet")} ({testnetCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("airdrop")}
+              className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
+                categoryFilter === "airdrop"
+                  ? "bg-status-waiting/20 text-status-waiting border-status-waiting/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              <Gift className="w-3 h-3 text-status-waiting" />
+              <span>{t("feed.airdrop")} ({airdropCount})</span>
             </button>
 
             <button
@@ -892,24 +979,39 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     )}
 
                     {/* Category Badge */}
-                    {feed.category === "retro" || isFeedPaid(feed) ? (
+                    {isFeedRetro(feed) ? (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1">
                         <Flame className="w-3 h-3" />
                         <span>{t("feed.retro")}</span>
                       </span>
-                    ) : (
+                    ) : isFeedTestnet(feed) ? (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-link-teal/15 border border-link-teal/30 text-link-teal flex items-center gap-1">
                         <Zap className="w-3 h-3" />
                         <span>{t("feed.testnet")}</span>
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-status-waiting/15 border border-status-waiting/30 text-status-waiting flex items-center gap-1">
+                        <Gift className="w-3 h-3" />
+                        <span>{t("feed.airdrop")}</span>
                       </span>
                     )}
 
                     {/* Delete button */}
                     <button
                       type="button"
-                      onClick={() => handleDeleteFeed(feed.id)}
-                      className="p-1.5 text-text-tertiary hover:text-status-overdue rounded-lg hover:bg-white/[0.05] transition-colors ml-1"
-                      title={t("feed.deleteFeedTooltip")}
+                      onClick={() => handleDeleteFeed(feed)}
+                      className={`p-1.5 rounded-lg transition-colors ml-1 ${
+                        isConverted
+                          ? "text-text-tertiary/40 hover:text-amber-400 hover:bg-amber-400/10 cursor-pointer"
+                          : "text-text-tertiary hover:text-status-overdue hover:bg-white/[0.05]"
+                      }`}
+                      title={
+                        isConverted
+                          ? (locale === "en"
+                              ? "Active project — delete from Projects page"
+                              : "Proyek aktif — hapus melalui halaman Proyek")
+                          : t("feed.deleteFeedTooltip")
+                      }
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -1172,18 +1274,29 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   >
                     {t("common.close")}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const item = previewingFeed;
-                      handleClosePreview();
-                      setReviewingFeed(item);
-                    }}
-                    className="px-4 py-2 rounded-xl text-caption font-semibold text-on-accent bg-accent hover:bg-accent-pressed transition-all shadow-lg shadow-accent/20 flex items-center gap-1.5"
-                  >
-                    <FolderPlus className="w-3.5 h-3.5" />
-                    <span>{t("feed.makeProject")}</span>
-                  </button>
+                  {previewingFeed.is_imported ? (
+                    <Link
+                      href={previewingFeed.linked_project_id ? `/projects/${previewingFeed.linked_project_id}` : "/projects"}
+                      prefetch={false}
+                      className="px-4 py-2 rounded-xl text-caption font-semibold text-status-completed bg-status-completed/15 border border-status-completed/30 hover:bg-status-completed/25 transition-all flex items-center gap-1.5"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{t("feed.openProject")}</span>
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const item = previewingFeed;
+                        handleClosePreview();
+                        setReviewingFeed(item);
+                      }}
+                      className="px-4 py-2 rounded-xl text-caption font-semibold text-on-accent bg-accent hover:bg-accent-pressed transition-all shadow-lg shadow-accent/20 flex items-center gap-1.5"
+                    >
+                      <FolderPlus className="w-3.5 h-3.5" />
+                      <span>{t("feed.makeProject")}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -48,8 +48,10 @@ export async function POST(request: Request) {
 
     const html = await res.text();
 
-    // 1. Extract message text
-    const textMatch = /<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(html);
+    // 1. Extract message text (prioritize js-message_text to get the real update body instead of quoted reply)
+    const textMatch =
+      /<div[^>]*class="[^"]*js-message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(html) ||
+      /<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(html);
     const rawHtmlText = textMatch ? textMatch[1] : "";
     const cleanText = cleanTelegramHtml(rawHtmlText);
 

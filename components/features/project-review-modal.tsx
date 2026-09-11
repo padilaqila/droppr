@@ -168,8 +168,11 @@ export function ProjectReviewModal({
       setStatus(waitlistItem?.status === "joined" ? "waiting" : "not_started");
       setTaskType("one_time");
     } else {
-      const isTestnetOrRetro = feedItem?.category === "testnet" || feedItem?.category === "retro";
-      setStatus(isTestnetOrRetro ? "in_progress" : "not_started");
+      const isActionable =
+        feedItem?.category === "testnet" ||
+        feedItem?.category === "retro" ||
+        feedItem?.category === "airdrop";
+      setStatus(isActionable ? "in_progress" : "not_started");
       setTaskType(feedItem?.category === "testnet" ? "daily" : "one_time");
     }
 
