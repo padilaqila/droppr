@@ -2,6 +2,12 @@
 
 > File ini ditulis oleh agen AI, bukan oleh manusia. Dibaca otomatis di awal sesi (bagian atas file diprioritaskan). Lihat `AGENTS.md` §5 untuk format entri dan aturan pemangkasan.
 
+## [2026-09-11] Pemisahan Navigasi Murni Antrean vs Penyelesaian Tugas & Eliminasi Label Kasual
+- Apa yang salah: (1) Menggeser kartu (swipe / ArrowRight / tombol Next) hingga akhir antrean langsung memicu popup selebrasi "Sesi Selesai / Semua Tugas Selesai", padahal pengguna belum menandai selesai atau melewati tugas apa pun. (2) Terdapat teks kasual `TINDER-STYLE` di banner dashboard.
+- Kenapa terjadi (root cause, bukan cuma gejala): Logika navigasi manual (`handleNavigateNext`) disatukan dengan auto-advance pengerjaan tugas (`handleAutoAdvanceNext`), di mana ketika index mencapai batas akhir antrean langsung memanggil `setShowCelebration(true)` tanpa memeriksa apakah pengguna baru sekadar melihat-lihat atau benar-benar sudah menyelesaikan tugas.
+- Perbaikan yang dilakukan: (1) Memisahkan secara tegas antara fungsi navigasi murni (`handleNavigateNext` yang hanya berhenti di kartu terakhir tanpa memicu selebrasi) dengan aksi pengerjaan (`advanceAfterAction` pada tombol Selesai/Lewati yang mengecek apakah seluruh antrean benar-benar beres sebelum selebrasi). (2) Mengganti drag badge menjadi indikator arah navigasi murni (`BERIKUTNYA →` dan `← SEBELUMNYA`). (3) Menghapus teks `TINDER-STYLE` dari banner dashboard dan merapikan penamaan menjadi `Mode Garap Cepat`.
+- Aturan ke depan: Navigasi geser/swipe antar kartu WAJIB beroperasi murni sebagai navigasi penampil tanpa pernah mengubah status atau memicu penyelesaian sesi secara prematur.
+
 ## [2026-09-10] Eliminasi Tombol Redundan/Duplikat & Penyederhanaan Header Alur Telegram
 - Apa yang salah: Terdapat tombol-tombol yang redundan di halaman detail proyek: tombol `Post Induk TG` di Quick Links menduplikasi tombol `Buka di TG ↗` di kartu Post Utama, dan tombol `Cek Update TG` / `Tarik Post Telegram` muncul 3 kali di lokasi berdekatan (topbar, wrapper header, dan header internal linimasa).
 - Kenapa terjadi (root cause, bukan cuma gejala): Developer menambahkan tombol aksi di level page wrapper (`project-detail-client.tsx`) dan di Quick Links tanpa menyadari bahwa komponen child (`ProjectThreadView`) sudah mengintegrasikan header linimasa mandiri lengkap dengan tombol modal Telegram serta tombol link ke postingan asli di kartu utamanya.
