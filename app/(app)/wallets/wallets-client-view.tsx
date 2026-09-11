@@ -5,6 +5,7 @@ import { CardBase } from "@/components/ui/card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmModal, type ConfirmModalState } from "@/components/ui/confirm-modal";
 import { CustomSelect } from "@/components/ui/select";
 import {
   ShieldCheck,
@@ -248,6 +249,12 @@ export function WalletsClientView({
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
 
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
+
   // Copy state
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -316,15 +323,26 @@ export function WalletsClientView({
   };
 
   // Delete Wallet
-  const handleDeleteWallet = async (id: string) => {
-    if (!confirm(isEn ? "Delete this wallet from your list?" : "Hapus wallet ini dari daftar?")) return;
-    try {
-      const supabase = createClient() as any;
-      await supabase.from("wallets").delete().eq("id", id);
-      setWallets(wallets.filter((w) => w.id !== id));
-    } catch (err) {
-      console.error("Delete wallet error:", err);
-    }
+  const handleDeleteWallet = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: isEn ? "Delete Wallet" : "Hapus Wallet",
+      description: isEn
+        ? "Are you sure you want to delete this wallet from your list? Projects linked to this wallet will not be deleted."
+        : "Apakah Anda yakin ingin menghapus wallet ini dari daftar Anda? Proyek yang tertaut ke wallet ini tidak akan ikut terhapus.",
+      confirmLabel: isEn ? "Delete" : "Hapus",
+      cancelLabel: isEn ? "Cancel" : "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const supabase = createClient() as any;
+          await supabase.from("wallets").delete().eq("id", id);
+          setWallets(wallets.filter((w) => w.id !== id));
+        } catch (err) {
+          console.error("Delete wallet error:", err);
+        }
+      },
+    });
   };
 
   // Update Wallet Inline (Auto-saved)
@@ -392,16 +410,27 @@ export function WalletsClientView({
   };
 
   // Delete Social Account
-  const handleDeleteAccount = async (id: string) => {
-    if (!confirm(isEn ? "Delete this account from your list?" : "Hapus akun ini dari daftar?")) return;
-    try {
-      const ok = await deleteUserAccount(id);
-      if (ok) {
-        setAccounts(accounts.filter((a) => a.id !== id));
-      }
-    } catch (err) {
-      console.error("Delete account error:", err);
-    }
+  const handleDeleteAccount = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: isEn ? "Delete Account" : "Hapus Akun",
+      description: isEn
+        ? "Are you sure you want to delete this account from your identity list?"
+        : "Apakah Anda yakin ingin menghapus akun ini dari daftar identitas Anda?",
+      confirmLabel: isEn ? "Delete" : "Hapus",
+      cancelLabel: isEn ? "Cancel" : "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const ok = await deleteUserAccount(id);
+          if (ok) {
+            setAccounts(accounts.filter((a) => a.id !== id));
+          }
+        } catch (err) {
+          console.error("Delete account error:", err);
+        }
+      },
+    });
   };
 
   // Update Social Account Inline (Auto-saved)
@@ -1113,6 +1142,11 @@ export function WalletsClientView({
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        {...confirmModal}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

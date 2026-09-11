@@ -43,6 +43,7 @@ import { CustomSelect } from "@/components/ui/select";
 import { ProjectReviewModal } from "@/components/features/project-review-modal";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n/context";
+import { ConfirmModal, type ConfirmModalState } from "@/components/ui/confirm-modal";
 import {
   fetchQuickPickerIdentities,
   type UserAccountItem,
@@ -109,6 +110,11 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   const [scanProgress, setScanProgress] = useState<{ current: number; total: number; name: string } | null>(null);
   const [discoveredBatchItems, setDiscoveredBatchItems] = useState<BatchTelegramItem[]>([]);
   const [batchNotice, setBatchNotice] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
 
   const batchDiscoveredMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -126,7 +132,14 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     const scanPool = targets.length > 0 ? targets : waitlists;
 
     if (scanPool.length === 0) {
-      alert(isEn ? "No waitlist items to scan." : "Belum ada waitlist untuk dipindai.");
+      setConfirmModal({
+        isOpen: true,
+        isAlert: true,
+        title: isEn ? "No Waitlist" : "Belum Ada Waitlist",
+        description: isEn ? "No waitlist items to scan." : "Belum ada waitlist untuk dipindai.",
+        variant: "info",
+        confirmLabel: "OK",
+      });
       return;
     }
 
@@ -327,7 +340,14 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   const handleExecuteTransferTasks = async (e: React.FormEvent) => {
     e.preventDefault();
     if (transferTaskList.length === 0) {
-      alert("Masukkan setidaknya 1 instruksi tugas.");
+      setConfirmModal({
+        isOpen: true,
+        isAlert: true,
+        title: isEn ? "Task Instruction Required" : "Instruksi Tugas Diperlukan",
+        description: isEn ? "Please enter at least 1 task instruction." : "Masukkan setidaknya 1 instruksi tugas.",
+        variant: "warning",
+        confirmLabel: isEn ? "Got It" : "Mengerti",
+      });
       return;
     }
 
@@ -366,7 +386,14 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
       }
     } catch (err) {
       console.error("Execute transfer tasks error:", err);
-      alert("Gagal memindahkan tugas airdrop.");
+      setConfirmModal({
+        isOpen: true,
+        isAlert: true,
+        title: isEn ? "Failed to Transfer Tasks" : "Gagal Memindahkan Tugas",
+        description: isEn ? "Failed to transfer airdrop tasks to project." : "Gagal memindahkan tugas airdrop.",
+        variant: "danger",
+        confirmLabel: "OK",
+      });
     } finally {
       setIsTransferring(false);
     }
@@ -432,29 +459,38 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   };
 
   // Delete waitlist
-  const handleDelete = async (id: string, projectName?: string) => {
+  const handleDelete = (id: string, projectName?: string) => {
     const matchingProject = projectName
       ? existingProjects.find(
           (p) => p.name.toLowerCase().trim() === projectName.toLowerCase().trim()
         )
       : null;
 
-    let confirmMessage = "";
+    let confirmDescription = "";
     if (matchingProject) {
-      confirmMessage = isEn
+      confirmDescription = isEn
         ? `⚠️ Warning: "${projectName}" is currently an active Project in your workspace. Deleting this waitlist will not delete the project or its tasks, but you will lose this waitlist registration record. Continue deleting?`
         : `⚠️ Perhatian: "${projectName}" saat ini aktif sebagai Proyek di workspace Anda. Menghapus waitlist ini tidak akan menghapus proyek maupun tugasnya, tetapi Anda akan kehilangan riwayat pendaftaran waitlist ini. Tetap ingin menghapus?`;
     } else {
-      confirmMessage = projectName
+      confirmDescription = projectName
         ? (isEn ? `Delete waitlist "${projectName}"?` : `Hapus waitlist "${projectName}"?`)
         : (isEn ? "Delete this waitlist item?" : "Hapus item waitlist ini?");
     }
 
-    if (!confirm(confirmMessage)) return;
-    const success = await deleteWaitlist(id);
-    if (success) {
-      setWaitlists((prev) => prev.filter((item) => item.id !== id));
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: isEn ? "Delete Waitlist" : "Hapus Waitlist",
+      description: confirmDescription,
+      confirmLabel: isEn ? "Delete" : "Hapus",
+      cancelLabel: isEn ? "Cancel" : "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        const success = await deleteWaitlist(id);
+        if (success) {
+          setWaitlists((prev) => prev.filter((item) => item.id !== id));
+        }
+      },
+    });
   };
 
 
@@ -1687,11 +1723,16 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                     if (existingProjects.length > 0) {
                       setTransferProjectMode("existing");
                     } else {
-                      alert(
-                        isEn
+                      setConfirmModal({
+                        isOpen: true,
+                        isAlert: true,
+                        title: isEn ? "No Other Projects" : "Belum Ada Proyek Lain",
+                        description: isEn
                           ? "No other projects registered yet. Use 'Create New Project'."
-                          : "Belum ada proyek lain yang terdaftar. Gunakan 'Buat Proyek Baru'."
-                      );
+                          : "Belum ada proyek lain yang terdaftar. Gunakan 'Buat Proyek Baru'.",
+                        variant: "info",
+                        confirmLabel: "OK",
+                      });
                     }
                   }}
                   className={`p-2.5 rounded-md border text-left transition-all flex items-center justify-between ${
@@ -2086,6 +2127,11 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
           reloadData();
           router.push(`/projects/${newProjectId}`);
         }}
+      />
+
+      <ConfirmModal
+        {...confirmModal}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

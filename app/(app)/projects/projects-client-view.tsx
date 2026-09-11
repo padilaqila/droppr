@@ -41,6 +41,7 @@ import { CreateFolderModal } from "@/components/features/create-folder-modal";
 import { CreateProjectModal } from "@/components/features/create-project-modal";
 import { BulkDeleteModal } from "@/components/features/bulk-delete-modal";
 import { BatchTelegramSyncModal } from "@/components/features/batch-telegram-sync-modal";
+import { ConfirmModal, type ConfirmModalState } from "@/components/ui/confirm-modal";
 import {
   scanProjectsTelegramBatch,
   type BatchTelegramItem,
@@ -105,6 +106,11 @@ export function ProjectsClientView({
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
 
   // Batch Telegram Scanner State
   const [isScanning, setIsScanning] = useState(false);
@@ -562,48 +568,55 @@ export function ProjectsClientView({
   };
 
   // DELETE FOLDER
-  const handleDeleteFolder = async (folder: FolderType, e: React.MouseEvent) => {
+  const handleDeleteFolder = (folder: FolderType, e: React.MouseEvent) => {
     e.stopPropagation();
     const confirmPrompt = isEn
       ? `Delete folder "${folder.name}"? Projects inside will be moved to "Unorganized".`
       : `Hapus folder "${folder.name}"? Proyek di dalamnya akan dipindahkan ke "Tanpa Folder".`;
-    if (!confirm(confirmPrompt)) {
-      return;
-    }
 
-    setFolders((prev) => prev.filter((f) => f.id !== folder.id));
-    setProjects((prev) =>
-      prev.map((p) => (p.folder_id === folder.id ? { ...p, folder_id: null } : p))
-    );
-    if (selectedFolderFilter === folder.id) {
-      setSelectedFolderFilter(null);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: isEn ? "Delete Folder" : "Hapus Folder",
+      description: confirmPrompt,
+      confirmLabel: isEn ? "Delete" : "Hapus",
+      cancelLabel: isEn ? "Cancel" : "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+        setProjects((prev) =>
+          prev.map((p) => (p.folder_id === folder.id ? { ...p, folder_id: null } : p))
+        );
+        if (selectedFolderFilter === folder.id) {
+          setSelectedFolderFilter(null);
+        }
 
-    showToast(
-      isEn
-        ? `Folder "${folder.name}" deleted successfully`
-        : `Folder "${folder.name}" berhasil dihapus`
-    );
+        showToast(
+          isEn
+            ? `Folder "${folder.name}" deleted successfully`
+            : `Folder "${folder.name}" berhasil dihapus`
+        );
 
-    try {
-      const supabase = createClient();
-      const { error } = await (supabase as any)
-        .from("folders")
-        .delete()
-        .eq("id", folder.id);
+        try {
+          const supabase = createClient();
+          const { error } = await (supabase as any)
+            .from("folders")
+            .delete()
+            .eq("id", folder.id);
 
-      if (error) throw error;
-      router.refresh();
-    } catch (err) {
-      console.error("Delete folder error:", err);
-      showToast(
-        isEn
-          ? "Failed to delete folder in database"
-          : "Gagal menghapus folder di database",
-        "info"
-      );
-      setFolders(initialFolders);
-    }
+          if (error) throw error;
+          router.refresh();
+        } catch (err) {
+          console.error("Delete folder error:", err);
+          showToast(
+            isEn
+              ? "Failed to delete folder in database"
+              : "Gagal menghapus folder di database",
+            "info"
+          );
+          setFolders(initialFolders);
+        }
+      },
+    });
   };
 
   return (
@@ -1476,6 +1489,11 @@ export function ProjectsClientView({
         onClose={() => setIsSyncModalOpen(false)}
         discoveredItems={discoveredBatchItems}
         onSyncComplete={handleSyncComplete}
+      />
+
+      <ConfirmModal
+        {...confirmModal}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CustomSelect } from "@/components/ui/select";
+import { ConfirmModal, type ConfirmModalState } from "@/components/ui/confirm-modal";
 import { useTranslation } from "@/lib/i18n/context";
 import {
   getLanguagePreference,
@@ -83,6 +84,11 @@ export default function SettingsPage() {
 
   // Danger zone state
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
   const [isDeleting, setIsDeleting] = useState(false);
   const [dangerMsg, setDangerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -259,7 +265,14 @@ export default function SettingsPage() {
       );
     } catch (err) {
       console.error("Export JSON failed:", err);
-      alert(isEn ? "Failed to export JSON data." : "Gagal mengekspor data JSON.");
+      setConfirmModal({
+        isOpen: true,
+        isAlert: true,
+        title: isEn ? "Export Failed" : "Ekspor Gagal",
+        description: isEn ? "Failed to export JSON data." : "Gagal mengekspor data JSON.",
+        variant: "danger",
+        confirmLabel: "OK",
+      });
     } finally {
       setIsExportingJson(false);
     }
@@ -317,66 +330,89 @@ export default function SettingsPage() {
       );
     } catch (err) {
       console.error("Export CSV failed:", err);
-      alert(isEn ? "Failed to export CSV." : "Gagal mengekspor CSV.");
+      setConfirmModal({
+        isOpen: true,
+        isAlert: true,
+        title: isEn ? "Export Failed" : "Ekspor Gagal",
+        description: isEn ? "Failed to export CSV." : "Gagal mengekspor CSV.",
+        variant: "danger",
+        confirmLabel: "OK",
+      });
     } finally {
       setIsExportingCsv(false);
     }
   };
 
-  const handleClearCompletedTasks = async () => {
+  const handleClearCompletedTasks = () => {
     const confirmPrompt = isEn
       ? "Delete all tasks with status 'Done'? Incomplete tasks will be kept."
       : "Hapus semua tugas yang sudah berstatus 'Selesai'? Tugas yang belum selesai akan tetap disimpan.";
-    if (!confirm(confirmPrompt)) {
-      return;
-    }
-    setDangerMsg(null);
-    try {
-      const supabase = createClient() as any;
-      const { error } = await supabase.from("tasks").delete().eq("status", "done");
-      if (error) throw error;
-      setDangerMsg({
-        type: "success",
-        text: isEn
-          ? "All completed tasks have been cleared."
-          : "Seluruh tugas yang selesai berhasil dibersihkan.",
-      });
-      router.refresh();
-    } catch (err: any) {
-      setDangerMsg({
-        type: "error",
-        text: err?.message || (isEn ? "Failed to clear completed tasks." : "Gagal membersihkan tugas selesai."),
-      });
-    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: isEn ? "Clear Completed Tasks" : "Bersihkan Tugas Selesai",
+      description: confirmPrompt,
+      confirmLabel: isEn ? "Clear" : "Bersihkan",
+      cancelLabel: isEn ? "Cancel" : "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        setDangerMsg(null);
+        try {
+          const supabase = createClient() as any;
+          const { error } = await supabase.from("tasks").delete().eq("status", "done");
+          if (error) throw error;
+          setDangerMsg({
+            type: "success",
+            text: isEn
+              ? "All completed tasks have been cleared."
+              : "Seluruh tugas yang selesai berhasil dibersihkan.",
+          });
+          router.refresh();
+        } catch (err: any) {
+          setDangerMsg({
+            type: "error",
+            text: err?.message || (isEn ? "Failed to clear completed tasks." : "Gagal membersihkan tugas selesai."),
+          });
+        }
+      },
+    });
   };
 
-  const handleResetFeedImportStatus = async () => {
+  const handleResetFeedImportStatus = () => {
     const confirmPrompt = isEn
       ? "Reset Telegram feed import status? Signals previously deleted from your workspace can be imported again."
       : "Reset status import feed Telegram? Sinyal yang pernah kamu hapus dari garapan akan bisa di-import ulang.";
-    if (!confirm(confirmPrompt)) {
-      return;
-    }
-    setDangerMsg(null);
-    try {
-      const supabase = createClient() as any;
-      await Promise.allSettled([
-        supabase.from("airdrop_feeds").update({ is_imported: false }).eq("is_imported", true),
-        supabase.from("waitlists").update({ is_imported: false }).eq("is_imported", true),
-      ]);
-      setDangerMsg({
-        type: "success",
-        text: isEn
-          ? "Feed & waitlist import status has been reset. You can add them again from the Feed."
-          : "Status import feed & waitlist berhasil di-reset. Kamu bisa menambahkan ulang dari Feed.",
-      });
-      router.refresh();
-    } catch (err: any) {
-      setDangerMsg({
-        type: "error",
-        text: err?.message || (isEn ? "Failed to reset feed status." : "Gagal me-reset status feed."),
-      });
-    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: isEn ? "Reset Import Status" : "Reset Status Import",
+      description: confirmPrompt,
+      confirmLabel: isEn ? "Reset" : "Reset",
+      cancelLabel: isEn ? "Cancel" : "Batal",
+      variant: "warning",
+      onConfirm: async () => {
+        setDangerMsg(null);
+        try {
+          const supabase = createClient() as any;
+          await Promise.allSettled([
+            supabase.from("airdrop_feeds").update({ is_imported: false }).eq("is_imported", true),
+            supabase.from("waitlists").update({ is_imported: false }).eq("is_imported", true),
+          ]);
+          setDangerMsg({
+            type: "success",
+            text: isEn
+              ? "Feed & waitlist import status has been reset. You can add them again from the Feed."
+              : "Status import feed & waitlist berhasil di-reset. Kamu bisa menambahkan ulang dari Feed.",
+          });
+          router.refresh();
+        } catch (err: any) {
+          setDangerMsg({
+            type: "error",
+            text: err?.message || (isEn ? "Failed to reset feed status." : "Gagal me-reset status feed."),
+          });
+        }
+      },
+    });
   };
 
   const handleDeleteAllProjects = async () => {
@@ -1187,6 +1223,11 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        {...confirmModal}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

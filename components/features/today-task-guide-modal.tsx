@@ -29,6 +29,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ConfirmModal, type ConfirmModalState } from "@/components/ui/confirm-modal";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { formatReminderSchedule } from "@/lib/supabase/reminders-helper";
@@ -394,6 +395,11 @@ export function TodayTaskGuideModal({
   // Action states
   const [isMarkingDone, setIsMarkingDone] = useState(false);
   const [isDeletingReminder, setIsDeletingReminder] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -753,17 +759,29 @@ export function TodayTaskGuideModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  const handleDeleteReminderClick = async () => {
+  const handleDeleteReminderClick = () => {
     if (!currentReminder || isDeletingReminder) return;
-    if (!confirm(isEn ? "Delete reminder schedule for this project?" : "Hapus jadwal pengingat untuk proyek ini?")) return;
-    setIsDeletingReminder(true);
-    try {
-      if (onDeleteReminder) {
-        await onDeleteReminder(currentReminder.id);
-      }
-    } finally {
-      setIsDeletingReminder(false);
-    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: isEn ? "Delete Reminder Schedule" : "Hapus Jadwal Pengingat",
+      description: isEn
+        ? "Delete the reminder schedule for this project?"
+        : "Hapus jadwal pengingat untuk proyek ini?",
+      confirmLabel: isEn ? "Delete" : "Hapus",
+      cancelLabel: isEn ? "Cancel" : "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        setIsDeletingReminder(true);
+        try {
+          if (onDeleteReminder) {
+            await onDeleteReminder(currentReminder.id);
+          }
+        } finally {
+          setIsDeletingReminder(false);
+        }
+      },
+    });
   };
 
   const handleSaveGuide = async () => {
@@ -931,11 +949,13 @@ export function TodayTaskGuideModal({
   const channelSource = detectTelegramChannel(rawSocial, currentProject.guide_content);
   const scheduleText = currentReminder ? formatReminderSchedule(currentReminder.frequency) : null;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
-      onClick={onClose}
-    >
+  return (
+    <>
+      {createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+          onClick={onClose}
+        >
       {/* Dynamic Backdrop */}
       <div className="fixed inset-0 bg-[#07090E]/80 backdrop-blur-md transition-opacity" />
 
@@ -1526,5 +1546,12 @@ export function TodayTaskGuideModal({
       </div>
     </div>,
     document.body
+  )}
+
+      <ConfirmModal
+        {...confirmModal}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
+    </>
   );
 }

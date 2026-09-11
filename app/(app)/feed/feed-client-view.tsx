@@ -43,6 +43,7 @@ import { useTranslation } from "@/lib/i18n/context";
 import { getTranslationAction } from "@/lib/utils/language-prefs";
 import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 import { createClient } from "@/lib/supabase/client";
+import { ConfirmModal, type ConfirmModalState } from "@/components/ui/confirm-modal";
 
 interface FeedClientViewProps {
   initialFeeds: AirdropFeedItem[];
@@ -253,6 +254,11 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [reviewingFeed, setReviewingFeed] = useState<AirdropFeedItem | null>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
 
   // Telegram original post preview modal state & manual on-demand translation
   const [previewingFeed, setPreviewingFeed] = useState<AirdropFeedItem | null>(null);
@@ -410,17 +416,38 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   };
 
   // Cleanup feeds older than 30 days
-  const handleCleanupExpired = async () => {
-    if (!window.confirm("Hapus semua postingan feed yang sudah lebih dari 1 bulan?")) return;
-    try {
-      const count = await cleanupExpiredFeeds();
-      alert(`${count} postingan kadaluarsa berhasil dibersihkan.`);
-      const updated = await fetchAirdropFeeds();
-      setFeeds(updated);
-      router.refresh();
-    } catch (err) {
-      console.error("Cleanup error:", err);
-    }
+  const handleCleanupExpired = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: locale === "en" ? "Clean Up Expired Feeds" : "Bersihkan Postingan Kadaluarsa",
+      description:
+        locale === "en"
+          ? "Delete all feed posts older than 30 days? Active projects will remain safe."
+          : "Hapus semua postingan feed yang sudah lebih dari 1 bulan? Proyek yang sudah tersimpan akan tetap aman.",
+      confirmLabel: locale === "en" ? "Clean Up" : "Bersihkan",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const count = await cleanupExpiredFeeds();
+          const updated = await fetchAirdropFeeds();
+          setFeeds(updated);
+          router.refresh();
+          setConfirmModal({
+            isOpen: true,
+            isAlert: true,
+            title: locale === "en" ? "Cleanup Complete" : "Pembersihan Selesai",
+            description:
+              locale === "en"
+                ? `${count} expired feed posts were successfully cleaned up.`
+                : `${count} postingan kadaluarsa berhasil dibersihkan.`,
+            variant: "success",
+            confirmLabel: "OK",
+          });
+        } catch (err) {
+          console.error("Cleanup error:", err);
+        }
+      },
+    });
   };
 
   // Calculate mention frequency per project key across all feeds
@@ -441,21 +468,37 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   }, [feeds]);
 
   // Delete individual feed item (safeguarded: active projects cannot be deleted from feed)
-  const handleDeleteFeed = async (feed: AirdropFeedItem) => {
+  const handleDeleteFeed = (feed: AirdropFeedItem) => {
     if (feed.is_imported || feed.linked_project_id) {
-      alert(
-        locale === "en"
-          ? `This airdrop is already saved as an active project in your workspace.\n\nYou cannot delete it from the feed because the project still exists.\n\nTo remove this project, please delete it directly from the Projects page.`
-          : `Postingan airdrop ini sudah tersimpan sebagai Proyek aktif Anda.\n\nAnda tidak dapat menghapusnya langsung dari Feed karena proyek masih ada di direktori Proyek Anda.\n\nJika ingin menghapus garapan ini, silakan hapus langsung melalui halaman Proyek.`
-      );
+      setConfirmModal({
+        isOpen: true,
+        isAlert: true,
+        title: locale === "en" ? "Project Still Active" : "Proyek Masih Aktif",
+        description:
+          locale === "en"
+            ? "This airdrop is already saved as an active project in your workspace.\n\nYou cannot delete it from the feed because the project still exists.\n\nTo remove this project, please delete it directly from the Projects page."
+            : "Postingan airdrop ini sudah tersimpan sebagai Proyek aktif Anda.\n\nAnda tidak dapat menghapusnya langsung dari Feed karena proyek masih ada di direktori Proyek Anda.\n\nJika ingin menghapus garapan ini, silakan hapus langsung melalui halaman Proyek.",
+        variant: "warning",
+        confirmLabel: locale === "en" ? "Understood" : "Mengerti",
+      });
       return;
     }
 
-    if (!window.confirm(t("feed.confirmDeleteFeed") || (locale === "en" ? "Delete this airdrop post from your feed?" : "Hapus postingan sinyal airdrop ini dari feed?"))) {
-      return;
-    }
-    setFeeds((prev) => prev.filter((f) => f.id !== feed.id));
-    await deleteAirdropFeed(feed.id);
+    setConfirmModal({
+      isOpen: true,
+      title: locale === "en" ? "Delete Feed Post" : "Hapus Postingan Feed",
+      description:
+        t("feed.confirmDeleteFeed") ||
+        (locale === "en"
+          ? "Delete this airdrop post from your feed?"
+          : "Hapus postingan sinyal airdrop ini dari feed?"),
+      confirmLabel: locale === "en" ? "Delete" : "Hapus",
+      variant: "danger",
+      onConfirm: async () => {
+        setFeeds((prev) => prev.filter((f) => f.id !== feed.id));
+        await deleteAirdropFeed(feed.id);
+      },
+    });
   };
 
   // Filtered feeds logic (Testnet vs Retro vs Waitlist, Free vs Paid, Time Range & Sort)
@@ -1326,6 +1369,11 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
           setReviewingFeed(null);
           router.push(`/projects/${newProjectId}`);
         }}
+      />
+
+      <ConfirmModal
+        {...confirmModal}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

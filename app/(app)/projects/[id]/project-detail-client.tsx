@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ButtonSecondary } from "@/components/ui/button";
+import { ConfirmModal, type ConfirmModalState } from "@/components/ui/confirm-modal";
 import { CustomSelect } from "@/components/ui/select";
 import {
   ArrowLeft,
@@ -79,6 +80,11 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
   const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<ReminderRow | null>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
 
   const [currentStatus, setCurrentStatus] = useState<ProjectStatusEnum>(project.status);
   const [tasks, setTasks] = useState<TaskRow[]>(project.tasks || []);
@@ -353,18 +359,29 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
     }
   };
 
-  const handleDeleteReminder = async (id: string) => {
-    if (!confirm(isEn ? "Delete this reminder?" : "Hapus pengingat ini?")) return;
-    setReminders((prev) => prev.filter((r) => r.id !== id));
-    showToast(isEn ? "Reminder removed" : "Pengingat dihapus");
+  const handleDeleteReminder = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: isEn ? "Delete Reminder" : "Hapus Pengingat",
+      description: isEn
+        ? "Are you sure you want to delete this reminder schedule?"
+        : "Apakah Anda yakin ingin menghapus jadwal pengingat ini?",
+      confirmLabel: isEn ? "Delete" : "Hapus",
+      cancelLabel: isEn ? "Cancel" : "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        setReminders((prev) => prev.filter((r) => r.id !== id));
+        showToast(isEn ? "Reminder removed" : "Pengingat dihapus");
 
-    try {
-      const supabase = createClient() as any;
-      await supabase.from("reminders").delete().eq("id", id);
-      router.refresh();
-    } catch (err) {
-      console.error("Delete reminder error:", err);
-    }
+        try {
+          const supabase = createClient() as any;
+          await supabase.from("reminders").delete().eq("id", id);
+          router.refresh();
+        } catch (err) {
+          console.error("Delete reminder error:", err);
+        }
+      },
+    });
   };
 
   const handleCopyWallet = (id: string, text: string) => {
@@ -1356,6 +1373,11 @@ export function ProjectDetailClientView({ project }: ProjectDetailClientViewProp
           setThreadRefreshTrigger((prev) => prev + 1);
           router.refresh();
         }}
+      />
+
+      <ConfirmModal
+        {...confirmModal}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
       />
     </div>
   );
