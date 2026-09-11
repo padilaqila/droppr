@@ -916,13 +916,25 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   </div>
                 </div>
 
-                {/* Message Body: Title & Clean Summary */}
-                <div className="space-y-2">
-                  <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary tracking-tight leading-snug">
+                {/* Message Body: Title & Clean Summary (Klik nama untuk buka postingan asli) */}
+                <div
+                  onClick={() => handleOpenPreview(feed)}
+                  className="space-y-2 cursor-pointer group/title focus:outline-none select-text"
+                  title={locale === "id" ? "Klik untuk melihat postingan asli Telegram" : "Click to view original Telegram post"}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleOpenPreview(feed);
+                    }
+                  }}
+                >
+                  <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary group-hover/title:text-accent transition-colors tracking-tight leading-snug">
                     {feed.title}
                   </h2>
                   {feed.summary ? (
-                    <p className="text-body-sm text-text-secondary leading-relaxed line-clamp-3">
+                    <p className="text-body-sm text-text-secondary group-hover/title:text-text-primary/90 leading-relaxed line-clamp-3 transition-colors">
                       {feed.summary}
                     </p>
                   ) : (

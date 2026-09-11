@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ButtonSecondary, ButtonPrimary } from "@/components/ui/button";
+import { ButtonSecondary } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/select";
 import {
   ArrowLeft,
@@ -29,8 +29,6 @@ import {
   Timer,
   ChevronDown,
   Calendar,
-  Layers,
-  Droplets,
   CheckSquare,
 } from "lucide-react";
 import {

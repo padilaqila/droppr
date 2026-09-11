@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CardDashboardStat } from "@/components/ui/card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
-import { StatusBadge, type ProjectStatus } from "@/components/ui/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   FolderGit2,
   CheckSquare,
@@ -31,6 +31,8 @@ import {
   ChevronRight,
   Star,
   ShieldCheck,
+  Zap,
+  Play,
 } from "lucide-react";
 import { SetReminderModal } from "@/components/features/set-reminder-modal";
 import { TodayTaskGuideModal } from "@/components/features/today-task-guide-modal";
@@ -152,6 +154,7 @@ export function DashboardClientView({
 
   // Today Task Guide Modal state
   const [selectedGuideProject, setSelectedGuideProject] = useState<ProjectRow | null>(null);
+  const [activeGuideModalIndex, setActiveGuideModalIndex] = useState<number>(0);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
   // Reminder Modal states
@@ -227,7 +230,23 @@ export function DashboardClientView({
   };
 
   const handleOpenGuideModal = (project: ProjectRow) => {
+    const queue = displayedProjects.length > 0 ? displayedProjects : projects;
+    const idx = queue.findIndex((p) => p.id === project.id);
+    setActiveGuideModalIndex(idx >= 0 ? idx : 0);
     setSelectedGuideProject(project);
+    setIsGuideModalOpen(true);
+  };
+
+  const handleStartFastFlowSession = () => {
+    const queue =
+      readyProjects.length > 0
+        ? readyProjects
+        : displayedProjects.length > 0
+        ? displayedProjects
+        : projects;
+    if (queue.length === 0) return;
+    setActiveGuideModalIndex(0);
+    setSelectedGuideProject(queue[0]);
     setIsGuideModalOpen(true);
   };
 
@@ -406,6 +425,7 @@ export function DashboardClientView({
     readyProjects,
     projects,
     overdueProjects,
+    timedProjects,
     completedTodayProjects,
     upcomingProjects,
     priorityProjects,
@@ -550,6 +570,47 @@ export function DashboardClientView({
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-[11px] text-text-secondary self-start sm:self-auto font-mono">
                 <Timer className="w-3.5 h-3.5 text-accent" />
                 <span>Reset: 07:00 WIB ({countdown})</span>
+              </div>
+            </div>
+
+            {/* Fast-Flow Hero Banner (Tinder-Style Daily Task Session) */}
+            <div className="p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-accent/15 via-bg-elevated to-bg-elevated border border-accent/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-sm">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-accent text-on-accent flex items-center justify-center shrink-0 shadow-sm">
+                  <Zap className="w-5 h-5 fill-current" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-body-md font-bold text-text-primary">
+                      {isEn ? "Fast-Flow Swipe Mode" : "Mode Garap Cepat (Fast-Flow)"}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-md bg-accent/20 border border-accent/40 text-[10px] font-mono font-bold text-accent tracking-wide">
+                      TINDER-STYLE
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-text-secondary mt-0.5 line-clamp-1">
+                    {isEn
+                      ? `${readyProjects.length} tasks ready in queue. Swipe left/right, 1-click complete, auto-advance!`
+                      : `${readyProjects.length} tugas siap digarap. Geser kiri/kanan, 1-klik selesai, otomatis lanjut!`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={handleStartFastFlowSession}
+                  disabled={projects.length === 0}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent hover:bg-accent-pressed text-on-accent font-semibold text-caption shadow-md transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>
+                    {readyProjects.length > 0
+                      ? (isEn ? `Start Session (${readyProjects.length} Ready)` : `Mulai Garap (${readyProjects.length} Siap)`)
+                      : (isEn ? "Review Today's Tasks" : "Tinjau Tugas Hari Ini")}
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
@@ -1273,7 +1334,7 @@ export function DashboardClientView({
         onReminderSaved={() => router.refresh()}
       />
 
-      {/* Today Task Guide Modal (Landing Page Style popup without checkbox) */}
+      {/* Today Task Guide Modal (Tinder-Style Fast-Flow popup) */}
       <TodayTaskGuideModal
         isOpen={isGuideModalOpen}
         onClose={() => {
@@ -1281,21 +1342,33 @@ export function DashboardClientView({
           setSelectedGuideProject(null);
         }}
         project={selectedGuideProject}
+        projectsQueue={displayedProjects.length > 0 ? displayedProjects : projects}
+        activeProjectIndex={activeGuideModalIndex}
+        onNavigateIndex={(idx) => {
+          setActiveGuideModalIndex(idx);
+          const queue = displayedProjects.length > 0 ? displayedProjects : projects;
+          if (queue[idx]) {
+            setSelectedGuideProject(queue[idx]);
+          }
+        }}
         tasks={
           selectedGuideProject
             ? tasks.filter((t) => t.project_id === selectedGuideProject.id)
             : []
         }
+        allTasks={tasks}
         reminder={
           selectedGuideProject
             ? remindersByProjectId.get(selectedGuideProject.id) || null
             : null
         }
+        remindersByProjectId={remindersByProjectId}
         isSkipped={
           selectedGuideProject
             ? skippedProjectIds.includes(selectedGuideProject.id)
             : false
         }
+        skippedProjectIds={skippedProjectIds}
         onGuideUpdated={handleGuideUpdated}
         onSkipProject={(id) => {
           handleSkipProject(id);
