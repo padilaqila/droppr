@@ -1111,22 +1111,8 @@ export function TodayTaskGuideModal({
                 </div>
               </div>
 
-              {/* Quick Launch & TG Buttons in header */}
+              {/* Quick Launch Button in header */}
               <div className="flex items-center gap-2 shrink-0">
-                {telegramPostUrl && (
-                  <a
-                    href={telegramPostUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-bg-elevated-2 hover:bg-bg-base text-text-primary border border-border-hairline text-caption font-medium transition-all"
-                    title={isEn ? "Open Telegram Post" : "Buka Postingan Telegram"}
-                  >
-                    <Send className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
-                    <span className="hidden sm:inline">{isEn ? "Open in TG" : "Buka di TG"}</span>
-                    <ExternalLink className="w-2.5 h-2.5 opacity-60" />
-                  </a>
-                )}
-
                 {primaryActionUrl && (
                   <a
                     href={primaryActionUrl}
@@ -1531,14 +1517,6 @@ export function TodayTaskGuideModal({
               <ArrowRight className="w-4 h-4" />
             </Link>
 
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3.5 py-1.5 rounded-xl bg-bg-elevated-2 hover:bg-bg-base text-text-primary border border-border-hairline text-caption font-medium transition-all"
-            >
-              {isEn ? "Close" : "Tutup"}
-            </button>
           </div>
         </div>
       </div>
