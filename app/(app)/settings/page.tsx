@@ -20,7 +20,10 @@ import {
   Globe,
   FolderGit2,
   Wallet,
-  Compass,
+  Shield,
+  Loader2,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CustomSelect } from "@/components/ui/select";
@@ -42,6 +45,39 @@ interface NotificationPrefs {
   defaultTime: string;
 }
 
+// Minimalist modern iOS/Linear style toggle switch
+function ToggleSwitch({
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 ${
+        checked ? "bg-accent" : "bg-bg-elevated-2 border-border-hairline"
+      }`}
+    >
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full shadow-md ring-0 transition duration-200 ease-in-out ${
+          checked
+            ? "translate-x-5 bg-on-accent"
+            : "translate-x-0.5 bg-text-tertiary"
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { t, isEn } = useTranslation();
@@ -52,7 +88,7 @@ export default function SettingsPage() {
   const [userId, setUserId] = useState<string>("");
   const [copiedId, setCopiedId] = useState(false);
 
-  // Stats
+  // Workspace stats
   const [stats, setStats] = useState({ projects: 0, folders: 0, wallets: 0 });
 
   // Language state
@@ -84,13 +120,15 @@ export default function SettingsPage() {
 
   // Danger zone state
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [dangerMsg, setDangerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Centralized styled confirm modal
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
     isOpen: false,
     title: "",
     description: "",
   });
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [dangerMsg, setDangerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Load user info, language, notification preferences, and workspace stats
   useEffect(() => {
@@ -155,7 +193,7 @@ export default function SettingsPage() {
     setLangPref(pref);
     setLanguagePreference(pref);
     setLangToast(true);
-    setTimeout(() => setLangToast(false), 3000);
+    setTimeout(() => setLangToast(false), 2500);
   };
 
   const handleRequestPushPermission = async () => {
@@ -163,8 +201,20 @@ export default function SettingsPage() {
       const perm = await Notification.requestPermission();
       setBrowserPermission(perm);
       if (perm === "granted") {
-        setNotificationPrefs((prev) => ({ ...prev, push: true }));
+        updateNotificationPref("push", true);
       }
+    }
+  };
+
+  const updateNotificationPref = (key: keyof NotificationPrefs, value: any) => {
+    const updated = { ...notificationPrefs, [key]: value };
+    setNotificationPrefs(updated);
+    try {
+      localStorage.setItem("droppr-notification-prefs", JSON.stringify(updated));
+      setNotifSaved(true);
+      setTimeout(() => setNotifSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save prefs:", err);
     }
   };
 
@@ -174,11 +224,19 @@ export default function SettingsPage() {
     setPasswordError(null);
 
     if (newPassword.length < 6) {
-      setPasswordError("Password baru harus minimal 6 karakter.");
+      setPasswordError(
+        isEn
+          ? "New password must be at least 6 characters."
+          : "Password baru harus minimal 6 karakter."
+      );
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError("Konfirmasi password tidak cocok.");
+      setPasswordError(
+        isEn
+          ? "Password confirmation does not match."
+          : "Konfirmasi password tidak cocok."
+      );
       return;
     }
 
@@ -191,24 +249,19 @@ export default function SettingsPage() {
 
       if (error) throw error;
 
-      setPasswordSuccess("Password berhasil diubah. Gunakan password baru untuk login berikutnya.");
+      setPasswordSuccess(
+        isEn
+          ? "Password updated successfully."
+          : "Password berhasil diperbarui. Gunakan password baru untuk login berikutnya."
+      );
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      setPasswordError(err?.message || "Gagal mengubah password.");
+      setPasswordError(
+        err?.message || (isEn ? "Failed to update password." : "Gagal mengubah password.")
+      );
     } finally {
       setPasswordLoading(false);
-    }
-  };
-
-  const handleSaveNotificationPrefs = (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      localStorage.setItem("droppr-notification-prefs", JSON.stringify(notificationPrefs));
-      setNotifSaved(true);
-      setTimeout(() => setNotifSaved(false), 3000);
-    } catch (err) {
-      console.error("Failed to save prefs:", err);
     }
   };
 
@@ -260,9 +313,10 @@ export default function SettingsPage() {
 
       setExportSuccess(
         isEn
-          ? "Complete JSON backup file downloaded successfully."
+          ? "Full JSON backup file downloaded."
           : "File backup JSON lengkap berhasil diunduh."
       );
+      setTimeout(() => setExportSuccess(null), 4000);
     } catch (err) {
       console.error("Export JSON failed:", err);
       setConfirmModal({
@@ -325,9 +379,10 @@ export default function SettingsPage() {
 
       setExportSuccess(
         isEn
-          ? "Project summary CSV file downloaded successfully."
+          ? "Project summary CSV file downloaded."
           : "File CSV ringkasan project berhasil diunduh."
       );
+      setTimeout(() => setExportSuccess(null), 4000);
     } catch (err) {
       console.error("Export CSV failed:", err);
       setConfirmModal({
@@ -462,98 +517,67 @@ export default function SettingsPage() {
 
   const effectiveLang = getEffectiveLanguage(langPref);
 
+  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: "language", label: isEn ? "Language" : "Bahasa", icon: <Languages className="w-4 h-4" /> },
+    { id: "account", label: isEn ? "Account" : "Akun", icon: <User className="w-4 h-4" /> },
+    { id: "notifications", label: isEn ? "Notifications" : "Notifikasi", icon: <Bell className="w-4 h-4" /> },
+    { id: "backup", label: isEn ? "Backup" : "Cadangan", icon: <Download className="w-4 h-4" /> },
+    { id: "danger", label: isEn ? "Danger Zone" : "Zona Bahaya", icon: <AlertTriangle className="w-4 h-4" /> },
+  ];
+
   return (
-    <div className="w-full space-y-6 max-w-5xl pb-16 font-sans">
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-white/[0.06]">
+    <div className="w-full max-w-4xl mx-auto space-y-6 pb-20 font-sans">
+      {/* HEADER SECTION (CLEAN & MINIMALIST) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border-hairline">
         <div>
           <h1 className="text-heading-2 font-bold text-text-primary tracking-tight">
-            {t("settings.title")}
+            {t("settings.title") || (isEn ? "Settings" : "Pengaturan")}
           </h1>
-          <p className="text-body-sm text-text-secondary mt-1">
-            {t("settings.subtitle")}
+          <p className="text-body-sm text-text-secondary mt-0.5">
+            {isEn
+              ? "Preferences, account security, notification schedules, and workspace data."
+              : "Kelola preferensi bahasa, akun, jadwal operasional, dan cadangan data garapan."}
           </p>
         </div>
 
-        {/* Quick Workspace Stats Chips */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="px-3 py-1 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[11px] font-mono text-text-secondary flex items-center gap-1.5">
+        {/* Workspace summary counter */}
+        <div className="flex items-center gap-2">
+          <span className="px-2.5 py-1 rounded-lg bg-bg-elevated border border-border-hairline text-[11px] font-mono text-text-secondary flex items-center gap-1.5">
             <FolderGit2 className="w-3.5 h-3.5 text-accent" />
             <span>{stats.projects} {isEn ? "Projects" : "Proyek"}</span>
           </span>
-          <span className="px-3 py-1 rounded-xl bg-white/[0.03] border border-white/[0.08] text-[11px] font-mono text-text-secondary flex items-center gap-1.5">
+          <span className="px-2.5 py-1 rounded-lg bg-bg-elevated border border-border-hairline text-[11px] font-mono text-text-secondary flex items-center gap-1.5">
             <Wallet className="w-3.5 h-3.5 text-link-teal" />
             <span>{stats.wallets} Wallet</span>
           </span>
         </div>
       </div>
 
-      {/* TABS NAVIGATION BAR */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 border-b border-white/[0.06]">
-        <button
-          type="button"
-          onClick={() => setActiveTab("language")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
-            activeTab === "language"
-              ? "bg-accent/20 text-accent border-accent/40 shadow-xs"
-              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border-transparent"
-          }`}
-        >
-          <Languages className="w-4 h-4" />
-          <span>{t("settings.tabs.language")}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("account")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
-            activeTab === "account"
-              ? "bg-white/[0.08] text-text-primary border-white/[0.2] shadow-xs"
-              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border-transparent"
-          }`}
-        >
-          <User className="w-4 h-4" />
-          <span>{t("settings.tabs.account")}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("notifications")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
-            activeTab === "notifications"
-              ? "bg-white/[0.08] text-text-primary border-white/[0.2] shadow-xs"
-              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border-transparent"
-          }`}
-        >
-          <Bell className="w-4 h-4" />
-          <span>{t("settings.tabs.notifications")}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("backup")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
-            activeTab === "backup"
-              ? "bg-white/[0.08] text-text-primary border-white/[0.2] shadow-xs"
-              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border-transparent"
-          }`}
-        >
-          <Download className="w-4 h-4" />
-          <span>{t("settings.tabs.backup")}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("danger")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold transition-all shrink-0 border ${
-            activeTab === "danger"
-              ? "bg-status-overdue/20 text-status-overdue border-status-overdue/40 shadow-xs"
-              : "text-text-secondary hover:text-status-overdue hover:bg-white/[0.04] border-transparent"
-          }`}
-        >
-          <AlertTriangle className="w-4 h-4" />
-          <span>{t("settings.tabs.danger")}</span>
-        </button>
+      {/* COMPACT SEGMENTED TABS BAR */}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-bg-elevated/80 border border-border-hairline overflow-x-auto no-scrollbar max-w-full">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const isDanger = tab.id === "danger";
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 whitespace-nowrap ${
+                isActive
+                  ? isDanger
+                    ? "bg-status-overdue text-white shadow-xs"
+                    : "bg-accent text-on-accent shadow-xs"
+                  : isDanger
+                  ? "text-status-overdue/80 hover:text-status-overdue hover:bg-status-overdue/10"
+                  : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
+              }`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ======================================================== */}
@@ -561,157 +585,92 @@ export default function SettingsPage() {
       {/* ======================================================== */}
       {activeTab === "language" && (
         <div className="space-y-4">
-          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-accent/15 text-accent border border-accent/25">
-                  <Languages className="w-5 h-5" />
+          <div className="bg-bg-elevated/70 border border-border-hairline rounded-2xl overflow-hidden divide-y divide-border-hairline">
+            {/* Setting Row 1: Target Language */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary flex items-center gap-2">
+                  <Languages className="w-4 h-4 text-accent" />
+                  <span>{isEn ? "Interface & Translation Language" : "Bahasa Antarmuka & Terjemahan"}</span>
                 </div>
-                <div>
-                  <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
-                    {isEn ? "Language & Smart Translation Preferences" : "Preferensi Bahasa & Terjemahan Cerdas"}
-                  </h2>
-                  <p className="text-caption text-text-secondary mt-0.5">
-                    {isEn
-                      ? "Set default translation target for Telegram posts and airdrop guides."
-                      : "Tentukan target terjemahan default untuk pesan Telegram dan panduan garapan airdrop."}
-                  </p>
-                </div>
+                <p className="text-caption text-text-secondary leading-relaxed">
+                  {isEn
+                    ? "Controls the app language and default translation target for Telegram airdrop signals."
+                    : "Menentukan bahasa antarmuka aplikasi dan target terjemahan sinyal garapan Telegram."}
+                </p>
               </div>
 
-              {langToast && (
-                <span className="px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption font-semibold animate-in fade-in flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{isEn ? "Saved" : "Tersimpan"}</span>
+              {/* Segmented 3-Way Pill Switch */}
+              <div className="flex items-center p-1 rounded-xl bg-bg-base border border-border-hairline shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSelectLanguage("system")}
+                  className={`px-3 py-1.5 rounded-lg text-caption font-semibold transition-all flex items-center gap-1.5 ${
+                    langPref === "system"
+                      ? "bg-accent text-on-accent shadow-xs"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                  title={`Device region: ${detectedSysLang.toUpperCase()}`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>{isEn ? "Auto (System)" : "Otomatis"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectLanguage("en")}
+                  className={`px-3 py-1.5 rounded-lg text-caption font-semibold transition-all flex items-center gap-1.5 ${
+                    langPref === "en"
+                      ? "bg-accent text-on-accent shadow-xs"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  <span>🇺🇸 English</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectLanguage("id")}
+                  className={`px-3 py-1.5 rounded-lg text-caption font-semibold transition-all flex items-center gap-1.5 ${
+                    langPref === "id"
+                      ? "bg-accent text-on-accent shadow-xs"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  <span>🇮🇩 Indonesia</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Setting Row 2: Smart Dual-Way Translation */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-link-teal" />
+                  <span>{isEn ? "Smart Dual-Way Translation" : "Terjemahan Cerdas Dua Arah (Dual-Way)"}</span>
+                </div>
+                <p className="text-caption text-text-secondary leading-relaxed">
+                  {isEn
+                    ? "Indonesian posts offer translation to English; English/foreign posts offer translation to Indonesian."
+                    : "Postingan berbahasa Indonesia otomatis ditawari terjemahan ke Inggris; postingan asing ke Indonesia."}
+                </p>
+              </div>
+
+              <div className="shrink-0">
+                <span className="px-3 py-1 rounded-lg bg-link-teal/10 border border-link-teal/25 text-link-teal text-caption font-mono font-semibold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-link-teal animate-pulse" />
+                  <span>ID ⇄ EN Aktif</span>
                 </span>
-              )}
-            </div>
-
-            {/* 3 Interactive Language Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-              {/* Option 1: Auto / System */}
-              <div
-                onClick={() => handleSelectLanguage("system")}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
-                  langPref === "system"
-                    ? "bg-accent/[0.08] border-accent/60 ring-1 ring-accent/60 shadow-lg shadow-accent/10"
-                    : "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.04]"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center text-accent">
-                    <Globe className="w-4 h-4" />
-                  </div>
-                  {langPref === "system" && (
-                    <span className="w-5 h-5 rounded-full bg-accent text-on-accent flex items-center justify-center text-[10px] font-bold">
-                      ✓
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-body-sm font-bold text-text-primary flex items-center gap-1.5">
-                    <span>{isEn ? "Automatic (System)" : "Otomatis (Sistem)"}</span>
-                  </h3>
-                  <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
-                    {isEn
-                      ? `Follows device locale: ${detectedSysLang.toUpperCase()} (Active: ${effectiveLang === "id" ? "Indonesian" : "English"}).`
-                      : `Mengikuti region perangkat: ${detectedSysLang.toUpperCase()} (Aktif: ${effectiveLang === "id" ? "Indonesia" : "English"}).`}
-                  </p>
-                </div>
-              </div>
-
-              {/* Option 2: English (EN) */}
-              <div
-                onClick={() => handleSelectLanguage("en")}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
-                  langPref === "en"
-                    ? "bg-accent/[0.08] border-accent/60 ring-1 ring-accent/60 shadow-lg shadow-accent/10"
-                    : "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.04]"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xl">🇺🇸</span>
-                  {langPref === "en" && (
-                    <span className="w-5 h-5 rounded-full bg-accent text-on-accent flex items-center justify-center text-[10px] font-bold">
-                      ✓
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-body-sm font-bold text-text-primary">
-                    English (EN)
-                  </h3>
-                  <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
-                    {isEn
-                      ? "Default translation to English. Posts in Indonesian will be translated to English."
-                      : "Default terjemahan ke Bahasa Inggris. Postingan berbahasa Indonesia otomatis dialihkan ke Inggris."}
-                  </p>
-                </div>
-              </div>
-
-              {/* Option 3: Indonesian (ID) */}
-              <div
-                onClick={() => handleSelectLanguage("id")}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
-                  langPref === "id"
-                    ? "bg-accent/[0.08] border-accent/60 ring-1 ring-accent/60 shadow-lg shadow-accent/10"
-                    : "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.04]"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xl">🇮🇩</span>
-                  {langPref === "id" && (
-                    <span className="w-5 h-5 rounded-full bg-accent text-on-accent flex items-center justify-center text-[10px] font-bold">
-                      ✓
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-body-sm font-bold text-text-primary">
-                    Bahasa Indonesia (ID)
-                  </h3>
-                  <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
-                    {isEn
-                      ? "Default translation to Indonesian. Indonesian posts offer translation to English."
-                      : "Default terjemahan ke Indonesia. Postingan berbahasa Indonesia otomatis ditawarkan terjemahan ke Inggris."}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Smart Dual-Way Explanation Banner */}
-            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-2">
-              <h4 className="text-caption font-bold text-text-primary flex items-center gap-1.5">
-                <Compass className="w-3.5 h-3.5 text-link-teal" />
-                <span>{isEn ? "How Dual-Way Detection & Translation Works" : "Cara Kerja Deteksi & Terjemahan Dua Arah (Dual-Way)"}</span>
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] text-text-secondary leading-relaxed pt-1">
-                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
-                  <div className="font-semibold text-text-primary flex items-center gap-1.5">
-                    <span>{isEn ? "📩 Original Indonesian Post" : "📩 Postingan Asli Bahasa Indonesia"}</span>
-                  </div>
-                  <p>
-                    {isEn
-                      ? 'The translation button automatically switches to '
-                      : 'Tombol terjemahan otomatis berubah menjadi '}
-                    <strong className="text-accent font-mono">&quot;Translate to English&quot;</strong>.
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
-                  <div className="font-semibold text-text-primary flex items-center gap-1.5">
-                    <span>{isEn ? "🌍 Original English / Foreign Post" : "🌍 Postingan Asli Bahasa Inggris / Asing"}</span>
-                  </div>
-                  <p>
-                    {isEn
-                      ? 'The translation button automatically switches to '
-                      : 'Tombol terjemahan otomatis berubah menjadi '}
-                    <strong className="text-link-teal font-mono">{isEn ? '&quot;Translate to Indonesian&quot;' : '&quot;Terjemahkan ke Indonesia&quot;'}</strong>.
-                  </p>
-                </div>
               </div>
             </div>
           </div>
+
+          {langToast && (
+            <div className="p-3 rounded-xl bg-status-completed/10 border border-status-completed/25 text-status-completed text-caption font-semibold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{isEn ? "Language preference saved." : "Preferensi bahasa berhasil disimpan."}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -719,61 +678,58 @@ export default function SettingsPage() {
       {/* TAB 2: AKUN & KEAMANAN                                   */}
       {/* ======================================================== */}
       {activeTab === "account" && (
-        <div className="space-y-4">
-          {/* User Info Card */}
-          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-accent/15 text-accent border border-accent/25">
-                <User className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
-                  {isEn ? "User Identity" : "Identitas Pengguna"}
-                </h2>
+        <div className="space-y-6">
+          {/* Section 1: User Profile & Session */}
+          <div className="bg-bg-elevated/70 border border-border-hairline rounded-2xl overflow-hidden divide-y divide-border-hairline">
+            {/* Row 1: Email */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="text-body-sm font-semibold text-text-primary">{isEn ? "Email Address" : "Email Terdaftar"}</div>
                 <p className="text-caption text-text-secondary">
-                  {isEn ? "Authenticated Supabase account and active session info." : "Informasi akun Supabase terautentikasi dan sesi aktif saat ini."}
+                  {isEn ? "Your authenticated Supabase identity." : "Identitas akun Anda yang terhubung dengan database."}
                 </p>
+              </div>
+              <span className="font-mono text-body-sm text-text-primary font-semibold bg-bg-base px-3 py-1.5 rounded-xl border border-border-hairline">
+                {userEmail || "—"}
+              </span>
+            </div>
+
+            {/* Row 2: User ID */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="text-body-sm font-semibold text-text-primary">{isEn ? "Account ID" : "User ID Akun"}</div>
+                <p className="text-caption text-text-secondary">
+                  {isEn ? "Unique account identifier (UUID) for RLS data isolation." : "Pengenal unik akun untuk isolasi baris data (RLS)."}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[11px] text-text-tertiary bg-bg-base px-2.5 py-1.5 rounded-lg border border-border-hairline max-w-[200px] sm:max-w-xs truncate">
+                  {userId || "—"}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyUserId}
+                  className="px-2.5 py-1.5 rounded-lg bg-bg-elevated-2 hover:bg-bg-base border border-border-hairline text-caption font-semibold text-text-secondary hover:text-text-primary transition-colors inline-flex items-center gap-1 shrink-0"
+                  title={isEn ? "Copy User ID" : "Salin User ID"}
+                >
+                  {copiedId ? <Check className="w-3.5 h-3.5 text-status-completed" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedId ? (isEn ? "Copied" : "Tersalin") : (isEn ? "Copy" : "Salin")}</span>
+                </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
-                <span className="text-[11px] font-mono text-text-tertiary">{isEn ? "Registered Email" : "Email Terdaftar"}</span>
-                <p className="text-body-sm font-semibold text-text-primary font-mono truncate">
-                  {userEmail || (isEn ? "Loading..." : "Memuat...")}
+            {/* Row 3: Sign Out */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="text-body-sm font-semibold text-text-primary">{isEn ? "Active Session" : "Sesi Akun"}</div>
+                <p className="text-caption text-text-secondary">
+                  {isEn ? "Sign out of your account on this device." : "Keluar dari sesi workspace Droppr pada browser ini."}
                 </p>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-text-tertiary">{isEn ? "Supabase User ID" : "User ID Supabase"}</span>
-                  <button
-                    type="button"
-                    onClick={handleCopyUserId}
-                    className="text-[10px] text-accent hover:underline inline-flex items-center gap-1 font-mono"
-                  >
-                    {copiedId ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedId ? (isEn ? "Copied" : "Tersalin") : (isEn ? "Copy" : "Salin")}</span>
-                  </button>
-                </div>
-                <p className="text-[11px] font-mono text-text-secondary truncate">
-                  {userId || (isEn ? "Loading..." : "Memuat...")}
-                </p>
-              </div>
-            </div>
-
-            {/* Logout button */}
-            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between">
-              <div>
-                <div className="text-body-sm font-semibold text-text-primary">{isEn ? "Active Session" : "Sesi Login"}</div>
-                <div className="text-caption text-text-secondary">
-                  {isEn ? "Sign out of your Droppr session on this browser." : "Keluar dari sesi Droppr pada browser ini."}
-                </div>
               </div>
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="px-3.5 py-2 rounded-xl bg-status-overdue/15 hover:bg-status-overdue/25 border border-status-overdue/30 text-status-overdue text-caption font-semibold transition-all inline-flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-status-overdue/10 hover:bg-status-overdue/20 border border-status-overdue/25 text-status-overdue text-caption font-semibold transition-all inline-flex items-center gap-1.5 shrink-0"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>{isEn ? "Sign Out" : "Keluar Akun"}</span>
@@ -781,31 +737,31 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Change Password Card */}
-          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
+          {/* Section 2: Change Password */}
+          <div className="bg-bg-elevated/70 border border-border-hairline rounded-2xl p-5 sm:p-6 space-y-4">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-link-teal/15 text-link-teal border border-link-teal/25">
-                <KeyRound className="w-5 h-5" />
+                <KeyRound className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
+                <h3 className="text-body-md font-semibold text-text-primary">
                   {isEn ? "Update Password" : "Perbarui Kata Sandi"}
-                </h2>
+                </h3>
                 <p className="text-caption text-text-secondary">
-                  {isEn ? "Change Supabase account password to keep your workspace secure." : "Ubah password akun Supabase untuk menjaga keamanan workspace Anda."}
+                  {isEn ? "Enter a new password for future logins." : "Masukkan kata sandi baru untuk login berikutnya."}
                 </p>
               </div>
             </div>
 
             {passwordSuccess && (
-              <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-status-completed/10 border border-status-completed/25 text-status-completed text-caption flex items-center gap-2 animate-in fade-in">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>{passwordSuccess}</span>
               </div>
             )}
 
             {passwordError && (
-              <div className="p-3 rounded-xl bg-status-overdue/15 border border-status-overdue/30 text-status-overdue text-caption flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-status-overdue/10 border border-status-overdue/25 text-status-overdue text-caption flex items-center gap-2 animate-in fade-in">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>{passwordError}</span>
               </div>
@@ -814,37 +770,38 @@ export default function SettingsPage() {
             <form onSubmit={handleChangePassword} className="space-y-3 max-w-md pt-1">
               <div>
                 <label className="block text-caption font-medium text-text-secondary mb-1">
-                  {isEn ? "New Password (Min. 6 Characters)" : "Password Baru (Min. 6 Karakter)"}
+                  {isEn ? "New Password" : "Password Baru (Min. 6 Karakter)"}
                 </label>
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/60"
+                  className="w-full px-3.5 py-2 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
                 />
               </div>
 
               <div>
                 <label className="block text-caption font-medium text-text-secondary mb-1">
-                  {isEn ? "Repeat New Password" : "Ulangi Password Baru"}
+                  {isEn ? "Confirm Password" : "Ulangi Password Baru"}
                 </label>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/60"
+                  className="w-full px-3.5 py-2 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
                 />
               </div>
 
-              <div className="pt-2">
+              <div className="pt-1">
                 <button
                   type="submit"
                   disabled={passwordLoading || !newPassword || !confirmPassword}
-                  className="px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed disabled:opacity-50 text-caption font-semibold transition-all shadow-md shadow-accent/20"
+                  className="px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed disabled:opacity-50 text-caption font-semibold transition-all shadow-md shadow-accent/20 inline-flex items-center gap-1.5"
                 >
-                  {passwordLoading ? (isEn ? "Saving..." : "Menyimpan...") : (isEn ? "Save New Password" : "Simpan Password Baru")}
+                  {passwordLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{passwordLoading ? (isEn ? "Saving..." : "Menyimpan...") : (isEn ? "Save Password" : "Simpan Password Baru")}</span>
                 </button>
               </div>
             </form>
@@ -857,156 +814,106 @@ export default function SettingsPage() {
       {/* ======================================================== */}
       {activeTab === "notifications" && (
         <div className="space-y-4">
-          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                  <Clock className="w-5 h-5" />
+          <div className="bg-bg-elevated/70 border border-border-hairline rounded-2xl overflow-hidden divide-y divide-border-hairline">
+            {/* Row 1: Daily Reset Cycle Info */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-accent" />
+                  <span>{isEn ? "Daily Routine Reset Cycle" : "Siklus Reset Rutinitas Harian"}</span>
                 </div>
-                <div>
-                  <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
-                    {isEn ? "Operational Schedule & Reminders" : "Jadwal Operasional & Pengingat"}
-                  </h2>
-                  <p className="text-caption text-text-secondary">
-                    {isEn
-                      ? "Daily reset cycle standards and task notification channel preferences."
-                      : "Standar siklus reset harian dan preferensi saluran notifikasi garapan."}
-                  </p>
-                </div>
-              </div>
-
-              {notifSaved && (
-                <span className="px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption font-semibold animate-in fade-in flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{isEn ? "Saved" : "Tersimpan"}</span>
-                </span>
-              )}
-            </div>
-
-            {/* Daily Reset Info Card */}
-            <div className="p-4 rounded-2xl bg-amber-500/[0.06] border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <div className="text-caption font-bold text-amber-400">
-                  {isEn ? "Daily Task Reset Cycle" : "Siklus Reset Garapan Harian (Daily Task Reset)"}
-                </div>
-                <p className="text-[11px] text-text-secondary">
-                  {isEn ? (
-                    <>
-                      Every day at <strong className="text-text-primary font-mono">07:00 WIB (00:00 UTC)</strong>, the completion status of recurring daily tasks will automatically reset for the new day&apos;s cycle.
-                    </>
-                  ) : (
-                    <>
-                      Setiap hari pukul <strong className="text-text-primary font-mono">07:00 WIB (00:00 UTC)</strong>, status pengerjaan tugas rutin harian akan otomatis di-reset untuk siklus hari baru.
-                    </>
-                  )}
+                <p className="text-caption text-text-secondary leading-relaxed">
+                  {isEn
+                    ? "Recurring daily tasks automatically reset each day at 07:00 WIB (00:00 UTC)."
+                    : "Tugas garapan rutin harian otomatis di-reset untuk siklus hari baru setiap pukul 07:00 WIB."}
                 </p>
               </div>
-              <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-mono shrink-0">
-                {isEn ? "Reset: 07:00 WIB" : "Reset: 07:00 WIB"}
+              <span className="px-3 py-1 rounded-xl bg-accent/10 border border-accent/25 text-accent text-caption font-mono font-semibold shrink-0">
+                07:00 WIB (00:00 UTC)
               </span>
             </div>
 
-            <form onSubmit={handleSaveNotificationPrefs} className="space-y-4 pt-1">
-              <div className="space-y-2">
-                <label className="block text-caption font-semibold text-text-secondary">
-                  {isEn ? "Notification Channels" : "Saluran Notifikasi"}
-                </label>
-
-                {/* In-app */}
-                <label className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] cursor-pointer hover:bg-white/[0.04] transition-colors select-none">
-                  <input
-                    type="checkbox"
-                    checked={notificationPrefs.inApp}
-                    onChange={(e) =>
-                      setNotificationPrefs({ ...notificationPrefs, inApp: e.target.checked })
-                    }
-                    className="rounded text-accent focus:ring-accent"
-                  />
-                  <div>
-                    <div className="text-body-sm font-semibold text-text-primary">
-                      {isEn ? "In-App Dashboard Notification (Active)" : "In-App Dashboard Notification (Aktif)"}
-                    </div>
-                    <div className="text-caption text-text-tertiary">
-                      {isEn
-                        ? "Automated reminders appear in the Command Center Dashboard when tasks are due."
-                        : "Pengingat otomatis muncul di Command Center Dashboard saat tugas perlu dikerjakan."}
-                    </div>
-                  </div>
-                </label>
-
-                {/* Push browser */}
-                <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                  <label className="flex items-center gap-3 cursor-pointer select-none flex-1">
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.push}
-                      onChange={(e) =>
-                        setNotificationPrefs({ ...notificationPrefs, push: e.target.checked })
-                      }
-                      className="rounded text-accent focus:ring-accent"
-                    />
-                    <div>
-                      <div className="text-body-sm font-semibold text-text-primary">
-                        {isEn ? "Browser Push Notification" : "Browser Push Notification"}
-                      </div>
-                      <div className="text-caption text-text-tertiary">
-                        {isEn
-                          ? "Desktop pop-up notifications while the browser is running."
-                          : "Pemberitahuan pop-up desktop saat peramban sedang berjalan."}
-                      </div>
-                    </div>
-                  </label>
-
-                  {browserPermission !== "granted" && (
-                    <button
-                      type="button"
-                      onClick={handleRequestPushPermission}
-                      className="text-[11px] font-semibold text-accent hover:underline px-2 py-1 rounded bg-accent/10 border border-accent/20 shrink-0"
-                    >
-                      {isEn ? "Allow Browser" : "Izinkan Browser"}
-                    </button>
-                  )}
+            {/* Row 2: In-App Dashboard Reminders */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary">
+                  {isEn ? "In-App Dashboard Alerts" : "Notifikasi Dashboard (In-App)"}
                 </div>
+                <p className="text-caption text-text-secondary leading-relaxed">
+                  {isEn
+                    ? "Show reminder badges in the Command Center Dashboard when tasks are due."
+                    : "Tampilkan badge pengingat tugas aktif pada Command Center Dashboard."}
+                </p>
               </div>
+              <ToggleSwitch
+                checked={notificationPrefs.inApp}
+                onChange={(checked) => updateNotificationPref("inApp", checked)}
+              />
+            </div>
 
-              {/* Default notification time */}
-              <div>
-                <label className="block text-caption font-semibold text-text-secondary mb-1">
-                  {isEn ? "Default Daily Routine Reminder Time" : "Jam Pengingat Rutin Harian Default"}
-                </label>
-                <div className="flex items-center gap-2 max-w-sm">
-                  <Clock className="w-4 h-4 text-text-tertiary shrink-0" />
-                  <div className="flex-1">
-                    <CustomSelect
-                      value={notificationPrefs.defaultTime}
-                      onChange={(val) =>
-                        setNotificationPrefs({
-                          ...notificationPrefs,
-                          defaultTime: val,
-                        })
-                      }
-                      options={[
-                        { value: "07:00", label: isEn ? "07:00 WIB (Early Morning - Reset Time)" : "07:00 WIB (Pagi Awal - Saat Reset)" },
-                        { value: "09:00", label: isEn ? "09:00 WIB (Morning - Standard)" : "09:00 WIB (Pagi Hari - Standar)" },
-                        { value: "12:00", label: isEn ? "12:00 WIB (Noon)" : "12:00 WIB (Siang)" },
-                        { value: "18:00", label: isEn ? "18:00 WIB (Evening)" : "18:00 WIB (Sore)" },
-                        { value: "21:00", label: isEn ? "21:00 WIB (Night)" : "21:00 WIB (Malam Hari)" },
-                      ]}
-                    />
-                  </div>
+            {/* Row 3: Browser Push Notifications */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary">
+                  {isEn ? "Desktop Browser Push" : "Notifikasi Pop-up Browser"}
                 </div>
+                <p className="text-caption text-text-secondary leading-relaxed">
+                  {isEn
+                    ? "Receive browser alert notifications while your browser is open."
+                    : "Kirimkan notifikasi desktop saat browser sedang berjalan."}
+                </p>
               </div>
+              <div className="flex items-center gap-3 shrink-0">
+                {browserPermission !== "granted" && (
+                  <button
+                    type="button"
+                    onClick={handleRequestPushPermission}
+                    className="text-[11px] font-semibold text-accent hover:underline px-2.5 py-1 rounded-lg bg-accent/10 border border-accent/20"
+                  >
+                    {isEn ? "Allow Permission" : "Izinkan Browser"}
+                  </button>
+                )}
+                <ToggleSwitch
+                  checked={notificationPrefs.push}
+                  onChange={(checked) => updateNotificationPref("push", checked)}
+                />
+              </div>
+            </div>
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed text-caption font-semibold transition-all shadow-md shadow-accent/20"
-                >
-                  {isEn ? "Save Notification Settings" : "Simpan Pengaturan Notifikasi"}
-                </button>
+            {/* Row 4: Default Routine Reminder Time */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary">
+                  {isEn ? "Default Daily Reminder Time" : "Waktu Pengingat Harian Default"}
+                </div>
+                <p className="text-caption text-text-secondary leading-relaxed">
+                  {isEn
+                    ? "Standard alert time when creating new daily task reminders."
+                    : "Waktu alarm standar saat mengatur pengingat harian proyek baru."}
+                </p>
               </div>
-            </form>
+              <div className="w-48 shrink-0">
+                <CustomSelect
+                  value={notificationPrefs.defaultTime}
+                  onChange={(val) => updateNotificationPref("defaultTime", val)}
+                  options={[
+                    { value: "07:00", label: "07:00 WIB (Reset)" },
+                    { value: "09:00", label: "09:00 WIB (Pagi)" },
+                    { value: "12:00", label: "12:00 WIB (Siang)" },
+                    { value: "18:00", label: "18:00 WIB (Sore)" },
+                    { value: "21:00", label: "21:00 WIB (Malam)" },
+                  ]}
+                />
+              </div>
+            </div>
           </div>
+
+          {notifSaved && (
+            <div className="p-3 rounded-xl bg-status-completed/10 border border-status-completed/25 text-status-completed text-caption font-semibold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{isEn ? "Notification preferences updated." : "Pengaturan notifikasi berhasil diperbarui."}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -1015,88 +922,62 @@ export default function SettingsPage() {
       {/* ======================================================== */}
       {activeTab === "backup" && (
         <div className="space-y-4">
-          <div className="rounded-2xl p-5 sm:p-6 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/25">
-                <Download className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-body-md sm:text-heading-3 font-bold text-text-primary">
-                  {isEn ? "Data Sovereignty & Backups" : "Kedaulatan & Cadangan Data"}
-                </h2>
-                <p className="text-caption text-text-secondary">
+          <div className="bg-bg-elevated/70 border border-border-hairline rounded-2xl overflow-hidden divide-y divide-border-hairline">
+            {/* Row 1: Full JSON Backup */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary flex items-center gap-2">
+                  <FileJson className="w-4 h-4 text-accent" />
+                  <span>{isEn ? "Full Database Backup (JSON)" : "Cadangan Lengkap Database (JSON)"}</span>
+                </div>
+                <p className="text-caption text-text-secondary leading-relaxed">
                   {isEn
-                    ? "Download your complete farming database, folders, update timeline, and wallets independently at any time."
-                    : "Unduh seluruh database garapan, folder, linimasa pembaruan, dan wallet Anda secara mandiri kapan saja."}
+                    ? "Export 100% of your folders, projects, tasks, timeline updates, and wallets to a single JSON archive."
+                    : "Unduh seluruh struktur folder, proyek, checklist tugas, linimasa pembaruan, dan wallet ke file arsip JSON."}
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={handleExportJson}
+                disabled={isExportingJson}
+                className="px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed disabled:opacity-50 text-caption font-semibold transition-all inline-flex items-center gap-2 shadow-md shadow-accent/20 shrink-0"
+              >
+                {isExportingJson ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                <span>{isExportingJson ? (isEn ? "Creating..." : "Membuat...") : (isEn ? "Download JSON" : "Unduh JSON")}</span>
+              </button>
             </div>
 
-            {exportSuccess && (
-              <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-caption flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{exportSuccess}</span>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-              {/* Full JSON Dump */}
-              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col justify-between space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-text-primary font-bold text-body-sm">
-                    <FileJson className="w-4 h-4 text-accent" />
-                    <span>{isEn ? "Complete Backup (JSON)" : "Cadangan Lengkap (JSON)"}</span>
-                  </div>
-                  <p className="text-[11px] text-text-secondary leading-relaxed">
-                    {isEn
-                      ? "Saves 100% of your folders, projects, tasks, timeline logs, reminders, and wallets hierarchy to restore or archive."
-                      : "Menyimpan 100% struktur hierarki folder, proyek, tugas, catatan linimasa, pengingat, dan wallet untuk di-restore atau diarsipkan."}
-                  </p>
+            {/* Row 2: CSV Summary */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-link-teal" />
+                  <span>{isEn ? "Spreadsheet Table Summary (CSV)" : "Ringkasan Lembar Kerja (CSV)"}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleExportJson}
-                  disabled={isExportingJson}
-                  className="w-full py-2 px-3 rounded-xl bg-accent text-on-accent hover:bg-accent-pressed disabled:opacity-50 text-caption font-semibold transition-all inline-flex items-center justify-center gap-2 shadow-md shadow-accent/20"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>
-                    {isExportingJson
-                      ? (isEn ? "Creating Backup..." : "Membuat Cadangan...")
-                      : (isEn ? "Download JSON Backup" : "Unduh Backup JSON")}
-                  </span>
-                </button>
+                <p className="text-caption text-text-secondary leading-relaxed">
+                  {isEn
+                    ? "Export a project summary table compatible with Microsoft Excel, Google Sheets, or Notion."
+                    : "Ekspor tabel ringkasan garapan dan status progres tugas yang kompatibel langsung dengan Excel atau Sheets."}
+                </p>
               </div>
-
-              {/* CSV Spreadsheet */}
-              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col justify-between space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-text-primary font-bold text-body-sm">
-                    <FileSpreadsheet className="w-4 h-4 text-link-teal" />
-                    <span>{isEn ? "Table Summary (CSV)" : "Ringkasan Tabel (CSV)"}</span>
-                  </div>
-                  <p className="text-[11px] text-text-secondary leading-relaxed">
-                    {isEn
-                      ? "Airdrop project summary table and task progress compatible directly with Microsoft Excel, Google Sheets, or Notion."
-                      : "Tabel ringkasan proyek garapan dan progress tugas yang kompatibel langsung dengan Microsoft Excel, Google Sheets, atau Notion."}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleExportCsv}
-                  disabled={isExportingCsv}
-                  className="w-full py-2 px-3 rounded-xl bg-white/[0.04] text-text-primary hover:bg-white/[0.08] border border-white/[0.1] disabled:opacity-50 text-caption font-semibold transition-all inline-flex items-center justify-center gap-2"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>
-                    {isExportingCsv
-                      ? (isEn ? "Processing CSV..." : "Memproses CSV...")
-                      : (isEn ? "Download CSV File" : "Unduh File CSV")}
-                  </span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                disabled={isExportingCsv}
+                className="px-4 py-2 rounded-xl bg-bg-elevated-2 hover:bg-bg-base border border-border-hairline text-text-primary hover:border-border-hairline-strong disabled:opacity-50 text-caption font-semibold transition-all inline-flex items-center gap-2 shrink-0"
+              >
+                {isExportingCsv ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                <span>{isExportingCsv ? (isEn ? "Processing..." : "Memproses...") : (isEn ? "Download CSV" : "Unduh CSV")}</span>
+              </button>
             </div>
           </div>
+
+          {exportSuccess && (
+            <div className="p-3 rounded-xl bg-status-completed/10 border border-status-completed/25 text-status-completed text-caption font-semibold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{exportSuccess}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -1105,125 +986,114 @@ export default function SettingsPage() {
       {/* ======================================================== */}
       {activeTab === "danger" && (
         <div className="space-y-4">
-          <div className="rounded-2xl p-5 sm:p-6 bg-status-overdue/[0.04] border border-status-overdue/30 backdrop-blur-xl shadow-xl shadow-black/20 space-y-4">
-            <div className="flex items-center gap-2.5 text-status-overdue">
-              <AlertTriangle className="w-5 h-5" />
+          <div className="bg-status-overdue/[0.03] border border-status-overdue/25 rounded-2xl overflow-hidden divide-y divide-status-overdue/20">
+            {/* Header row */}
+            <div className="p-4 sm:p-5 flex items-center gap-2.5 text-status-overdue">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
               <div>
-                <h2 className="text-body-md sm:text-heading-3 font-bold">
-                  {isEn ? "Danger Zone & Database Maintenance" : "Zona Bahaya & Pemeliharaan Database"}
-                </h2>
-                <p className="text-caption text-text-secondary">
+                <h3 className="text-body-md font-semibold text-text-primary">
+                  {isEn ? "Danger Zone & Maintenance" : "Zona Bahaya & Pemeliharaan Data"}
+                </h3>
+                <p className="text-caption text-text-secondary mt-0.5">
                   {isEn
-                    ? "Permanent data cleanup and deletion actions. Make sure you have created a JSON backup before proceeding."
-                    : "Aksi pembersihan dan penghapusan data permanen. Pastikan Anda telah membuat backup JSON sebelum melanjutkan."}
+                    ? "Irreversible operations. Please download a JSON backup before performing resets."
+                    : "Aksi penghapusan dan reset data permanen. Pastikan Anda telah membuat backup JSON terlebih dahulu."}
                 </p>
               </div>
             </div>
 
             {dangerMsg && (
               <div
-                className={`p-3 rounded-xl text-caption flex items-center gap-2 ${
+                className={`p-3 text-caption flex items-center gap-2 ${
                   dangerMsg.type === "success"
-                    ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
-                    : "bg-status-overdue/15 border border-status-overdue/30 text-status-overdue"
+                    ? "bg-status-completed/10 text-status-completed"
+                    : "bg-status-overdue/10 text-status-overdue"
                 }`}
               >
-                {dangerMsg.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                {dangerMsg.type === "success" ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
                 <span>{dangerMsg.text}</span>
               </div>
             )}
 
-            {/* Action 1: Bersihkan Task Selesai */}
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="text-body-sm font-bold text-text-primary">
-                  {isEn ? "Clear Completed Tasks" : "Bersihkan Tugas yang Sudah Selesai"}
+            {/* Action 1: Clear Completed Tasks */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary">
+                  {isEn ? "Clear Completed Tasks" : "Bersihkan Tugas Selesai"}
                 </div>
-                <p className="text-caption text-text-tertiary">
+                <p className="text-caption text-text-secondary leading-relaxed">
                   {isEn
-                    ? "Delete old tasks whose status is already completed (done) in the database to keep it lightweight."
-                    : "Menghapus tugas lama yang statusnya sudah selesai (done) di database agar ringan."}
+                    ? "Delete tasks whose status is already 'Done' to keep your database lightweight."
+                    : "Hapus tugas-tugas yang sudah berstatus 'Selesai' di database untuk meringankan beban akun."}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleClearCompletedTasks}
-                className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] text-text-secondary hover:text-text-primary text-caption font-semibold transition-all shrink-0"
+                className="px-3.5 py-1.5 rounded-xl bg-bg-elevated border border-border-hairline hover:border-status-overdue/40 text-text-secondary hover:text-status-overdue text-caption font-semibold transition-all shrink-0"
               >
-                {isEn ? "Clear Completed Tasks" : "Bersihkan Tugas Selesai"}
+                {isEn ? "Clear Completed" : "Bersihkan Selesai"}
               </button>
             </div>
 
-            {/* Action 2: Reset Status Feed Telegram */}
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="text-body-sm font-bold text-text-primary">
-                  {isEn ? "Reset Signal Feed Import Status" : "Reset Status Import Feed Sinyal"}
+            {/* Action 2: Reset Feed Import Status */}
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 max-w-md">
+                <div className="text-body-sm font-semibold text-text-primary">
+                  {isEn ? "Reset Feed Import Status" : "Reset Status Import Sinyal"}
                 </div>
-                <p className="text-caption text-text-tertiary">
+                <p className="text-caption text-text-secondary leading-relaxed">
                   {isEn
-                    ? "Reset feed/waitlist signals status so previously removed posts can be imported again."
-                    : "Mengembalikan status sinyal feed/waitlist sehingga postingan yang pernah dihapus dapat ditambahkan kembali."}
+                    ? "Reset signal statuses so previously dismissed feed posts can be imported again."
+                    : "Kembalikan status sinyal feed agar postingan yang pernah dihapus dapat di-import kembali."}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleResetFeedImportStatus}
-                className="px-3.5 py-1.5 rounded-xl bg-link-teal/15 hover:bg-link-teal/25 border border-link-teal/30 text-link-teal text-caption font-semibold transition-all shrink-0"
+                className="px-3.5 py-1.5 rounded-xl bg-link-teal/10 hover:bg-link-teal/20 border border-link-teal/30 text-link-teal text-caption font-semibold transition-all shrink-0"
               >
-                {isEn ? "Reset Feed Signals" : "Reset Sinyal Feed"}
+                {isEn ? "Reset Signals" : "Reset Sinyal"}
               </button>
             </div>
 
-            {/* Action 3: Hapus Seluruh Proyek */}
-            <div className="p-4 rounded-xl bg-status-overdue/10 border border-status-overdue/30 space-y-3">
-              <div>
-                <div className="text-body-sm font-bold text-status-overdue">
-                  {isEn ? "Delete All Farming Data & Projects" : "Hapus Seluruh Data Garapan & Proyek"}
+            {/* Action 3: Delete All Projects */}
+            <div className="p-4 sm:p-5 space-y-3 bg-status-overdue/[0.04]">
+              <div className="space-y-0.5">
+                <div className="text-body-sm font-semibold text-status-overdue">
+                  {isEn ? "Delete All Projects & Data" : "Hapus Seluruh Data Proyek"}
                 </div>
-                <p className="text-caption text-text-secondary">
+                <p className="text-caption text-text-secondary leading-relaxed">
                   {isEn
-                    ? "Permanently delete ALL projects, timeline notes, and tasks in this account from Supabase."
-                    : "Menghapus SEMUA proyek, catatan linimasa, dan tugas di akun ini dari Supabase."}
+                    ? "Permanently delete ALL projects, tasks, and update timelines from this account."
+                    : "Menghapus SEMUA proyek garapan, catatan linimasa, dan tugas akun ini dari database Supabase."}
                 </p>
               </div>
 
-              <div className="pt-1 space-y-2">
-                <label className="block text-caption text-text-secondary">
-                  {isEn ? (
-                    <>
-                      Type <strong className="text-text-primary font-mono font-bold">DELETE</strong> to confirm:
-                    </>
-                  ) : (
-                    <>
-                      Ketik <strong className="text-text-primary font-mono font-bold">HAPUS</strong> untuk mengonfirmasi:
-                    </>
-                  )}
-                </label>
-                <div className="flex items-center gap-2 max-w-sm">
-                  <input
-                    type="text"
-                    value={deleteConfirmText}
-                    onChange={(e) => setDeleteConfirmText(e.target.value)}
-                    placeholder={isEn ? "Type DELETE" : "Ketik HAPUS"}
-                    className="w-full px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.1] text-caption font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-status-overdue"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleDeleteAllProjects}
-                    disabled={isDeleting || !["HAPUS", "DELETE"].includes(deleteConfirmText.trim().toUpperCase())}
-                    className="px-3.5 py-1.5 rounded-xl bg-status-overdue text-white hover:bg-status-overdue/90 disabled:opacity-40 text-caption font-semibold transition-all shrink-0 inline-flex items-center gap-1.5 shadow-md shadow-status-overdue/20"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isDeleting ? (isEn ? "Deleting..." : "Menghapus...") : (isEn ? "Delete All" : "Hapus Semua")}</span>
-                  </button>
-                </div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 pt-1 max-w-md">
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={isEn ? "Type DELETE to confirm" : "Ketik HAPUS untuk konfirmasi"}
+                  className="w-full sm:flex-1 px-3 py-1.5 rounded-xl bg-bg-base border border-border-hairline text-caption font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-status-overdue"
+                />
+                <button
+                  type="button"
+                  onClick={handleDeleteAllProjects}
+                  disabled={isDeleting || !["HAPUS", "DELETE"].includes(deleteConfirmText.trim().toUpperCase())}
+                  className="w-full sm:w-auto px-4 py-1.5 rounded-xl bg-status-overdue text-white hover:bg-status-overdue/90 disabled:opacity-40 text-caption font-semibold transition-all shrink-0 inline-flex items-center justify-center gap-1.5 shadow-md shadow-status-overdue/20"
+                >
+                  {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  <span>{isDeleting ? (isEn ? "Deleting..." : "Menghapus...") : (isEn ? "Delete All" : "Hapus Semua")}</span>
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Styled Centralized Modal */}
       <ConfirmModal
         {...confirmModal}
         onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
