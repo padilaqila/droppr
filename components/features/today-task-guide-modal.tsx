@@ -9,8 +9,6 @@ import {
   ExternalLink,
   Layers,
   Send,
-  ArrowRight,
-  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Edit2,
@@ -1039,7 +1037,7 @@ export function TodayTaskGuideModal({
 
           {/* Modal Header */}
           <div className="px-5 pt-4 pb-3.5 sm:px-6 sm:pt-5 sm:pb-3.5 border-b border-border-hairline bg-bg-elevated">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1.5 min-w-0 flex-1">
                 {/* Project Title & Status */}
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1118,11 +1116,11 @@ export function TodayTaskGuideModal({
                     href={primaryActionUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-semibold text-caption sm:text-body-sm shadow-[0_0_20px_-3px_rgba(240,169,59,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0"
+                    className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-semibold text-caption sm:text-body-sm shadow-[0_0_20px_-3px_rgba(240,169,59,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0"
                   >
-                    <Flame className="w-3.5 h-3.5 fill-black" />
+                    <Flame className="w-4 h-4 fill-black" />
                     <span>{isEn ? `Farm ${dappUrl ? "on DApp" : "on Web"}` : `Mulai Garap ${dappUrl ? "di DApp" : "di Web"}`}</span>
-                    <ExternalLink className="w-3 h-3 stroke-[2.5]" />
+                    <ExternalLink className="w-3.5 h-3.5 stroke-[2.5]" />
                   </a>
                 )}
               </div>
@@ -1391,31 +1389,31 @@ export function TodayTaskGuideModal({
           </div>
         </div>
 
-        {/* 2. FOOTER ACTION BAR: AUTO-ADVANCE & TINDER-STYLE EXECUTION */}
-        <div className="p-3 sm:px-6 sm:py-3.5 border-t border-border-hairline bg-bg-base flex flex-col sm:flex-row items-center justify-between gap-3">
-          {/* Left: Quick Execution Buttons (with Auto-Advance) */}
-          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+        {/* 2. FOOTER ACTION BAR: NEAT, BALANCED & STRUCTURED COMPOSITION */}
+        <div className="px-4 py-3 sm:px-6 sm:py-3.5 border-t border-border-hairline bg-bg-base flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Left: Primary Task Execution Actions */}
+          <div className="flex items-center gap-2">
             {/* Mark Done & Auto-Advance */}
             <button
               type="button"
               onClick={handleMarkDoneAndAdvance}
               disabled={isMarkingDone}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold text-caption border transition-all shadow-sm ${
+              className={`flex-1 sm:flex-initial h-10 px-4 rounded-xl font-semibold text-caption sm:text-body-sm border transition-all shadow-sm inline-flex items-center justify-center gap-2 ${
                 currentIsDone
                   ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30"
-                  : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white border-transparent"
-              } active:scale-[0.98]`}
+                  : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white border-transparent shadow-[0_0_20px_-4px_rgba(16,185,129,0.3)]"
+              } active:scale-[0.98] disabled:opacity-50`}
               title={
                 currentIsDone
-                  ? (isEn ? "Mark done again / Advance to next" : "Tandai selesai & geser ke tugas berikutnya")
+                  ? (isEn ? "Mark done again / Advance to next (S)" : "Tandai selesai & geser ke tugas berikutnya (S)")
                   : (isEn ? "Mark Done & Auto Advance to Next Task (S)" : "Tandai Selesai & Otomatis Geser ke Tugas Berikutnya (S)")
               }
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>
                 {currentIsDone
                   ? (isEn ? "Done Today (Next →)" : "Sudah Selesai (Lanjut →)")
-                  : (isEn ? "✓ Done Today & Next →" : "✓ Selesai & Lanjut →")}
+                  : (isEn ? "Done & Next →" : "✓ Selesai & Lanjut →")}
               </span>
             </button>
 
@@ -1423,100 +1421,106 @@ export function TodayTaskGuideModal({
             <button
               type="button"
               onClick={handleSkipAndAdvance}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-caption font-medium transition-all ${
+              className={`h-10 px-3.5 rounded-xl border text-caption sm:text-body-sm font-medium transition-all inline-flex items-center justify-center gap-1.5 ${
                 currentIsSkipped
                   ? "bg-amber-400/20 hover:bg-amber-400/30 text-amber-700 dark:text-amber-300 border-amber-400/40"
-                  : "bg-bg-elevated-2 hover:bg-bg-base text-text-secondary hover:text-text-primary border-border-hairline"
-              } active:scale-[0.98]`}
+                  : "bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border-border-hairline"
+              } active:scale-[0.98] shrink-0`}
               title={
                 currentIsSkipped
-                  ? (isEn ? "Restore & Advance (L)" : "Kembalikan & Lanjut (L)")
+                  ? (isEn ? "Restore & Advance (L)" : "Batal Lewati & Lanjut (L)")
                   : (isEn ? "Skip Today & Advance to Next (L)" : "Lewati Hari Ini & Geser ke Berikutnya (L)")
               }
             >
               {currentIsSkipped ? (
                 <>
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                  <span>{isEn ? "Restore & Next →" : "Kembalikan & Lanjut →"}</span>
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
+                  <span>{isEn ? "Restore" : "Batal Lewati"}</span>
                 </>
               ) : (
                 <>
-                  <FastForward className="w-3.5 h-3.5 text-text-tertiary" />
-                  <span>{isEn ? "Skip & Next →" : "Lewati Hari Ini →"}</span>
+                  <FastForward className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+                  <span>{isEn ? "Skip" : "Lewati"}</span>
                 </>
               )}
             </button>
           </div>
 
-          {/* Right: Manual Navigation, Reminder, & Exit */}
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-            {/* Quick Step Buttons */}
-            <div className="flex items-center gap-1">
+          {/* Right: Structured Navigation & Utilities Toolbar */}
+          <div className="flex items-center gap-2 justify-between sm:justify-end">
+            {/* Segmented Prev / Next Navigation Controller */}
+            <div className="inline-flex items-center h-10 rounded-xl bg-bg-elevated border border-border-hairline p-0.5">
               <button
                 type="button"
                 onClick={handleNavigatePrev}
                 disabled={currentIndex === 0}
-                className="px-2.5 py-1.5 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline text-caption text-text-secondary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1"
-                title={isEn ? "Previous (←)" : "Sebelumnya (←)"}
+                className="h-full px-2.5 rounded-lg inline-flex items-center gap-1 text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors text-caption font-medium"
+                title={isEn ? "Previous Task (←)" : "Tugas Sebelumnya (←)"}
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{isEn ? "Prev" : "Sebelumnya"}</span>
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden md:inline">{isEn ? "Prev" : "Sebelum"}</span>
               </button>
+              <div className="w-px h-4 bg-border-hairline my-auto" />
               <button
                 type="button"
                 onClick={handleNavigateNext}
                 disabled={currentIndex === totalQueueCount - 1}
-                className="px-2.5 py-1.5 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline text-caption text-text-secondary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1"
-                title={isEn ? "Next (→)" : "Berikutnya (→)"}
+                className="h-full px-2.5 rounded-lg inline-flex items-center gap-1 text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors text-caption font-medium"
+                title={isEn ? "Next Task (→)" : "Tugas Berikutnya (→)"}
               >
-                <span className="hidden sm:inline">{isEn ? "Next" : "Berikutnya"}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">{isEn ? "Next" : "Berikut"}</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
 
+            <div className="hidden sm:block w-px h-5 bg-border-hairline" />
+
             {/* Reminder button */}
             {currentReminder ? (
-              <div className="flex items-center gap-1">
+              <div className="inline-flex items-center h-10 rounded-xl bg-amber-400/15 border border-amber-400/35 p-0.5">
                 <button
                   type="button"
                   onClick={() => onOpenReminderModal?.(currentProject.id)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 text-amber-700 dark:text-amber-300 border border-amber-400/35 text-caption font-medium transition-all"
+                  className="h-full px-2.5 rounded-lg inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-300 hover:bg-amber-400/20 text-caption font-medium transition-colors"
                   title={isEn ? "Change reminder time" : "Ubah jam pengingat"}
                 >
-                  <Bell className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                  <span className="hidden sm:inline">{isEn ? "Schedule" : "Jadwal"}</span>
+                  <Bell className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 fill-amber-400/30" />
+                  <span>{currentReminder.time || (isEn ? "Reminder" : "Pengingat")}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleDeleteReminderClick}
                   disabled={isDeletingReminder}
-                  className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30 text-caption transition-all"
+                  className="h-full px-2 rounded-lg text-rose-500 hover:bg-rose-500/20 transition-colors"
                   title={isEn ? "Delete reminder" : "Hapus pengingat"}
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => onOpenReminderModal?.(currentProject.id)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-bg-elevated-2 hover:bg-bg-base text-text-secondary hover:text-text-primary border border-border-hairline text-caption font-medium transition-all"
+                className="h-10 px-3 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border border-border-hairline inline-flex items-center gap-1.5 text-caption font-medium transition-all"
+                title={isEn ? "Set time reminder" : "Atur alarm pengingat"}
               >
                 <Bell className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                <span className="hidden sm:inline">{isEn ? "Reminder" : "Pengingat"}</span>
+                <span>{isEn ? "Reminder" : "Pengingat"}</span>
               </button>
             )}
 
-            {/* Workstation page link */}
+            <div className="hidden sm:block w-px h-5 bg-border-hairline" />
+
+            {/* Workstation page link - now with clear icon & label */}
             <Link
               href={`/projects/${currentProject.id}`}
               prefetch={false}
-              className="p-2 text-text-tertiary hover:text-amber-500 dark:hover:text-amber-300 rounded-xl hover:bg-bg-elevated-2 transition-colors"
-              title={isEn ? "Open Full Project Workstation" : "Buka Workstation Proyek Penuh"}
+              className="h-10 px-3 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-amber-500 dark:hover:text-amber-300 border border-border-hairline inline-flex items-center gap-1.5 text-caption font-medium transition-all"
+              title={isEn ? "Open full project workstation" : "Buka workstation proyek lengkap"}
             >
-              <ArrowRight className="w-4 h-4" />
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">{isEn ? "Detail" : "Detail Proyek"}</span>
             </Link>
-
           </div>
         </div>
       </div>
