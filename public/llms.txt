@@ -1,0 +1,23 @@
+# Droppr — Personal Airdrop Workspace
+
+> Droppr is a mission-control workspace engineered specifically for crypto airdrop hunters. It replaces fragmented spreadsheets, scattered browser bookmarks, and chaotic Telegram/Discord notes with a private, unified operating system for managing Web3 testnets, mainnets, multi-wallet allocations, and daily routines.
+
+## Core Features & Value Proposition
+
+- **Multi-Wallet Tracking Without Private Keys**: Monitor multiple addresses across EVM, Solana, Cosmos, and Bitcoin ecosystems with complete security. Droppr is strictly read-only and never requires or stores private keys or seed phrases.
+- **Telegram Alpha Signal Auto-Import**: Curated feed of verified airdrop signals and waitlists from top research channels (e.g. Airdrop Finder, Duta Crypto) with 1-click conversion into tracked projects and smart dual-way translation (Indonesian <-> English).
+- **Daily Routine Operations & Reset**: Manage daily check-ins, faucet claims, testnet bridges, and swaps with automated daily reset synchronized to 07:00 WIB (00:00 UTC).
+- **Anti-Sybil Architecture**: Maintain meticulous logs of wallet funding routes, CEX deposit sub-accounts, and interaction matrices to minimize sybil cluster detection.
+- **Data Privacy & Row-Level Security (RLS)**: Built on Supabase Postgres where every user's projects, tasks, and wallet metadata are completely isolated with strict database RLS policies.
+- **Data Sovereignty & Portability**: Export your entire database with one click in structured JSON (full relational backup) or CSV formats at any time.
+
+## Target Audience
+- Web3 & Crypto Airdrop Hunters
+- Multi-account / Multi-wallet DeFi participants
+- Testnet and node operators seeking structured task tracking
+- Crypto researchers tracking retroactive distributions and waitlists
+
+## Quick Links
+- [Homepage](https://droppr.app/): Interactive mission-control console and introduction.
+- [Dashboard](https://droppr.app/dashboard): Active projects, task checklists, and portfolio health.
+- [Detailed LLM Documentation](https://droppr.app/llms-full.txt): Comprehensive feature breakdown and architectural specs.

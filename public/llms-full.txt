@@ -1,0 +1,43 @@
+# Droppr: Complete System & Capabilities Specification
+
+Droppr is a privacy-first personal productivity workspace and mission-control system designed for Web3 users and crypto airdrop hunters.
+
+## 1. Problem Statement
+Participating in retroactive crypto airdrops requires tracking dozens of projects across multiple blockchains, managing tens or hundreds of non-custodial wallets, claiming testnet faucets, conducting regular transactions, and avoiding Sybil filtering. Historically, hunters used Google Sheets or Notion templates, which suffer from:
+- Lack of automated daily resets aligned with blockchain UTC timestamps.
+- Manual copy-pasting of Telegram signals and channel updates.
+- Clunky interfaces on mobile and desktop without Web3 context.
+- Security risks if users mistakenly record private credentials.
+
+## 2. Solution: The Droppr Workspace
+Droppr delivers an opinionated, high-performance interface tailored specifically to airdrop workflows:
+
+### 2.1. Projects & Kanban Pipeline
+- Categorized by stage: `Waitlist`, `Testnet`, `Mainnet`, `Node`, `Completed`, `Dismissed`.
+- Metadata tracking: Blockchain network, estimated reward tiers, protocol category (L1/L2, DeFi, AI, SocialFi, DePIN, NFT), and deadline timers.
+- Integrated update feed: Log project announcements, TGE (Token Generation Event) dates, and snapshot deadlines.
+
+### 2.2. Multi-Wallet Allocation Tracker
+- Track EVM (Ethereum, Arbitrum, Optimism, Base, zkSync, Berachain, Monad, etc.), Solana, Cosmos, and Sui addresses.
+- Strict Read-Only Security: Droppr NEVER stores, signs, or asks for private keys or seed phrases.
+- Allocation Matrix: Map which wallets are assigned to which projects to avoid cluster contamination and sybil risks.
+
+### 2.3. Daily Routine Engine
+- Repeating checklists for faucet claims, daily check-in GM streaks, periodic testnet swaps, and bridge volume maintenance.
+- Synchronized Reset: Resets completed daily tasks automatically at 07:00 WIB (00:00 UTC) matching the standard global Web3 daily epoch.
+
+### 2.4. Telegram Signal Feed & Auto-Import
+- Ingests alpha signals and waitlist opportunities from verified curation sources.
+- Smart Dual-Way Translation: Automatically translates Indonesian community posts to English and foreign posts to Indonesian.
+- 1-Click Import: Directly convert any Telegram signal into an active project workspace with pre-populated tasks.
+
+### 2.5. Security Architecture
+- Non-custodial, read-only wallet interaction.
+- Database: Supabase PostgreSQL with strict Row-Level Security (RLS) ensuring 100% tenant data isolation.
+- Full local data export: One-click export to JSON or CSV for complete user autonomy.
+
+## 3. Technology Stack
+- **Framework**: Next.js 15 (App Router, TypeScript, React 19)
+- **Styling**: Tailwind CSS with custom mission-control design system (Obsidian dark aesthetic, `#14181F`, `#F0A93B` amber accents)
+- **Backend & Auth**: Supabase (PostgreSQL, Row-Level Security, Edge Functions)
+- **Web3 Integration**: wagmi & viem for seamless read-only wallet connection
