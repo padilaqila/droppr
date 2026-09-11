@@ -595,7 +595,7 @@ export function TodayTaskGuideModal({
     setIsDragging(false);
 
     if (dragOffset < -75) {
-      handleAutoAdvanceNext();
+      handleNavigateNext();
     } else if (dragOffset > 75) {
       handleNavigatePrev();
     }
@@ -603,24 +603,20 @@ export function TodayTaskGuideModal({
     isSwipingHorizontally.current = null;
   };
 
-  // Auto-advance helper (Tinder slide-out effect)
-  const handleAutoAdvanceNext = () => {
-    if (animationState !== "idle") return;
+  // Pure Manual Navigation: Next card (NEVER triggers completion screen)
+  const handleNavigateNext = () => {
+    if (currentIndex >= queue.length - 1 || animationState !== "idle") return;
     setAnimationState("sliding-left");
     setTimeout(() => {
-      if (currentIndex + 1 < queue.length) {
-        const nextIdx = currentIndex + 1;
-        setCurrentIndex(nextIdx);
-        onNavigateIndex?.(nextIdx);
-        setAnimationState("entering-from-right");
-        setTimeout(() => setAnimationState("idle"), 60);
-      } else {
-        setShowCelebration(true);
-        setAnimationState("idle");
-      }
+      const nextIdx = currentIndex + 1;
+      setCurrentIndex(nextIdx);
+      onNavigateIndex?.(nextIdx);
+      setAnimationState("entering-from-right");
+      setTimeout(() => setAnimationState("idle"), 60);
     }, 200);
   };
 
+  // Pure Manual Navigation: Previous card
   const handleNavigatePrev = () => {
     if (currentIndex <= 0 || animationState !== "idle") return;
     setAnimationState("sliding-right");
@@ -633,6 +629,64 @@ export function TodayTaskGuideModal({
     }, 200);
   };
 
+  // Advance helper ONLY after an explicit task completion or skip action
+  const advanceAfterAction = (actedProjectId: string, _actionType: "done" | "skip") => {
+    if (animationState !== "idle") return;
+
+    if (currentIndex + 1 < queue.length) {
+      // Advance to next task in queue
+      setAnimationState("sliding-left");
+      setTimeout(() => {
+        const nextIdx = currentIndex + 1;
+        setCurrentIndex(nextIdx);
+        onNavigateIndex?.(nextIdx);
+        setAnimationState("entering-from-right");
+        setTimeout(() => setAnimationState("idle"), 60);
+      }, 200);
+    } else {
+      // Reached the end of the queue!
+      // Check if all projects in queue are truly completed or skipped
+      const allResolved = queue.every((p) => {
+        if (p.id === actedProjectId) return true;
+        const isDone = isProjectDailyDone(p, allTasks ? allTasks.filter((t) => t.project_id === p.id) : undefined);
+        const isSkp = skippedProjectIds ? skippedProjectIds.includes(p.id) : false;
+        return isDone || isSkp;
+      });
+
+      if (allResolved) {
+        setAnimationState("sliding-left");
+        setTimeout(() => {
+          setShowCelebration(true);
+          setAnimationState("idle");
+        }, 200);
+      } else {
+        // There are still tasks earlier in the queue that were left unresolved!
+        const firstUnresolvedIdx = queue.findIndex((p) => {
+          if (p.id === actedProjectId) return false;
+          const isDone = isProjectDailyDone(p, allTasks ? allTasks.filter((t) => t.project_id === p.id) : undefined);
+          const isSkp = skippedProjectIds ? skippedProjectIds.includes(p.id) : false;
+          return !isDone && !isSkp;
+        });
+
+        if (firstUnresolvedIdx !== -1) {
+          setAnimationState("sliding-left");
+          setTimeout(() => {
+            setCurrentIndex(firstUnresolvedIdx);
+            onNavigateIndex?.(firstUnresolvedIdx);
+            setAnimationState("entering-from-right");
+            setTimeout(() => setAnimationState("idle"), 60);
+          }, 200);
+        } else {
+          setAnimationState("sliding-left");
+          setTimeout(() => {
+            setShowCelebration(true);
+            setAnimationState("idle");
+          }, 200);
+        }
+      }
+    }
+  };
+
   // Complete & Auto Advance
   const handleMarkDoneAndAdvance = async () => {
     if (!currentProject || isMarkingDone) return;
@@ -641,7 +695,7 @@ export function TodayTaskGuideModal({
       if (onMarkComplete) {
         await onMarkComplete(currentProject.id);
       }
-      handleAutoAdvanceNext();
+      advanceAfterAction(currentProject.id, "done");
     } finally {
       setIsMarkingDone(false);
     }
@@ -655,11 +709,11 @@ export function TodayTaskGuideModal({
     } else {
       onSkipProject?.(currentProject.id);
     }
-    handleAutoAdvanceNext();
+    advanceAfterAction(currentProject.id, "skip");
   };
 
   const actionsRef = useRef({
-    handleAutoAdvanceNext,
+    handleNavigateNext,
     handleNavigatePrev,
     handleMarkDoneAndAdvance,
     handleSkipAndAdvance,
@@ -667,7 +721,7 @@ export function TodayTaskGuideModal({
 
   useEffect(() => {
     actionsRef.current = {
-      handleAutoAdvanceNext,
+      handleNavigateNext,
       handleNavigatePrev,
       handleMarkDoneAndAdvance,
       handleSkipAndAdvance,
@@ -684,7 +738,7 @@ export function TodayTaskGuideModal({
 
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        actionsRef.current.handleAutoAdvanceNext();
+        actionsRef.current.handleNavigateNext();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         actionsRef.current.handleNavigatePrev();
@@ -942,7 +996,7 @@ export function TodayTaskGuideModal({
               </button>
               <button
                 type="button"
-                onClick={handleAutoAdvanceNext}
+                onClick={handleNavigateNext}
                 disabled={currentIndex === totalQueueCount - 1}
                 className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-elevated-2 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
                 title={isEn ? "Next Task (→)" : "Tugas Berikutnya (→)"}
@@ -971,15 +1025,15 @@ export function TodayTaskGuideModal({
             opacity: opacityStyle,
           }}
         >
-          {/* Visual Swipe Indicators / Stamps when dragging */}
-          {isDragging && dragOffset > 30 && (
-            <div className="absolute top-4 left-4 z-50 px-3 py-1 rounded-xl border-2 border-emerald-500 bg-emerald-500/20 text-emerald-400 font-bold text-caption tracking-wider uppercase rotate-[-8deg] pointer-events-none shadow-lg animate-in fade-in duration-100">
-              ✓ {isEn ? "DONE / ADVANCE" : "SELESAI"}
+          {/* Visual Swipe Indicators when dragging */}
+          {isDragging && dragOffset > 40 && (
+            <div className="absolute top-4 left-4 z-50 px-3 py-1 rounded-xl border border-white/20 bg-bg-elevated-2/95 text-text-secondary font-mono text-[11px] pointer-events-none shadow-lg animate-in fade-in duration-100">
+              ← {isEn ? "PREV" : "SEBELUMNYA"}
             </div>
           )}
-          {isDragging && dragOffset < -30 && (
-            <div className="absolute top-4 right-4 z-50 px-3 py-1 rounded-xl border-2 border-amber-500 bg-amber-500/20 text-amber-400 font-bold text-caption tracking-wider uppercase rotate-[8deg] pointer-events-none shadow-lg animate-in fade-in duration-100">
-              ⏩ {isEn ? "SKIP / NEXT" : "LEWATI"}
+          {isDragging && dragOffset < -40 && (
+            <div className="absolute top-4 right-4 z-50 px-3 py-1 rounded-xl border border-white/20 bg-bg-elevated-2/95 text-text-secondary font-mono text-[11px] pointer-events-none shadow-lg animate-in fade-in duration-100">
+              {isEn ? "NEXT" : "BERIKUTNYA"} →
             </div>
           )}
 
@@ -1424,7 +1478,7 @@ export function TodayTaskGuideModal({
               </button>
               <button
                 type="button"
-                onClick={handleAutoAdvanceNext}
+                onClick={handleNavigateNext}
                 disabled={currentIndex === totalQueueCount - 1}
                 className="px-2.5 py-1.5 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline text-caption text-text-secondary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1"
                 title={isEn ? "Next (→)" : "Berikutnya (→)"}

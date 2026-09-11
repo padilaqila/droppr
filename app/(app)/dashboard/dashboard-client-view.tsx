@@ -582,16 +582,13 @@ export function DashboardClientView({
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-body-md font-bold text-text-primary">
-                      {isEn ? "Fast-Flow Swipe Mode" : "Mode Garap Cepat (Fast-Flow)"}
+                      {isEn ? "Fast-Flow Mode" : "Mode Garap Cepat"}
                     </h3>
-                    <span className="px-2 py-0.5 rounded-md bg-accent/20 border border-accent/40 text-[10px] font-mono font-bold text-accent tracking-wide">
-                      TINDER-STYLE
-                    </span>
                   </div>
                   <p className="text-[12px] text-text-secondary mt-0.5 line-clamp-1">
                     {isEn
-                      ? `${readyProjects.length} tasks ready in queue. Swipe left/right, 1-click complete, auto-advance!`
-                      : `${readyProjects.length} tugas siap digarap. Geser kiri/kanan, 1-klik selesai, otomatis lanjut!`}
+                      ? `${readyProjects.length} tasks ready in queue. Swipe or click to complete or skip!`
+                      : `${readyProjects.length} tugas siap digarap. Geser kartu, tandai selesai, atau lewati otomatis!`}
                   </p>
                 </div>
               </div>
