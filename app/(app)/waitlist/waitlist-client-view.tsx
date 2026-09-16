@@ -33,6 +33,7 @@ import {
   ArrowUpDown,
   ArrowDown,
   ArrowUp,
+  ArrowRight,
   Clock,
   Zap,
 } from "lucide-react";
@@ -343,8 +344,31 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     window.addEventListener("focus", handleVisibility);
     document.addEventListener("visibilitychange", handleVisibility);
 
-    // 3. Global search listener from Topbar
-    const initialQuery = new URLSearchParams(window.location.search).get("q") || "";
+    // 3. Global search listener from Topbar or query parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQuery = urlParams.get("q") || "";
+    const tabParam = urlParams.get("tab");
+    if (tabParam === "pending" || tabParam === "joined") {
+      setActiveTab(tabParam);
+    } else if (initialQuery) {
+      const q = initialQuery.toLowerCase();
+      const hasJoined = initialWaitlists.some(
+        (w) =>
+          w.status === "joined" &&
+          (w.project_name.toLowerCase().includes(q) ||
+            w.title.toLowerCase().includes(q) ||
+            (w.registered_account || "").toLowerCase().includes(q))
+      );
+      const hasPending = initialWaitlists.some(
+        (w) =>
+          w.status === "pending" &&
+          (w.project_name.toLowerCase().includes(q) ||
+            w.title.toLowerCase().includes(q))
+      );
+      if (!hasJoined && hasPending) {
+        setActiveTab("pending");
+      }
+    }
     if (initialQuery) {
       setSearchQuery(initialQuery);
     }
@@ -643,6 +667,25 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     () => waitlists.filter((w) => w.status === "pending" && !joinedSourceUrls.has(w.source_url)).length,
     [waitlists, joinedSourceUrls]
   );
+
+  const otherTabMatches = useMemo(() => {
+    if (!searchQuery.trim()) return 0;
+    const q = searchQuery.toLowerCase();
+    const otherStatus = activeTab === "joined" ? "pending" : "joined";
+    return waitlists.filter((item) => {
+      if (otherStatus === "pending") {
+        if (item.status !== "pending") return false;
+        if (joinedSourceUrls.has(item.source_url)) return false;
+      } else {
+        if (item.status !== "joined") return false;
+      }
+      const matchName = item.project_name.toLowerCase().includes(q);
+      const matchTitle = item.title.toLowerCase().includes(q);
+      const matchSummary = (item.summary || "").toLowerCase().includes(q);
+      const matchAccount = (item.registered_account || "").toLowerCase().includes(q);
+      return matchName || matchTitle || matchSummary || matchAccount;
+    }).length;
+  }, [waitlists, activeTab, searchQuery, joinedSourceUrls]);
 
   const formatDate = (isoString?: string | null) => {
     if (!isoString) return "";
@@ -970,6 +1013,22 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               ? (isEn ? "Go to 'Explore New Waitlists' tab above and click [+ Mark as Joined] on projects you registered." : "Buka tab 'Eksplorasi Waitlist Baru' di atas lalu klik [+ Tandai Sudah Join] pada proyek yang telah kamu daftarkan.")
               : (isEn ? "Click 'Sync Telegram (90 Days)' on top right to scan the latest waitlists from Telegram." : "Klik tombol 'Sinkronkan Telegram 90 Hari' di kanan atas untuk memindai postingan waitlist terbaru dari channel Telegram.")}
           </p>
+          {otherTabMatches > 0 && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab(activeTab === "joined" ? "pending" : "joined")}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-caption font-semibold transition-all shadow-md"
+              >
+                <span>
+                  {activeTab === "joined"
+                    ? (isEn ? `Check Explore New Waitlists (${otherTabMatches} matches found)` : `Lihat di Eksplorasi Waitlist Baru (${otherTabMatches} garapan ditemukan)`)
+                    : (isEn ? `Check Joined Waitlists (${otherTabMatches} matches found)` : `Lihat di Waitlist yang Diikuti (${otherTabMatches} garapan ditemukan)`)}
+                </span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">

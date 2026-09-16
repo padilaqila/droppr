@@ -15,6 +15,7 @@ import {
   Trash2,
   FolderPlus,
   Clock,
+  Hourglass,
   Zap,
   Flame,
   Gift,
@@ -79,7 +80,7 @@ export function getChannelInfo(channelId: string) {
 export function isFeedFree(feed: AirdropFeedItem): boolean {
   const costLower = (feed.cost || "").toLowerCase();
   const categoryLower = (feed.category || "").toLowerCase();
-  if (categoryLower === "testnet" || categoryLower === "waitlist" || categoryLower === "airdrop") return true;
+  if (categoryLower === "testnet" || categoryLower === "airdrop") return true;
   if (
     costLower.includes("gratis") ||
     costLower.includes("free") ||
@@ -135,16 +136,9 @@ export function isFeedRetro(feed: AirdropFeedItem): boolean {
   return isFeedPaid(feed);
 }
 
-export function isFeedWaitlist(feed: AirdropFeedItem): boolean {
-  if (feed.category === "waitlist") return true;
-  const t = (feed.title || "").toLowerCase();
-  const raw = (feed.raw_text || "").toLowerCase();
-  return t.includes("waitlist") || t.includes("whitelist") || raw.includes("waitlist") || raw.includes("whitelist");
-}
-
 export function isFeedAirdrop(feed: AirdropFeedItem): boolean {
   if (feed.category === "airdrop") return true;
-  return !isFeedTestnet(feed) && !isFeedRetro(feed) && !isFeedWaitlist(feed);
+  return !isFeedTestnet(feed) && !isFeedRetro(feed);
 }
 
 export function isFeedPotential(feed: AirdropFeedItem): boolean {
@@ -261,11 +255,12 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
 
   // Filter States
   const [channelFilter, setChannelFilter] = useState<"all" | "dutacryptoairdrop" | "airdropfind">("all");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "testnet" | "airdrop" | "retro" | "waitlist">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "testnet" | "airdrop" | "retro">("all");
   const [costFilter, setCostFilter] = useState<"all" | "free" | "paid">("all");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [timeRange, setTimeRange] = useState<"all" | "24h" | "7d" | "30d">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [matchingWaitlistCount, setMatchingWaitlistCount] = useState<number | null>(null);
 
   const [reviewingFeed, setReviewingFeed] = useState<AirdropFeedItem | null>(null);
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
@@ -301,6 +296,34 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
       };
     }
   }, []);
+
+  // Automatically check if search query matches any items in Waitlists to guide the user
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q || q.length < 2) {
+      setMatchingWaitlistCount(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        const { count, error } = await supabase
+          .from("waitlists")
+          .select("id", { count: "exact", head: true })
+          .or(`project_name.ilike.%${q}%,title.ilike.%${q}%`);
+        if (!error && typeof count === "number") {
+          setMatchingWaitlistCount(count);
+        } else {
+          setMatchingWaitlistCount(null);
+        }
+      } catch {
+        setMatchingWaitlistCount(null);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
@@ -547,11 +570,10 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
           return false;
         }
 
-        // Category filter (Testnet, Airdrop, Retro, Waitlist)
+        // Category filter (Testnet, Airdrop, Retro)
         if (categoryFilter !== "all") {
           if (categoryFilter === "testnet" && !isFeedTestnet(feed)) return false;
           if (categoryFilter === "retro" && !isFeedRetro(feed)) return false;
-          if (categoryFilter === "waitlist" && !isFeedWaitlist(feed)) return false;
           if (categoryFilter === "airdrop" && !isFeedAirdrop(feed)) return false;
         }
 
@@ -601,7 +623,6 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const testnetCount = useMemo(() => feeds.filter(isFeedTestnet).length, [feeds]);
   const airdropCount = useMemo(() => feeds.filter(isFeedAirdrop).length, [feeds]);
   const retroCount = useMemo(() => feeds.filter(isFeedRetro).length, [feeds]);
-  const waitlistCount = useMemo(() => feeds.filter(isFeedWaitlist).length, [feeds]);
   const freeCostCount = useMemo(() => feeds.filter(isFeedFree).length, [feeds]);
   const paidCostCount = useMemo(() => feeds.filter(isFeedPaid).length, [feeds]);
 
@@ -811,19 +832,6 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               <Flame className="w-3 h-3 text-amber-400" />
               <span>{t("feed.retro")} ({retroCount})</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setCategoryFilter("waitlist")}
-              className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
-                categoryFilter === "waitlist"
-                  ? "bg-purple-500/20 text-purple-300 border-purple-500/40 font-semibold"
-                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
-              }`}
-            >
-              <Clock className="w-3 h-3 text-purple-400" />
-              <span>Waitlist ({waitlistCount})</span>
-            </button>
           </div>
 
           {/* Biaya Filter */}
@@ -970,23 +978,84 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
         </div>
       </div>
 
+      {/* SMART WAITLIST DIRECTIONAL BANNER */}
+      {searchQuery.trim() && matchingWaitlistCount !== null && matchingWaitlistCount > 0 && (
+        <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-purple-950/20 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+              <Hourglass className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-body-sm font-semibold text-text-primary">
+                {locale === "en" ? (
+                  <>Looking for &ldquo;{searchQuery}&rdquo;? Found {matchingWaitlistCount} matching project(s) in Waitlists!</>
+                ) : (
+                  <>Mencari &ldquo;{searchQuery}&rdquo;? Ditemukan {matchingWaitlistCount} garapan di Halaman Waitlist!</>
+                )}
+              </p>
+              <p className="text-caption text-text-secondary mt-0.5">
+                {locale === "en"
+                  ? "Feed Airdrop only displays real airdrop & testnet signals. Waitlists are managed in their dedicated section."
+                  : "Feed Airdrop khusus untuk sinyal airdrop & testnet. Proyek waitlist dicatat tersendiri di halaman Waitlist."}
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/waitlist?q=${encodeURIComponent(searchQuery.trim())}`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-caption font-semibold transition-all shadow-md shrink-0 self-stretch sm:self-auto justify-center"
+          >
+            <span>{locale === "en" ? "Open in Waitlist" : "Buka di Halaman Waitlist"}</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
+
       {/* FEED STREAM CONTAINER (Liquid Frosted Glass Telegram Message Style) */}
       <div className="space-y-4">
         {displayedFeeds.length === 0 ? (
           <div className="p-12 text-center space-y-3 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20">
-            <Rss className="w-9 h-9 text-text-tertiary mx-auto opacity-50" />
-            <h3 className="text-body-md font-semibold text-text-primary">
-              {t("feed.noMatch")}
-            </h3>
-            <p className="text-caption text-text-secondary max-w-md mx-auto">
-              {t("feed.noMatchDesc")}
-            </p>
-            <div className="pt-2">
-              <ButtonPrimary onClick={handleSyncFeed} disabled={isSyncing} className="rounded-xl">
-                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
-                <span>{t("feed.syncNow")}</span>
-              </ButtonPrimary>
-            </div>
+            {matchingWaitlistCount && matchingWaitlistCount > 0 ? (
+              <div className="space-y-3 max-w-md mx-auto">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center mx-auto shadow-lg shadow-purple-950/20">
+                  <Hourglass className="w-6 h-6" />
+                </div>
+                <h3 className="text-body-md font-semibold text-text-primary">
+                  {locale === "en"
+                    ? `"${searchQuery}" is registered in Waitlists!`
+                    : `"${searchQuery}" terdaftar di halaman Waitlist!`}
+                </h3>
+                <p className="text-caption text-text-secondary">
+                  {locale === "en"
+                    ? `Found ${matchingWaitlistCount} project(s) matching your search in the Waitlist section. Feed Airdrop is dedicated to Testnet & Airdrop tasks.`
+                    : `Ditemukan ${matchingWaitlistCount} garapan yang cocok di Halaman Waitlist. Feed Airdrop dikhususkan untuk tugas Testnet & Airdrop.`}
+                </p>
+                <div className="pt-2 flex justify-center gap-3">
+                  <Link
+                    href={`/waitlist?q=${encodeURIComponent(searchQuery.trim())}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-caption font-semibold transition-all shadow-md"
+                  >
+                    <span>{locale === "en" ? "View in Waitlists" : "Buka di Halaman Waitlist"}</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Rss className="w-9 h-9 text-text-tertiary mx-auto opacity-50" />
+                <h3 className="text-body-md font-semibold text-text-primary">
+                  {t("feed.noMatch")}
+                </h3>
+                <p className="text-caption text-text-secondary max-w-md mx-auto">
+                  {t("feed.noMatchDesc")}
+                </p>
+                <div className="pt-2">
+                  <ButtonPrimary onClick={handleSyncFeed} disabled={isSyncing} className="rounded-xl">
+                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
+                    <span>{t("feed.syncNow")}</span>
+                  </ButtonPrimary>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           displayedFeeds.map((feed) => {
@@ -1074,12 +1143,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     )}
 
                     {/* Category Badge */}
-                    {isFeedWaitlist(feed) ? (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-purple-500/15 border border-purple-500/30 text-purple-300 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>Waitlist</span>
-                      </span>
-                    ) : isFeedRetro(feed) ? (
+                    {isFeedRetro(feed) ? (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1">
                         <Flame className="w-3 h-3" />
                         <span>{t("feed.retro")}</span>
