@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Zap,
   Play,
+  X,
 } from "lucide-react";
 import { SetReminderModal } from "@/components/features/set-reminder-modal";
 import { TodayTaskGuideModal } from "@/components/features/today-task-guide-modal";
@@ -170,6 +171,89 @@ export function DashboardClientView({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Inactivity and Missed Cycle Catch-up state
+  const [inactiveDays, setInactiveDays] = useState<number>(0);
+  const [isCatchUpDismissed, setIsCatchUpDismissed] = useState<boolean>(false);
+  const [notificationPermission, setNotificationPermission] = useState<string>("default");
+
+  useEffect(() => {
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const dismissed = localStorage.getItem(`droppr_dismiss_catchup_${todayKey}`);
+      if (dismissed === "true") {
+        setIsCatchUpDismissed(true);
+      }
+
+      const storedLastVisit = localStorage.getItem("droppr_last_visit_timestamp");
+      const now = Date.now();
+
+      if (storedLastVisit) {
+        const lastVisitMs = parseInt(storedLastVisit, 10);
+        if (!isNaN(lastVisitMs)) {
+          const diffDays = Math.floor((now - lastVisitMs) / (1000 * 60 * 60 * 24));
+          setInactiveDays(diffDays);
+        }
+      } else {
+        // Fallback: check most recent last_daily_completed_at across projects
+        const completedTimes = projects
+          .map((p) => (p.social_links as any)?.last_daily_completed_at)
+          .filter(Boolean)
+          .map((d) => new Date(d).getTime())
+          .filter((t) => !isNaN(t));
+
+        if (completedTimes.length > 0) {
+          const maxCompleted = Math.max(...completedTimes);
+          const diffDays = Math.floor((now - maxCompleted) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 1) {
+            setInactiveDays(diffDays);
+          }
+        }
+      }
+
+      // Record current visit timestamp
+      localStorage.setItem("droppr_last_visit_timestamp", now.toString());
+
+      // Check browser notification support
+      if (typeof window !== "undefined" && "Notification" in window) {
+        setNotificationPermission(Notification.permission);
+      }
+    } catch (e) {
+      console.error("Error initializing catchup / notifications:", e);
+    }
+  }, [projects]);
+
+  const handleDismissCatchUp = () => {
+    setIsCatchUpDismissed(true);
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      localStorage.setItem(`droppr_dismiss_catchup_${todayKey}`, "true");
+    } catch {}
+  };
+
+  const handleRequestNotification = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      showToast(isEn ? "Browser notifications not supported" : "Browser tidak mendukung notifikasi");
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      setNotificationPermission(perm);
+      if (perm === "granted") {
+        new Notification("Droppr — Notifikasi Aktif", {
+          body: isEn
+            ? "Desktop alerts for overdue airdrop tasks are now active."
+            : "Peringatan tugas dan alarm airdrop akan muncul di desktop kamu.",
+          icon: "/favicon.ico",
+        });
+        showToast(isEn ? "Browser notifications enabled!" : "Notifikasi browser berhasil diaktifkan!");
+      } else {
+        showToast(isEn ? "Notification permission denied." : "Izin notifikasi ditolak oleh peramban.");
+      }
+    } catch (e) {
+      console.error("Failed to request notification permission:", e);
+    }
+  };
+
   // Toggle Project Daily Task Done
   const handleMarkProjectDone = async (projectId: string) => {
     const proj = projects.find((p) => p.id === projectId);
@@ -288,8 +372,6 @@ export function DashboardClientView({
   const readyClaimCount = projects.filter((p) => p.status === "ready_to_claim").length;
   const totalTasksCount = tasks.length;
   const completedTasksCount = tasks.filter((t) => t.status === "done").length;
-  const overallTaskProgress =
-    totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
   // Derive categories for today's tasks
   const projectsWithTodayReminders = projects.filter((p) => {
@@ -329,6 +411,52 @@ export function DashboardClientView({
     const pTasks = tasks.filter((t) => t.project_id === p.id);
     return isProjectDailyDone(p, pTasks);
   });
+
+  // Calculate daily routine progress stats (accurate to today's active cycle)
+  const activeRoutineProjects = projects.filter((p) => p.status === "in_progress");
+  const todayTotalProjectsCount = activeRoutineProjects.length;
+  const todayCompletedCount = completedTodayProjects.filter((p) => p.status === "in_progress").length;
+  const todayProgressPercent =
+    todayTotalProjectsCount > 0
+      ? Math.round((todayCompletedCount / todayTotalProjectsCount) * 100)
+      : 0;
+
+  // Catch-Up trigger evaluation:
+  // Shows if user missed days (inactiveDays >= 1) or has overdue projects
+  const shouldShowCatchUp = !isCatchUpDismissed && (inactiveDays >= 1 || overdueProjects.length > 0);
+
+  // Auto-alert desktop notification once per session if overdue projects exist
+  useEffect(() => {
+    if (notificationPermission === "granted" && overdueProjects.length > 0) {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const sessionKey = `droppr_desktop_alert_${todayKey}`;
+      if (!sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, "true");
+        try {
+          new Notification(isEn ? "Droppr — Overdue Airdrop Tasks!" : "Droppr — Peringatan Tugas Telat!", {
+            body: isEn
+              ? `You have ${overdueProjects.length} task(s) past alarm schedule. Check your Command Center!`
+              : `Ada ${overdueProjects.length} garapan yang telah melewati jam alarm. Segera selesaikan!`,
+            icon: "/favicon.ico",
+          });
+        } catch (e) {
+          console.error("Desktop notification trigger error:", e);
+        }
+      }
+    }
+  }, [notificationPermission, overdueProjects.length, isEn]);
+
+  const handleJumpToOverdue = () => {
+    if (overdueProjects.length > 0) {
+      setActiveProjectFilter("overdue");
+    } else {
+      setActiveProjectFilter("ready");
+    }
+    const el = document.getElementById("tasks-workstation");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   // 5. Upcoming / Tomorrow schedules
   const upcomingProjects = projects.filter((p) => {
@@ -482,6 +610,85 @@ export function DashboardClientView({
         </div>
       </div>
 
+      {/* CATCH-UP & INACTIVITY ALERT BANNER */}
+      {shouldShowCatchUp && (
+        <div className="relative rounded-2xl bg-gradient-to-r from-status-overdue/15 via-bg-elevated to-bg-elevated border border-status-overdue/40 p-4 sm:p-5 shadow-lg shadow-status-overdue/5 animate-in fade-in slide-in-from-top-3 duration-200">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Left Info */}
+            <div className="flex items-start gap-3.5 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-status-overdue/20 border border-status-overdue/40 text-status-overdue flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                <AlertCircle className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-status-overdue/20 text-status-overdue border border-status-overdue/30 uppercase tracking-wider">
+                    {inactiveDays >= 1
+                      ? isEn
+                        ? `${inactiveDays} Days Inactive`
+                        : `Absen ${inactiveDays} Hari`
+                      : isEn
+                      ? "Overdue Alert"
+                      : "Peringatan Telat"}
+                  </span>
+                  <h3 className="text-body-md font-bold text-text-primary">
+                    {inactiveDays >= 1
+                      ? t("dashboard.catchUp.inactivityTitle").replace("{days}", String(inactiveDays))
+                      : t("dashboard.catchUp.overdueOnlyTitle").replace("{count}", String(overdueProjects.length))}
+                  </h3>
+                </div>
+                <p className="text-[12.5px] text-text-secondary leading-relaxed">
+                  {inactiveDays >= 1
+                    ? t("dashboard.catchUp.inactivityDesc").replace(
+                        "{count}",
+                        String(overdueProjects.length || readyProjects.length)
+                      )
+                    : t("dashboard.catchUp.overdueOnlyDesc")}
+                </p>
+              </div>
+            </div>
+
+            {/* Right Actions */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0 self-start md:self-auto">
+              <button
+                type="button"
+                onClick={handleJumpToOverdue}
+                className="px-3.5 py-2 rounded-xl bg-status-overdue hover:bg-status-overdue/90 text-on-accent text-caption font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-[0.98]"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>{t("dashboard.catchUp.actionCatchUp")}</span>
+                {overdueProjects.length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.2 rounded-full bg-black/25 text-[11px] font-mono">
+                    {overdueProjects.length}
+                  </span>
+                )}
+              </button>
+
+              {notificationPermission !== "granted" && (
+                <button
+                  type="button"
+                  onClick={handleRequestNotification}
+                  className="px-3 py-2 rounded-xl bg-bg-elevated-2 hover:bg-white/[0.08] border border-border-hairline text-text-secondary hover:text-text-primary text-caption font-medium transition-all flex items-center gap-1.5"
+                  title={isEn ? "Get desktop popup alerts when tasks pass alarm time" : "Munculkan notifikasi pop-up desktop saat tugas melewati jam alarm"}
+                >
+                  <Bell className="w-3.5 h-3.5 text-accent" />
+                  <span>{t("dashboard.catchUp.enableBrowserNotif")}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleDismissCatchUp}
+                className="p-2 rounded-xl text-text-tertiary hover:text-text-primary hover:bg-white/[0.06] transition-colors"
+                title={t("dashboard.catchUp.actionDismiss")}
+                aria-label={t("dashboard.catchUp.actionDismiss")}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 2. TOP STAT SUMMARY CARDS (4 COLUMNS FLUID EDGE-TO-EDGE) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Stat 1: Jadwal Hari Ini */}
@@ -501,21 +708,28 @@ export function DashboardClientView({
           </div>
         </CardDashboardStat>
 
-        {/* Stat 2: Progress Tugas */}
+        {/* Stat 2: Progress Tugas Hari Ini */}
         <CardDashboardStat className="!p-4 sm:!p-5 rounded-xl border border-white/[0.08] hover:border-white/[0.18] bg-white/[0.02] hover:bg-white/[0.04] transition-all">
           <div className="flex items-center justify-between text-text-tertiary mb-1.5">
             <span className="text-caption font-medium">{t("dashboard.stats.taskProgress")}</span>
             <CheckSquare className="w-4 h-4 text-status-completed" />
           </div>
-          <div className="text-heading-1 font-bold text-text-primary font-mono tracking-tight">
-            {completedTasksCount}{" "}
+          <div className="text-heading-1 font-bold text-text-primary font-mono tracking-tight flex items-baseline gap-2">
+            <span>{todayCompletedCount}</span>
             <span className="text-caption font-sans font-normal text-text-tertiary">
-              / {totalTasksCount}
+              / {todayTotalProjectsCount} {isEn ? "done" : "selesai"}
             </span>
           </div>
-          <div className="text-[11px] text-text-tertiary mt-1 font-mono">
-            {overallTaskProgress}% {t("dashboard.stats.overallComplete")}
-          </div>
+          {overdueProjects.length > 0 ? (
+            <div className="text-[11px] text-status-overdue mt-1 font-mono flex items-center gap-1 font-semibold">
+              <AlertCircle className="w-3 h-3 text-status-overdue shrink-0" />
+              <span>{overdueProjects.length} {t("dashboard.stats.overdueTasks")}</span>
+            </div>
+          ) : (
+            <div className="text-[11px] text-text-tertiary mt-1 font-mono">
+              {todayProgressPercent}% {t("dashboard.stats.overallComplete")}
+            </div>
+          )}
         </CardDashboardStat>
 
         {/* Stat 3: Siap Klaim Reward */}
@@ -548,7 +762,7 @@ export function DashboardClientView({
       </div>
 
       {/* 3. MAIN WORKSPACE: TWO-COLUMN FULL-WIDTH GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
+      <div id="tasks-workstation" className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start scroll-mt-6">
         {/* LEFT COLUMN: Project-Based Workstation Cards (lg:col-span-8 xl:col-span-8 2xl:col-span-9) */}
         <div className="lg:col-span-8 xl:col-span-8 2xl:col-span-9 space-y-4">
           {/* Header & Filter Tabs Section */}

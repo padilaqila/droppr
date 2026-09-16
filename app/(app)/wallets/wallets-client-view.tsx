@@ -25,6 +25,8 @@ import {
   UserCheck,
   Sparkles,
   Pencil,
+  Lock,
+  ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAccount, useConnect } from "wagmi";
@@ -626,22 +628,76 @@ export function WalletsClientView({
         </button>
       </div>
 
-      {/* Security Banner */}
-      <div className="p-4 rounded-xl bg-bg-elevated border border-border-hairline flex items-start gap-3">
-        <ShieldCheck className="w-5 h-5 text-status-completed shrink-0 mt-0.5" />
-        <div className="text-body-sm">
-          <span className="font-semibold text-text-primary">
-            {isEn ? "Guaranteed Security:" : "Keamanan Terjamin:"}
-          </span>{" "}
-          <span className="text-text-secondary">
-            {activeTab === "wallets"
-              ? isEn
-                ? "Droppr is strictly read-only and never asks for or stores private keys or seed phrases."
-                : "Droppr bersifat read-only dan tidak pernah meminta atau menyimpan private key maupun seed phrase."
-              : isEn
-              ? "Only record public usernames, handles, and emails. NEVER save passwords or sensitive credentials."
-              : "Hanya catat username, handle publik, dan email yang dipakai garap. JANGAN PERNAH menyimpan password atau kredensial rahasia."}
-          </span>
+      {/* Security & Vault Hub Card */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-bg-elevated via-bg-elevated to-bg-base border border-border-hairline space-y-3.5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-body-sm font-bold text-text-primary">
+                  {isEn ? "Strict Zero-Custodial Security Policy" : "Prinsip Keamanan Non-Custodial Droppr"}
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                  100% READ-ONLY
+                </span>
+              </div>
+              <p className="text-[12.5px] text-text-secondary leading-relaxed">
+                {isEn ? (
+                  <>
+                    Droppr never asks for, accepts, or stores private keys, seed phrases, or passwords in our databases.
+                    <strong className="text-text-primary ml-1">
+                      No place on the internet is 100% safe.
+                    </strong>{" "}
+                    For mainnet & valuable wallets, <strong className="text-amber-300">ALWAYS store seeds in physical offline records</strong> (paper / cold steel).
+                  </>
+                ) : (
+                  <>
+                    Droppr tidak pernah meminta, menerima, atau menyimpan private key, seed phrase, maupun kata sandi di database kami.
+                    <strong className="text-text-primary ml-1">
+                      Tidak ada tempat di internet yang 100% aman.
+                    </strong>{" "}
+                    Untuk wallet utama (Mainnet), <strong className="text-amber-300">SELALU simpan seed phrase di catatan fisik offline</strong> (buku kertas / cold steel storage).
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Dedicated PAPIC Brankas Recommendation for Burner/Testnet */}
+        <div className="p-3 sm:p-3.5 rounded-xl bg-white/[0.02] border border-border-hairline flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-body-sm">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center text-accent shrink-0">
+              <Lock className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[12px] font-semibold text-text-primary flex items-center gap-1.5 flex-wrap">
+                <span>{isEn ? "Have Many Burner / Testnet Wallets?" : "Punya Banyak Wallet Burner / Testnet?"}</span>
+                <span className="text-[10px] font-mono text-accent bg-accent/10 px-1.5 py-0.2 rounded border border-accent/20">
+                  AES-256 Client-Side
+                </span>
+              </div>
+              <p className="text-[11.5px] text-text-tertiary truncate">
+                {isEn
+                  ? "Organize throwaway testnet keys locally without cloud databases using PAPIC Brankas."
+                  : "Rapikan kunci wallet tuyul/testnet secara privat di enkripsi lokal tanpa server database via PAPIC Brankas."}
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="https://www.papic.web.id/brankas"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded-lg bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-caption font-semibold transition-all shrink-0 inline-flex items-center gap-1.5 self-start sm:self-auto active:scale-[0.98]"
+            title={isEn ? "Open PAPIC Brankas in new tab" : "Buka PAPIC Brankas di tab baru"}
+          >
+            <span>{isEn ? "Open PAPIC Brankas" : "Buka PAPIC Brankas"}</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
       </div>
 
@@ -771,11 +827,11 @@ export function WalletsClientView({
                       </div>
                     </div>
 
-                    {/* Assigned Projects Badge */}
-                    <div className="pt-2 border-t border-border-hairline flex items-center justify-between text-caption text-text-tertiary">
-                      <div className="flex items-center gap-1.5">
-                        <FolderGit2 className="w-3.5 h-3.5" />
-                        <span>
+                    {/* Assigned Projects Badge & PAPIC Brankas Quick Jump */}
+                    <div className="pt-2 border-t border-border-hairline flex items-center justify-between text-caption text-text-tertiary gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <FolderGit2 className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">
                           {projectCount > 0
                             ? isEn
                               ? `Used in ${projectCount} projects`
@@ -785,6 +841,17 @@ export function WalletsClientView({
                             : "Belum dipasangkan ke project"}
                         </span>
                       </div>
+
+                      <a
+                        href="https://www.papic.web.id/brankas"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-mono text-link-teal hover:underline hover:text-accent transition-colors shrink-0"
+                        title={isEn ? "Open PAPIC Brankas for client-side encrypted burner keys" : "Buka PAPIC Brankas untuk kelola catatan kunci burner"}
+                      >
+                        <Lock className="w-2.5 h-2.5" />
+                        <span>Brankas AES ↗</span>
+                      </a>
                     </div>
                   </CardBase>
                 );
@@ -984,11 +1051,24 @@ export function WalletsClientView({
               required
               disabled={walletLoading}
             />
-            <p className="text-[11px] text-text-tertiary mt-1">
-              {isEn
-                ? "Droppr is strictly read-only. Never enter private keys or seed phrases."
-                : "Droppr strictly read-only. Jangan pernah memasukkan private key/seed phrase."}
-            </p>
+            <div className="mt-1.5 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06] text-[11px] text-text-secondary flex items-start gap-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
+              <div>
+                <span>
+                  {isEn
+                    ? "Droppr only records public addresses. Never enter private keys. Need a client-side encrypted vault for burner testnet keys? "
+                    : "Droppr hanya mencatat alamat publik. Jangan masukkan seed/key. Butuh brankas enkripsi client-side untuk kunci burner testnet? "}
+                </span>
+                <a
+                  href="https://www.papic.web.id/brankas"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-link-teal hover:underline font-semibold inline-flex items-center gap-0.5 ml-0.5"
+                >
+                  <span>PAPIC Brankas ↗</span>
+                </a>
+              </div>
+            </div>
           </div>
 
           <div>

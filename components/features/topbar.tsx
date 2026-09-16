@@ -1,22 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import dynamic from "next/dynamic";
 import { Search, Plus, Menu, Flame } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { CreateProjectModal } from "@/components/features/create-project-modal";
 import { useRouter } from "next/navigation";
-
-const WalletConnectButton = dynamic(
-  () => import("@/components/features/wallet-connect-button").then((m) => m.WalletConnectButton),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-9 w-20 sm:w-24 bg-white/[0.04] rounded-md border border-white/10 animate-pulse" />
-    ),
-  }
-);
-
 import { LanguageToggle } from "@/components/ui/language-toggle";
 import { NotificationPopover } from "@/components/features/notification-popover";
 import { useTranslation } from "@/lib/i18n/context";
@@ -89,9 +77,6 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
 
           {/* Activity, Daily Tasks & Telegram Notifications Popover */}
           <NotificationPopover />
-
-          {/* Real Web3 Wallet Connect & On-chain Balance */}
-          <WalletConnectButton />
         </div>
       </header>
 
