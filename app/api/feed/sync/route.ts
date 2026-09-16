@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { cleanTelegramHtml } from "@/lib/utils/clean-links";
+import { extractSmartProjectName, cleanProjectName } from "@/lib/supabase/airdrop-parser";
 
 interface ParsedRawPost {
   channel: "dutacryptoairdrop" | "airdropfind";
@@ -39,21 +40,18 @@ function parseDutaCryptoPost(text: string, postUrl: string, date: string): Parse
   const lowerText = text.toLowerCase();
   const lowerTitle = rawTitle.toLowerCase();
 
-  // Exclude Waitlist / Whitelist completely — they have a dedicated /waitlist page!
-  if (
+  // Detect waitlist post
+  const isWaitlistPost =
     lowerText.includes("waitlist") ||
     lowerText.includes("whitelist") ||
     lowerTitle.includes("waitlist") ||
-    lowerTitle.includes("whitelist")
-  ) {
-    return null;
-  }
+    lowerTitle.includes("whitelist");
 
-  // Must have Cost or Title matching New Airdrop/Testnet template
+  // Must have Cost, Title matching template, or Waitlist
   const hasCost = /Cost:\s*([^\n]+)/i.test(text);
-  const hasHeader = /(?:TESTNET|AIRDROP|FREE)\s+[A-Z0-9_\s]+/i.test(text);
+  const hasHeader = /(?:TESTNET|AIRDROP|FREE|WAITLIST|WHITELIST)\s+[A-Z0-9_\s]+/i.test(text);
 
-  if (!hasCost && !hasHeader) {
+  if (!hasCost && !hasHeader && !isWaitlistPost) {
     return null;
   }
 
@@ -63,7 +61,7 @@ function parseDutaCryptoPost(text: string, postUrl: string, date: string): Parse
   const costMatch = text.match(/Cost:\s*([^\n]+)/i);
   let cost = costMatch ? costMatch[1].trim() : null;
 
-  let category: "testnet" | "airdrop" | "retro" | "general" = "airdrop";
+  let category: "testnet" | "airdrop" | "retro" | "waitlist" | "general" = "airdrop";
   const lowerCost = (cost || "").toLowerCase();
 
   const isCostFree =
@@ -84,7 +82,10 @@ function parseDutaCryptoPost(text: string, postUrl: string, date: string): Parse
     lowerCost.includes("eth") ||
     lowerCost.includes("sol");
 
-  if (
+  if (isWaitlistPost) {
+    category = "waitlist";
+    cost = cost || "Gratis ($0)";
+  } else if (
     lowerText.includes("retro") ||
     lowerTitle.includes("retro") ||
     (isCostPaid && !isCostFree) ||
@@ -152,33 +153,36 @@ function parseAirdropFinderPost(text: string, postUrl: string, date: string): Pa
   const lowerText = text.toLowerCase();
   const lowerTitle = rawTitle.toLowerCase();
 
-  // Exclude Waitlist / Whitelist completely — they have a dedicated /waitlist page!
-  if (
-    lowerText.includes("waitlist") ||
-    lowerText.includes("whitelist") ||
-    lowerTitle.includes("waitlist") ||
-    lowerTitle.includes("whitelist")
-  ) {
-    return null;
-  }
-
   // Exclude non-crypto community jokes (e.g. Jumatan / Pahala)
   if (/pahala|masjid|sholat|khutbah/i.test(lowerText)) {
     return null;
   }
 
-  // Pattern: "New Airdrop : ...", "New Airdrops : ...", "New Guaranteed Airdrops : ...", "New Testnet: ...", "New Retro: ...", or "📌 Potential Airdrop"
+  // Detect waitlist post
+  const isWaitlistPost =
+    lowerText.includes("waitlist") ||
+    lowerText.includes("whitelist") ||
+    lowerTitle.includes("waitlist") ||
+    lowerTitle.includes("whitelist");
+
+  // Pattern: "New Airdrop : ...", "New Airdrops : ...", "New Guaranteed Airdrops : ...", "New Testnet: ...", "New Retro: ...", "New Waitlist: ...", or "📌 Potential Airdrop"
   const isNewPost =
-    /New\s+(?:Guaranteed\s+)?(?:Airdrops?|Testnet|Retro)\s*[:|-]/i.test(text) ||
-    /^(?:📌\s*)?Potential\s+Airdrops?\b/im.test(text.slice(0, 100));
+    /New\s+(?:Guaranteed\s+)?(?:Airdrops?|Testnet|Retro|Waitlist|Whitelist)\s*[:|-]/i.test(text) ||
+    /^(?:📌\s*)?Potential\s+Airdrops?\b/im.test(text.slice(0, 100)) ||
+    /\b(?:Waitlist|Whitelist)\s+is\s+live\b/i.test(text) ||
+    isWaitlistPost;
 
   if (!isNewPost) {
     return null;
   }
 
-  // If line 0 is "📌 Potential Airdrop", the real project title is on line 1
+  // If line 0 is "📌 Potential Airdrop", extract smart title from line 1 or text
   if (/^(?:📌\s*)?Potential\s+Airdrops?\s*$/i.test(rawTitle) && lines.length > 1) {
-    rawTitle = lines[1].trim();
+    rawTitle = extractSmartProjectName(text, lines[1].trim());
+  } else if (/^(?:📌\s*)?Potential\s+Airdrop/i.test(rawTitle)) {
+    rawTitle = extractSmartProjectName(text, rawTitle);
+  } else {
+    rawTitle = cleanProjectName(rawTitle);
   }
 
   // Detect cost if mentioned
@@ -203,10 +207,15 @@ function parseAirdropFinderPost(text: string, postUrl: string, date: string): Pa
     lowerCost.includes("eth") ||
     lowerCost.includes("sol");
 
-  let category: "testnet" | "airdrop" | "retro" | "general" = "airdrop";
+  let category: "testnet" | "airdrop" | "retro" | "waitlist" | "general" = "airdrop";
 
-  // 1. Testnet detection: Faucet, Testnet RPC, Sepolia, Holesky, etc.
-  if (
+  // 1. Waitlist detection
+  if (isWaitlistPost) {
+    category = "waitlist";
+    cost = cost || "Gratis ($0)";
+  }
+  // 2. Testnet detection: Faucet, Testnet RPC, Sepolia, Holesky, etc.
+  else if (
     lowerTitle.includes("testnet") ||
     lowerText.includes("testnet") ||
     lowerText.includes("faucet") ||
@@ -217,7 +226,7 @@ function parseAirdropFinderPost(text: string, postUrl: string, date: string): Pa
     category = "testnet";
     cost = cost || "Gratis (Testnet)";
   }
-  // 2. Retroactive detection: On-chain capital actions (Bridge, Swap, Deposit, LP, Stake, Mainnet Gas)
+  // 3. Retroactive detection: On-chain capital actions (Bridge, Swap, Deposit, LP, Stake, Mainnet Gas)
   else if (
     lowerTitle.includes("retro") ||
     lowerText.includes("retro") ||
@@ -228,7 +237,7 @@ function parseAirdropFinderPost(text: string, postUrl: string, date: string): Pa
     category = "retro";
     cost = cost || "Berbayar (Gas Fee)";
   }
-  // 3. Free Web3 Airdrop / Social Quest / Daily Check-in / Points
+  // 4. Free Web3 Airdrop / Social Quest / Daily Check-in / Points
   else {
     category = "airdrop";
     cost = cost || "Gratis ($0)";
@@ -238,11 +247,12 @@ function parseAirdropFinderPost(text: string, postUrl: string, date: string): Pa
     cost = `Gratis (${cost})`;
   }
 
-  // Extract tasks (lines starting with - or ➖)
+  // Extract tasks (lines starting with - or ➖ or emojis)
   const taskLines: string[] = [];
   lines.forEach((l) => {
-    if (/^[-➖•*]\s*/.test(l)) {
-      const cleanLine = l.replace(/^[-➖•*]\s*/, "").trim();
+    if (/^(?:📌\s*)?Potential\s+Airdrops?/i.test(l)) return;
+    if (/^[-➖•*👉➡️✅🎮🌟]\s*/.test(l)) {
+      const cleanLine = l.replace(/^[-➖•*👉➡️✅🎮🌟]\s*/, "").trim();
       if (cleanLine.length > 3 && !cleanLine.startsWith("http")) {
         taskLines.push(cleanLine);
       }
@@ -415,7 +425,7 @@ export async function POST(_request: NextRequest) {
       // Upsert using onConflict on source_url (shared catalog across users)
       const { data, error } = await (supabase as any)
         .from("airdrop_feeds")
-        .upsert(rows, { onConflict: "source_url", ignoreDuplicates: true })
+        .upsert(rows, { onConflict: "source_url" })
         .select("id");
 
       if (error) {
@@ -424,6 +434,64 @@ export async function POST(_request: NextRequest) {
 
       if (!error && Array.isArray(data)) {
         insertedCount = data.length;
+      }
+    }
+
+    // Also sync waitlist posts directly to public.waitlists so both views are immediately populated
+    const waitlistFeeds = allNewFeeds.filter((f) => f.category === "waitlist");
+    if (waitlistFeeds.length > 0) {
+      const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+      const waitlistRows = waitlistFeeds.map((feed) => {
+        const postTime = feed.date ? new Date(feed.date).getTime() : now;
+        const validTime = !isNaN(postTime) ? postTime : now;
+        const refMatch =
+          feed.rawText.match(/(?:Register|Waitlist|Join|Link|Form|Website)\s*[:|-]?\s*(https?:\/\/[^\s\)\n]+)/i) ||
+          feed.rawText.match(/(https?:\/\/[^\s\)\n]+)/i);
+        let refLink = refMatch ? refMatch[1] : null;
+        if (refLink && (refLink.includes("t.me/dutacryptoairdrop") || refLink.includes("t.me/airdropfind"))) {
+          refLink = null;
+        }
+
+        return {
+          user_id: user.id,
+          project_name: sanitizeSurrogates(feed.title),
+          title: sanitizeSurrogates(feed.title),
+          summary: sanitizeSurrogates(feed.summary),
+          channel: feed.channel,
+          source_url: feed.postUrl,
+          raw_text: sanitizeSurrogates(feed.rawText),
+          status: "pending",
+          ref_link: refLink,
+          tasks: feed.tasks.map((t) => sanitizeSurrogates(t)),
+          created_at: new Date(validTime).toISOString(),
+          expires_at: new Date(validTime + ninetyDaysMs).toISOString(),
+        };
+      });
+
+      const sourceUrls = waitlistRows.map((r) => r.source_url);
+      const { data: existingRows } = await (supabase as any)
+        .from("waitlists")
+        .select("id, source_url")
+        .in("source_url", sourceUrls);
+
+      const existingMap = new Map((existingRows || []).map((r: any) => [r.source_url, r.id]));
+      const toInsert: any[] = [];
+      const toUpdate: any[] = [];
+
+      for (const row of waitlistRows) {
+        if (existingMap.has(row.source_url)) {
+          toUpdate.push({ ...row, id: existingMap.get(row.source_url) });
+        } else {
+          toInsert.push(row);
+        }
+      }
+
+      if (toInsert.length > 0) {
+        await (supabase as any).from("waitlists").insert(toInsert);
+      }
+      for (const row of toUpdate) {
+        const { id, ...updateData } = row;
+        await (supabase as any).from("waitlists").update(updateData).eq("id", id);
       }
     }
 

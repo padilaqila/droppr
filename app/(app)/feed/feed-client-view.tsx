@@ -135,9 +135,16 @@ export function isFeedRetro(feed: AirdropFeedItem): boolean {
   return isFeedPaid(feed);
 }
 
+export function isFeedWaitlist(feed: AirdropFeedItem): boolean {
+  if (feed.category === "waitlist") return true;
+  const t = (feed.title || "").toLowerCase();
+  const raw = (feed.raw_text || "").toLowerCase();
+  return t.includes("waitlist") || t.includes("whitelist") || raw.includes("waitlist") || raw.includes("whitelist");
+}
+
 export function isFeedAirdrop(feed: AirdropFeedItem): boolean {
   if (feed.category === "airdrop") return true;
-  return !isFeedTestnet(feed) && !isFeedRetro(feed);
+  return !isFeedTestnet(feed) && !isFeedRetro(feed) && !isFeedWaitlist(feed);
 }
 
 export function isFeedPotential(feed: AirdropFeedItem): boolean {
@@ -254,7 +261,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
 
   // Filter States
   const [channelFilter, setChannelFilter] = useState<"all" | "dutacryptoairdrop" | "airdropfind">("all");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "testnet" | "airdrop" | "retro">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "testnet" | "airdrop" | "retro" | "waitlist">("all");
   const [costFilter, setCostFilter] = useState<"all" | "free" | "paid">("all");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [timeRange, setTimeRange] = useState<"all" | "24h" | "7d" | "30d">("all");
@@ -277,7 +284,30 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined") {
+      const initialQuery = new URLSearchParams(window.location.search).get("q") || "";
+      if (initialQuery) {
+        setSearchQuery(initialQuery);
+      }
+
+      const handleGlobalSearch = (e: any) => {
+        if (typeof e.detail?.query === "string") {
+          setSearchQuery(e.detail.query);
+        }
+      };
+      window.addEventListener("droppr-global-search" as any, handleGlobalSearch);
+      return () => {
+        window.removeEventListener("droppr-global-search" as any, handleGlobalSearch);
+      };
+    }
   }, []);
+
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("droppr-sync-search", { detail: { query: val } }));
+    }
+  };
 
   // Realtime Supabase synchronization + Tab Focus auto-refetch
   useEffect(() => {
@@ -517,10 +547,11 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
           return false;
         }
 
-        // Category filter (Testnet, Airdrop, Retro)
+        // Category filter (Testnet, Airdrop, Retro, Waitlist)
         if (categoryFilter !== "all") {
           if (categoryFilter === "testnet" && !isFeedTestnet(feed)) return false;
           if (categoryFilter === "retro" && !isFeedRetro(feed)) return false;
+          if (categoryFilter === "waitlist" && !isFeedWaitlist(feed)) return false;
           if (categoryFilter === "airdrop" && !isFeedAirdrop(feed)) return false;
         }
 
@@ -570,6 +601,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const testnetCount = useMemo(() => feeds.filter(isFeedTestnet).length, [feeds]);
   const airdropCount = useMemo(() => feeds.filter(isFeedAirdrop).length, [feeds]);
   const retroCount = useMemo(() => feeds.filter(isFeedRetro).length, [feeds]);
+  const waitlistCount = useMemo(() => feeds.filter(isFeedWaitlist).length, [feeds]);
   const freeCostCount = useMemo(() => feeds.filter(isFeedFree).length, [feeds]);
   const paidCostCount = useMemo(() => feeds.filter(isFeedPaid).length, [feeds]);
 
@@ -714,7 +746,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder={t("feed.searchPlaceholder")}
               className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
             />
@@ -778,6 +810,19 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             >
               <Flame className="w-3 h-3 text-amber-400" />
               <span>{t("feed.retro")} ({retroCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("waitlist")}
+              className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
+                categoryFilter === "waitlist"
+                  ? "bg-purple-500/20 text-purple-300 border-purple-500/40 font-semibold"
+                  : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              }`}
+            >
+              <Clock className="w-3 h-3 text-purple-400" />
+              <span>Waitlist ({waitlistCount})</span>
             </button>
           </div>
 
@@ -1029,7 +1074,12 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     )}
 
                     {/* Category Badge */}
-                    {isFeedRetro(feed) ? (
+                    {isFeedWaitlist(feed) ? (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-purple-500/15 border border-purple-500/30 text-purple-300 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>Waitlist</span>
+                      </span>
+                    ) : isFeedRetro(feed) ? (
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1">
                         <Flame className="w-3 h-3" />
                         <span>{t("feed.retro")}</span>

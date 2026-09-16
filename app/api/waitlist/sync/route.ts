@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { cleanTelegramHtml } from "@/lib/utils/clean-links";
+import { extractSmartProjectName } from "@/lib/supabase/airdrop-parser";
 
 interface ParsedWaitlistPost {
   channel: "dutacryptoairdrop" | "airdropfind";
@@ -30,8 +31,8 @@ function sanitizeSurrogates(str?: string | null): string {
  */
 function extractRefLink(text: string): string | null {
   const linkPatterns = [
-    /(?:Register|Waitlist|Join|Link|Form|Website)\s*[:|-]?\s*(https?:\/\/[^\s\)\n]+)/i,
-    /(https?:\/\/[^\s\)\n]+)/i,
+    /(?:Register|Waitlist|Join|Link|Form|Website)\s*[:|-]?\s*(https?:\/\/[^\s\)\n\]]+)/i,
+    /(https?:\/\/[^\s\)\n\]]+)/i,
   ];
 
   for (const pat of linkPatterns) {
@@ -136,22 +137,18 @@ function parseAirdropFinderWaitlist(text: string, postUrl: string, date: string)
   // If line 0 is "📌 Potential Airdrop" or "Potential Airdrop", the real project announcement is on line 1
   if (/^(?:📌\s*)?Potential\s+Airdrops?\s*$/i.test(rawTitle) && lines.length > 1) {
     const nextLine = lines[1].trim();
-    projectName = extractProjectName(nextLine);
+    projectName = extractSmartProjectName(text, nextLine);
     rawTitle = nextLine;
   } else {
-    projectName = extractProjectName(rawTitle);
-  }
-
-  // Fallback if projectName still ended up as "Potential Airdrop"
-  if (/^Potential\s+Airdrop$/i.test(projectName) && lines.length > 1) {
-    projectName = extractProjectName(lines[1]);
+    projectName = extractSmartProjectName(text, rawTitle);
   }
 
   // Extract tasks
   const taskLines: string[] = [];
   lines.forEach((l) => {
-    if (/^[-➖•*]\s*/.test(l)) {
-      const cleanLine = l.replace(/^[-➖•*]\s*/, "").trim();
+    if (/^(?:📌\s*)?Potential\s+Airdrops?/i.test(l)) return;
+    if (/^[-➖•*👉➡️✅🎮🌟]\s*/.test(l)) {
+      const cleanLine = l.replace(/^[-➖•*👉➡️✅🎮🌟]\s*/, "").trim();
       if (cleanLine.length > 3 && !cleanLine.startsWith("http")) {
         taskLines.push(cleanLine);
       }
@@ -323,18 +320,52 @@ export async function POST(_request: NextRequest) {
         };
       });
 
-      // Upsert based on unique constraint source_url (shared catalog across users)
-      const { data, error } = await (supabase as any)
+      // Find existing waitlists by source_url (avoids partial index ON CONFLICT 42P10 error)
+      const sourceUrls = rows.map((r) => r.source_url);
+      const { data: existingRows, error: fetchErr } = await (supabase as any)
         .from("waitlists")
-        .upsert(rows, { onConflict: "source_url", ignoreDuplicates: true })
-        .select("id");
+        .select("id, source_url")
+        .in("source_url", sourceUrls);
 
-      if (error) {
-        console.error("Waitlists upsert error:", error);
+      if (fetchErr) {
+        console.error("Waitlists existing check error:", fetchErr);
       }
 
-      if (!error && Array.isArray(data)) {
-        insertedCount = data.length;
+      const existingMap = new Map((existingRows || []).map((r: any) => [r.source_url, r.id]));
+      const toInsert: any[] = [];
+      const toUpdate: any[] = [];
+
+      for (const row of rows) {
+        if (existingMap.has(row.source_url)) {
+          toUpdate.push({ ...row, id: existingMap.get(row.source_url) });
+        } else {
+          toInsert.push(row);
+        }
+      }
+
+      if (toInsert.length > 0) {
+        const { data: insertedData, error: insErr } = await (supabase as any)
+          .from("waitlists")
+          .insert(toInsert)
+          .select("id");
+        if (insErr) {
+          console.error("Waitlists insert error:", insErr);
+        } else if (Array.isArray(insertedData)) {
+          insertedCount += insertedData.length;
+        }
+      }
+
+      for (const row of toUpdate) {
+        const { id, ...updateData } = row;
+        const { error: updErr } = await (supabase as any)
+          .from("waitlists")
+          .update(updateData)
+          .eq("id", id);
+        if (updErr) {
+          console.error("Waitlists update error:", updErr);
+        } else {
+          insertedCount++;
+        }
       }
     }
 

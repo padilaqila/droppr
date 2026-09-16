@@ -343,12 +343,33 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     window.addEventListener("focus", handleVisibility);
     document.addEventListener("visibilitychange", handleVisibility);
 
+    // 3. Global search listener from Topbar
+    const initialQuery = new URLSearchParams(window.location.search).get("q") || "";
+    if (initialQuery) {
+      setSearchQuery(initialQuery);
+    }
+
+    const handleGlobalSearch = (e: any) => {
+      if (typeof e.detail?.query === "string") {
+        setSearchQuery(e.detail.query);
+      }
+    };
+    window.addEventListener("droppr-global-search" as any, handleGlobalSearch);
+
     return () => {
       supabase.removeChannel(channel);
       window.removeEventListener("focus", handleVisibility);
       document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("droppr-global-search" as any, handleGlobalSearch);
     };
   }, []);
+
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("droppr-sync-search", { detail: { query: val } }));
+    }
+  };
 
   const handleOpenTransferModalFromUpdate = (post: any, waitlist: WaitlistItem) => {
     const detectedTasks = extractTasksFromText(post.text);
@@ -829,7 +850,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder={isEn ? "Search project / registered email..." : "Cari proyek / email terdaftar..."}
                 className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/50 focus:bg-white/[0.05] transition-all"
               />

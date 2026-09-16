@@ -65,8 +65,11 @@ export function cleanProjectName(rawTitle: string): string {
     .replace(/^(TESTNET|AIRDROP|FREE|RETRO|CONFIRMED AIRDROP)\s*[:|-]?\s*/i, "")
     .replace(/^(JOIN WAITLIST|DAFTAR WAITLIST|WAITLIST|WHITELIST)\s*[:|-]?\s*/i, "")
     .replace(/^(AIRDROP|TESTNET|WAITLIST|WHITELIST)\s+/i, "")
-    // Strip trailing tags
+    // Strip trailing tags & phrases
+    .replace(/\s*[:|-]?\s*(?:Waitlist\s+is\s+live|Whitelist\s+is\s+live|is\s+live|live)$/i, "")
     .replace(/\s*[:|-]?\s*(TESTNET|AIRDROP|WAITLIST|WHITELIST|FREE|CONFIRMED|POTENTIAL AIRDROP|POTENTIAL)$/i, "")
+    .replace(/\b(?:Waitlist\s+is\s+live|Whitelist\s+is\s+live|is\s+live)\b/gi, "")
+    .replace(/\b(?:WAITLIST|WHITELIST)\b/gi, "")
     // Strip edge emojis and special characters
     .replace(/^[^\w\d\(\)]+|[^\w\d\(\)]+$/g, "")
     .replace(/\s{2,}/g, " ")

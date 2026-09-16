@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { Search, Plus, Menu, Flame } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Search, Plus, Menu, Flame, X } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { CreateProjectModal } from "@/components/features/create-project-modal";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { LanguageToggle } from "@/components/ui/language-toggle";
 import { NotificationPopover } from "@/components/features/notification-popover";
 import { useTranslation } from "@/lib/i18n/context";
@@ -15,8 +15,61 @@ export interface TopbarProps {
 
 export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { t, isEn } = useTranslation();
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync with URL and local search events
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const q = new URLSearchParams(window.location.search).get("q") || "";
+      if (q) setSearchQuery(q);
+
+      const handleSync = (e: any) => {
+        if (typeof e.detail?.query === "string") {
+          setSearchQuery(e.detail.query);
+        }
+      };
+      window.addEventListener("droppr-sync-search" as any, handleSync);
+      return () => window.removeEventListener("droppr-sync-search" as any, handleSync);
+    }
+  }, []);
+
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("droppr-global-search", { detail: { query: val } }));
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      const isSearchablePage = ["/feed", "/projects", "/waitlist", "/tasks"].some((p) =>
+        pathname?.startsWith(p)
+      );
+      if (!isSearchablePage) {
+        router.push(`/feed?q=${encodeURIComponent(searchQuery)}`);
+      } else if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        if (searchQuery.trim()) {
+          url.searchParams.set("q", searchQuery.trim());
+        } else {
+          url.searchParams.delete("q");
+        }
+        window.history.replaceState(null, "", url.toString());
+      }
+    }
+  };
+
+  const handleClearSearch = () => {
+    handleSearchChange("");
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("q");
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   return (
     <>
@@ -49,9 +102,22 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
               <Search className="w-4 h-4 text-text-tertiary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder={t("topbar.searchPlaceholder")}
-                className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-3 py-1.5 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent transition-colors placeholder:text-text-disabled"
+                className="w-full bg-bg-elevated-2 text-text-primary text-body-sm pl-9 pr-8 py-1.5 rounded-md border border-border-hairline-strong focus:outline-none focus:border-accent transition-colors placeholder:text-text-disabled"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary p-0.5 rounded transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
