@@ -52,11 +52,13 @@ function extractRefLink(text: string): string | null {
 function extractProjectName(title: string): string {
   return (
     title
+      .replace(/^(?:📌\s*)?(?:POTENTIAL\s+AIRDROPS?|POTENTIAL)\s*[:|-]?\s*/i, "")
       .replace(/^New\s+(?:Waitlist|Whitelist|Airdrops?|Testnet)\s*[:|-]\s*/i, "")
       .replace(/^JOIN\s+(?:WAITLIST|WHITELIST)\s*[:|-]?\s*/i, "")
       .replace(/^DAFTAR\s+(?:WAITLIST|WHITELIST)\s*[:|-]?\s*/i, "")
       .replace(/\b(?:WAITLIST|WHITELIST)\b/gi, "")
-      .replace(/^[^\w]+|[^\w]+$/g, "")
+      .replace(/\b(?:is\s+live|live)\b/gi, "")
+      .replace(/^[^\w\d\(\)]+|[^\w\d\(\)]+$/g, "")
       .replace(/\s{2,}/g, " ")
       .trim() || "Airdrop Waitlist"
   );
@@ -115,11 +117,12 @@ function parseDutaCryptoWaitlist(text: string, postUrl: string, date: string): P
 /**
  * Filter and extract Waitlist Post from Airdrop Finder
  * Template: "New Waitlist: ...", "New Whitelist: ...", or mentions Whitelist/Waitlist in header
+ * Also handles: "📌 Potential Airdrop\n\nFBYT Waitlist is live 🪐"
  */
 function parseAirdropFinderWaitlist(text: string, postUrl: string, date: string): ParsedWaitlistPost | null {
   const isWaitlist =
     /New\s+(?:Waitlist|Whitelist)\s*[:|-]/i.test(text) ||
-    /\b(?:Waitlist|Whitelist)\b/i.test(text.slice(0, 100));
+    /\b(?:Waitlist|Whitelist)\b/i.test(text.slice(0, 150));
   if (!isWaitlist) {
     return null;
   }
@@ -127,8 +130,22 @@ function parseAirdropFinderWaitlist(text: string, postUrl: string, date: string)
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return null;
 
-  const rawTitle = lines[0].trim();
-  const projectName = extractProjectName(rawTitle);
+  let rawTitle = lines[0].trim();
+  let projectName = "";
+
+  // If line 0 is "📌 Potential Airdrop" or "Potential Airdrop", the real project announcement is on line 1
+  if (/^(?:📌\s*)?Potential\s+Airdrops?\s*$/i.test(rawTitle) && lines.length > 1) {
+    const nextLine = lines[1].trim();
+    projectName = extractProjectName(nextLine);
+    rawTitle = nextLine;
+  } else {
+    projectName = extractProjectName(rawTitle);
+  }
+
+  // Fallback if projectName still ended up as "Potential Airdrop"
+  if (/^Potential\s+Airdrop$/i.test(projectName) && lines.length > 1) {
+    projectName = extractProjectName(lines[1]);
+  }
 
   // Extract tasks
   const taskLines: string[] = [];
@@ -141,7 +158,10 @@ function parseAirdropFinderWaitlist(text: string, postUrl: string, date: string)
     }
   });
 
-  const summary = lines.find((l) => /Reward|Register|Go to|Submit/i.test(l)) || lines[1] || "";
+  const summary =
+    lines.find((l, idx) => idx > 0 && /Reward|Register|Go to|Submit|Waitlist is live/i.test(l)) ||
+    (lines.length > 2 && lines[1] === rawTitle ? lines[2] : lines[1]) ||
+    "";
   const refLink = extractRefLink(text);
 
   return {

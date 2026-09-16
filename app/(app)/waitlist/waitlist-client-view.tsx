@@ -91,6 +91,46 @@ function getChannelInfo(channelId: string) {
   };
 }
 
+export function isPotentialWaitlist(item: WaitlistItem): boolean {
+  return (
+    /(?:📌\s*)?potential\s+airdrop/i.test(item.raw_text || "") ||
+    /potential\s+airdrop/i.test(item.title || "") ||
+    /potential\s+airdrop/i.test(item.project_name || "")
+  );
+}
+
+export function resolveWaitlistName(item: WaitlistItem): string {
+  // If project_name is literally "Potential Airdrop", resolve the actual project name from title or raw_text
+  if (/^potential\s+airdrop$/i.test(item.project_name?.trim())) {
+    const lines = (item.raw_text || item.title || "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    for (const line of lines) {
+      if (/^(?:📌\s*)?potential\s+airdrop\s*$/i.test(line)) continue;
+      if (line.startsWith("http") || line.startsWith("➡️") || line.startsWith("Join")) continue;
+      const cleaned = line
+        .replace(/^New\s+(?:Waitlist|Whitelist|Airdrops?|Testnet)\s*[:|-]\s*/i, "")
+        .replace(/\b(?:Waitlist\s+is\s+live|is\s+live|live|Waitlist|Whitelist)\b/gi, "")
+        .replace(/^[^\w\d\(\)]+|[^\w\d\(\)]+$/g, "")
+        .trim();
+      if (cleaned && cleaned.length >= 2 && !/^potential\s+airdrop$/i.test(cleaned)) {
+        return cleaned;
+      }
+    }
+    if (item.title && !/^potential\s+airdrop$/i.test(item.title)) {
+      return (
+        item.title
+          .replace(/^New\s+(?:Waitlist|Whitelist|Airdrops?|Testnet)\s*[:|-]\s*/i, "")
+          .replace(/\b(?:Waitlist\s+is\s+live|is\s+live|live|Waitlist|Whitelist)\b/gi, "")
+          .replace(/^[^\w\d\(\)]+|[^\w\d\(\)]+$/g, "")
+          .trim() || item.project_name
+      );
+    }
+  }
+  return item.project_name;
+}
+
 export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps) {
   const router = useRouter();
   const { isEn, t } = useTranslation();
@@ -934,12 +974,21 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-body-md font-bold text-text-primary tracking-tight truncate max-w-[200px] sm:max-w-[240px]">
-                            {item.project_name}
+                            {resolveWaitlistName(item)}
                           </h3>
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-status-completed/15 text-status-completed border border-status-completed/30 shrink-0">
                             <Check className="w-2.5 h-2.5 stroke-[3]" />
                             <span>Joined</span>
                           </span>
+                          {isPotentialWaitlist(item) && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0 shadow-xs"
+                              title="Terkonfirmasi sebagai garapan airdrop potensial dari Telegram"
+                            >
+                              <span>📌</span>
+                              <span>Potential Airdrop</span>
+                            </span>
+                          )}
                           {batchDiscoveredMap.has(item.id) && (
                             <button
                               type="button"
@@ -1161,9 +1210,20 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   {/* Project Name & Title */}
                   <div>
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-body-md font-bold text-text-primary tracking-tight truncate">
-                        {item.project_name}
-                      </h3>
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <h3 className="text-body-md font-bold text-text-primary tracking-tight truncate">
+                          {resolveWaitlistName(item)}
+                        </h3>
+                        {isPotentialWaitlist(item) && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0 shadow-xs"
+                            title="Terkonfirmasi sebagai garapan airdrop potensial dari Telegram"
+                          >
+                            <span>📌</span>
+                            <span>Potential Airdrop</span>
+                          </span>
+                        )}
+                      </div>
                       {batchDiscoveredMap.has(item.id) && (
                         <button
                           type="button"
@@ -1177,7 +1237,9 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       )}
                     </div>
                     <p className="text-caption text-text-secondary line-clamp-2 mt-1 leading-relaxed">
-                      {item.title}
+                      {item.title && !/^(?:📌\s*)?potential\s+airdrop\s*$/i.test(item.title.trim())
+                        ? item.title
+                        : (item.raw_text?.split("\n").map((l) => l.trim()).filter(Boolean)[1] || item.title)}
                     </p>
                   </div>
 

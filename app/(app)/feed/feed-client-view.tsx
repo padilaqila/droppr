@@ -140,6 +140,13 @@ export function isFeedAirdrop(feed: AirdropFeedItem): boolean {
   return !isFeedTestnet(feed) && !isFeedRetro(feed);
 }
 
+export function isFeedPotential(feed: AirdropFeedItem): boolean {
+  return (
+    /(?:📌\s*)?potential\s+airdrop/i.test(feed.raw_text || "") ||
+    /potential\s+airdrop/i.test(feed.title || "")
+  );
+}
+
 // Extracts core project name for intelligent grouping and mention counting
 export function extractCoreProjectKey(title: string): string {
   return title
@@ -1039,6 +1046,17 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       </span>
                     )}
 
+                    {/* Potential Airdrop Badge */}
+                    {isFeedPotential(feed) && (
+                      <span
+                        className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 shadow-xs"
+                        title="Terkonfirmasi sebagai Potential Airdrop dari channel Telegram"
+                      >
+                        <span>📌</span>
+                        <span>Potential Airdrop</span>
+                      </span>
+                    )}
+
                     {/* Delete button */}
                     <button
                       type="button"
@@ -1205,9 +1223,17 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-body-md font-bold text-text-primary truncate">
-                      {previewingFeed.title}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-body-md font-bold text-text-primary truncate">
+                        {previewingFeed.title}
+                      </h3>
+                      {isFeedPotential(previewingFeed) && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 shadow-xs">
+                          <span>📌</span>
+                          <span>Potential Airdrop</span>
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[12px] font-mono text-text-tertiary">
                       {previewingFeed.channel_name} • {formatTimeAgo(previewingFeed.created_at)}
                     </p>

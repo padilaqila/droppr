@@ -522,6 +522,15 @@ export function TodayTaskGuideModal({
     return getTranslationAction(rawPostContent, locale, showTranslatedOriginal);
   }, [rawPostContent, locale, showTranslatedOriginal]);
 
+  const isPotentialProject = useMemo(() => {
+    if (!currentProject) return false;
+    return (
+      Boolean(rawSocial?.is_potential) ||
+      /potential\s+airdrop/i.test(rawPostContent || "") ||
+      /potential\s+airdrop/i.test(currentProject.guide_content || "")
+    );
+  }, [currentProject, rawSocial?.is_potential, rawPostContent]);
+
   // Reset internal states on active project change
   useEffect(() => {
     if (currentProject) {
@@ -1085,6 +1094,16 @@ export function TodayTaskGuideModal({
                     <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-400/15 text-amber-400 border border-amber-400/30 flex items-center gap-1">
                       <FastForward className="w-3 h-3" />
                       <span>{isEn ? "Skipped" : "Dilewati"}</span>
+                    </span>
+                  )}
+
+                  {isPotentialProject && (
+                    <span
+                      className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1 shadow-xs"
+                      title="Terkonfirmasi sebagai Potential Airdrop dari channel Telegram"
+                    >
+                      <span>📌</span>
+                      <span>Potential Airdrop</span>
                     </span>
                   )}
                 </div>

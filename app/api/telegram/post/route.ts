@@ -79,13 +79,29 @@ export async function POST(request: Request) {
     const linkMatches = cleanText.match(/https?:\/\/[^\s)]+/g) || [];
     const links = Array.from(new Set(linkMatches));
 
-    // 5. Guess Project Name from first line or title
-    const firstLine = cleanText.split("\n")[0]?.replace(/[*_#•\-]/g, "").trim() || "";
+    // 5. Guess Project Name from lines
+    const lines = cleanText.split("\n").map((l) => l.trim()).filter(Boolean);
+    const firstLine = lines[0]?.replace(/[*_#•\-]/g, "").trim() || "";
     let guessedName = firstLine.slice(0, 40);
-    // If first line has words like "AIRDROP", extract it
-    const airdropMatch = cleanText.match(/(?:TESTNET|AIRDROP|AIRDROP TESTNET)\s+([A-Z0-9\s]+)/i);
-    if (airdropMatch && airdropMatch[1]) {
-      guessedName = airdropMatch[1].trim().slice(0, 30);
+
+    const isPotential =
+      /^(?:📌\s*)?Potential\s+Airdrops?\b/i.test(firstLine) ||
+      /potential\s+airdrop/i.test(cleanText.slice(0, 100));
+
+    // If first line is "Potential Airdrop", get name from line 1
+    if (/^(?:📌\s*)?Potential\s+Airdrops?\s*$/i.test(firstLine) && lines.length > 1) {
+      const candidateLine = lines[1].replace(/[*_#•\-]/g, "").trim();
+      guessedName = candidateLine
+        .replace(/^New\s+(?:Waitlist|Whitelist|Airdrops?|Testnet)\s*[:|-]\s*/i, "")
+        .replace(/\b(?:Waitlist\s+is\s+live|is\s+live|live|Waitlist|Whitelist)\b/gi, "")
+        .replace(/^[^\w\d\(\)]+|[^\w\d\(\)]+$/g, "")
+        .trim()
+        .slice(0, 30);
+    } else {
+      const airdropMatch = cleanText.match(/(?:TESTNET|AIRDROP|AIRDROP TESTNET)\s+([A-Z0-9\s]+)/i);
+      if (airdropMatch && airdropMatch[1]) {
+        guessedName = airdropMatch[1].trim().slice(0, 30);
+      }
     }
 
     return NextResponse.json({
@@ -99,6 +115,7 @@ export async function POST(request: Request) {
         date,
         links,
         guessedName,
+        isPotential,
       },
     });
   } catch (error: any) {

@@ -45,27 +45,40 @@ export function sanitizeUrl(rawUrl: string): string {
 }
 
 /**
+ * Detect if text represents a Potential Airdrop
+ */
+export function isPotentialAirdropText(text?: string | null): boolean {
+  if (!text) return false;
+  return /(?:📌\s*)?potential\s+airdrop/i.test(text);
+}
+
+/**
  * Extract clean project name from feed / telegram title
  */
 export function cleanProjectName(rawTitle: string): string {
   if (!rawTitle) return "Airdrop Project";
 
   let name = rawTitle
-    // Strip common prefixes
+    // Strip common prefixes including Potential Airdrop
     .replace(/^(\[NEW\]|\(NEW\)|NEW AIRDROPS?|NEW TESTNET|NEW WAITLIST|NEW RETRO|NEW WHITELIST)\s*[:|-]?\s*/i, "")
+    .replace(/^(?:📌\s*)?(?:POTENTIAL\s+AIRDROPS?|POTENTIAL)\s*[:|-]?\s*/i, "")
     .replace(/^(TESTNET|AIRDROP|FREE|RETRO|CONFIRMED AIRDROP)\s*[:|-]?\s*/i, "")
     .replace(/^(JOIN WAITLIST|DAFTAR WAITLIST|WAITLIST|WHITELIST)\s*[:|-]?\s*/i, "")
     .replace(/^(AIRDROP|TESTNET|WAITLIST|WHITELIST)\s+/i, "")
     // Strip trailing tags
-    .replace(/\s*[:|-]?\s*(TESTNET|AIRDROP|WAITLIST|WHITELIST|FREE|CONFIRMED)$/i, "")
+    .replace(/\s*[:|-]?\s*(TESTNET|AIRDROP|WAITLIST|WHITELIST|FREE|CONFIRMED|POTENTIAL AIRDROP|POTENTIAL)$/i, "")
     // Strip edge emojis and special characters
     .replace(/^[^\w\d\(\)]+|[^\w\d\(\)]+$/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 
-  // If clean resulted in empty string, fallback to original title trimmed
-  if (!name) {
-    name = rawTitle.replace(/^[^\w\d]+|[^\w\d]+$/g, "").trim() || "Airdrop Project";
+  // If clean resulted in empty string or generic "Potential Airdrop", fallback
+  if (!name || /^potential\s+airdrop$/i.test(name)) {
+    const fallback = rawTitle
+      .replace(/^(?:📌\s*)?potential\s+airdrop\s*[:|-]?\s*/i, "")
+      .replace(/^[^\w\d]+|[^\w\d]+$/g, "")
+      .trim();
+    name = fallback || rawTitle.replace(/^[^\w\d]+|[^\w\d]+$/g, "").trim() || "Airdrop Project";
   }
 
   // Capitalize neatly if all lowercase
@@ -77,6 +90,50 @@ export function cleanProjectName(rawTitle: string): string {
   }
 
   return name;
+}
+
+/**
+ * Intelligent project name extractor from multiline telegram / feed text
+ * Handles posts like:
+ * "📌 Potential Airdrop\n\nFBYT Waitlist is live 🪐\n..." -> "FBYT"
+ */
+export function extractSmartProjectName(rawText: string, rawTitle: string = ""): string {
+  const cleanTitle = cleanProjectName(rawTitle);
+  if (cleanTitle && !/^potential\s+airdrop$/i.test(cleanTitle) && cleanTitle !== "Airdrop Project") {
+    return cleanTitle;
+  }
+
+  if (!rawText) return cleanTitle || "Airdrop Project";
+
+  const lines = rawText.split("\n").map((l) => l.trim()).filter(Boolean);
+  for (let i = 0; i < Math.min(lines.length, 5); i++) {
+    const line = lines[i];
+    // Skip if line is just the "📌 Potential Airdrop" header
+    if (/^(?:📌\s*)?potential\s+airdrop\s*$/i.test(line)) {
+      continue;
+    }
+    // Skip link lines, emoji bullets, or action lines
+    if (line.startsWith("http") || line.startsWith("➡️") || line.startsWith("Join") || line.startsWith("Cost:")) {
+      continue;
+    }
+
+    // Try extracting project name from lines like "FBYT Waitlist is live 🪐" or "「FBYT Waitlist」"
+    let candidate = line
+      .replace(/^[^\w\d\(\)\[\]「」]+|[^\w\d\(\)\[\]「」]+$/g, "")
+      .replace(/^「(.*?)」$/, "$1")
+      .replace(/^\[(.*?)\]$/, "$1")
+      .replace(/^New\s+(?:Waitlist|Whitelist|Airdrops?|Testnet)\s*[:|-]\s*/i, "")
+      .replace(/\b(?:Waitlist\s+is\s+live|is\s+live|live|Waitlist|Whitelist)\b/gi, "")
+      .replace(/^[^\w\d]+|[^\w\d]+$/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    if (candidate && candidate.length >= 2 && !/^potential\s+airdrop$/i.test(candidate)) {
+      return cleanProjectName(candidate);
+    }
+  }
+
+  return cleanTitle || "Airdrop Project";
 }
 
 /**
@@ -394,8 +451,8 @@ export function cleanTaskLine(rawLine: string): string {
   let line = rawLine
     // Strip numbered markers like 1., 1), [1], (1)
     .replace(/^\[?\(?\d+[\]\)\.]*\s*/, "")
-    // Strip bullets and action emojis
-    .replace(/^[-➖•*👉➡️✓✔✅#~]+\s*/, "")
+    // Strip bullets, symbols, and leading emojis
+    .replace(/^[^\w\d\(\)\[\]#]+\s*/, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 
@@ -482,8 +539,10 @@ export function parseTasks(
   const isSectionHeader = (cleaned: string) => {
     const l = cleaned.toLowerCase();
     if (projectName && l.includes(projectName.toLowerCase())) return true;
-    if (/^(langkah|panduan|tata\s+cara|cara\s+garap|step\s*by\s*step|tutorial|rules|tasks?|steps?|catatan|note)\s*[:|-]?$/i.test(cleaned)) return true;
-    if (/^(join\s+waitlist|daftar\s+waitlist|new\s+airdrop|new\s+testnet)/i.test(cleaned)) return true;
+    if (/^(langkah|panduan|tata\s+cara|cara\s+garap|step\s*by\s*step|tutorial|rules|tasks?|steps?|catatan|note)\s*[:|-]?$/i.test(l)) return true;
+    if (/^(join\s+waitlist|daftar\s+waitlist|new\s+airdrop|new\s+testnet)/i.test(l)) return true;
+    if (l.includes("potential airdrop")) return true;
+    if (l.startsWith("deadline")) return true;
     return false;
   };
 
@@ -562,6 +621,9 @@ export function formatGuideContent(params: {
 
   parts.push(`### Panduan Garapan: ${params.name}`);
   parts.push(`**Network/Chain:** ${params.chain || "Multi-chain"}`);
+  if (params.social_links?.is_potential) {
+    parts.push(`**Klasifikasi:** 📌 Potential Airdrop`);
+  }
   if (params.cost) {
     parts.push(`**Estimasi Biaya:** ${params.cost}`);
   }
@@ -614,12 +676,16 @@ export function parseAirdropProjectData(
   } = {}
 ): ParsedAirdropData {
   const cleanRawText = cleanDuplicateLinks(rawText);
-  const name = cleanProjectName(title);
+  const name = extractSmartProjectName(cleanRawText, title);
   const chain = detectChain(cleanRawText, title);
   const social_links = parseResourceLinks(cleanRawText, {
     sourceUrl: options.sourceUrl,
     fallbackRefLink: options.refLink,
   });
+
+  if (isPotentialAirdropText(cleanRawText) || isPotentialAirdropText(title)) {
+    social_links.is_potential = true;
+  }
 
   const tasks = parseTasks(cleanRawText, name);
   if (options.existingTasks && options.existingTasks.length > 0) {

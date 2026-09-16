@@ -139,7 +139,7 @@ export const en: Dictionary = {
       inactivityDesc: "You missed previous daily reset cycles and have {count} pending airdrop tasks!",
       overdueOnlyTitle: "Attention: {count} Overdue Tasks Today",
       overdueOnlyDesc: "Tasks have passed their scheduled alarm times (07:00 WIB). Complete them now to protect your streak.",
-      actionCatchUp: "⚡ Catch Up Overdue Tasks",
+      actionCatchUp: "Catch Up Overdue Tasks",
       actionDismiss: "Dismiss & Start Today",
       enableBrowserNotif: "Enable Browser Alerts",
       browserNotifEnabled: "Browser Alerts Active",

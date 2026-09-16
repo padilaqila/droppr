@@ -148,7 +148,7 @@ function parseAirdropFinderPost(text: string, postUrl: string, date: string): Pa
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return null;
 
-  const rawTitle = lines[0].trim();
+  let rawTitle = lines[0].trim();
   const lowerText = text.toLowerCase();
   const lowerTitle = rawTitle.toLowerCase();
 
@@ -167,11 +167,18 @@ function parseAirdropFinderPost(text: string, postUrl: string, date: string): Pa
     return null;
   }
 
-  // Pattern: "New Airdrop : ...", "New Airdrops : ...", "New Guaranteed Airdrops : ...", "New Testnet: ...", "New Retro: ..."
-  const isNewPost = /New\s+(?:Guaranteed\s+)?(?:Airdrops?|Testnet|Retro)\s*[:|-]/i.test(text);
+  // Pattern: "New Airdrop : ...", "New Airdrops : ...", "New Guaranteed Airdrops : ...", "New Testnet: ...", "New Retro: ...", or "📌 Potential Airdrop"
+  const isNewPost =
+    /New\s+(?:Guaranteed\s+)?(?:Airdrops?|Testnet|Retro)\s*[:|-]/i.test(text) ||
+    /^(?:📌\s*)?Potential\s+Airdrops?\b/im.test(text.slice(0, 100));
 
   if (!isNewPost) {
     return null;
+  }
+
+  // If line 0 is "📌 Potential Airdrop", the real project title is on line 1
+  if (/^(?:📌\s*)?Potential\s+Airdrops?\s*$/i.test(rawTitle) && lines.length > 1) {
+    rawTitle = lines[1].trim();
   }
 
   // Detect cost if mentioned

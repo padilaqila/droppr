@@ -400,6 +400,14 @@ export function ProjectThreadView({
     [socialLinks, guideContent]
   );
 
+  const isPotential = useMemo(() => {
+    return (
+      Boolean(socialLinks?.is_potential) ||
+      /potential\s+airdrop/i.test(guideContent || "") ||
+      /potential\s+airdrop/i.test(String(socialLinks?.raw_text || ""))
+    );
+  }, [socialLinks, guideContent]);
+
   // Translation Action Info (computed based on user's system locale)
   const postTranslationAction = useMemo(() => {
     if (!originalTelegramPost) return null;
@@ -556,6 +564,15 @@ export function ProjectThreadView({
                   <Pin className="w-2.5 h-2.5" />
                   <span>{isEn ? "Main Post" : "Post Utama"}</span>
                 </span>
+                {isPotential && (
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 shadow-xs"
+                    title="Terkonfirmasi sebagai Potential Airdrop dari Telegram"
+                  >
+                    <span>📌</span>
+                    <span>Potential Airdrop</span>
+                  </span>
+                )}
                 {projectCreatedAt && (
                   <>
                     <span className="text-white/20 text-caption">•</span>

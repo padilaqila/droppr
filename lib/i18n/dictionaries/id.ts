@@ -137,7 +137,7 @@ export const id = {
       inactivityDesc: "Kamu melewatkan siklus reset harian sebelumnya dan ada {count} tugas airdrop yang belum dikerjakan!",
       overdueOnlyTitle: "Perhatian: {count} Tugas Garapan Telat Hari Ini",
       overdueOnlyDesc: "Tugas telah melewati jam alarm yang dijadwalkan (07:00 WIB). Selesaikan sekarang agar streak dan progress garapan tidak terputus.",
-      actionCatchUp: "⚡ Kejar Tugas Telat",
+      actionCatchUp: "Kejar Tugas Telat",
       actionDismiss: "Tutup & Mulai Hari Ini",
       enableBrowserNotif: "Aktifkan Alarm Browser",
       browserNotifEnabled: "Alarm Browser Aktif",
