@@ -121,7 +121,7 @@ export function extractSmartProjectName(rawText: string, rawTitle: string = ""):
     }
 
     // Try extracting project name from lines like "FBYT Waitlist is live 🪐" or "「FBYT Waitlist」"
-    let candidate = line
+    const candidate = line
       .replace(/^[^\w\d\(\)\[\]「」]+|[^\w\d\(\)\[\]「」]+$/g, "")
       .replace(/^「(.*?)」$/, "$1")
       .replace(/^\[(.*?)\]$/, "$1")

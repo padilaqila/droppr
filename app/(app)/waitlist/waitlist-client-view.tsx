@@ -36,6 +36,8 @@ import {
   ArrowRight,
   Clock,
   Zap,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { Modal } from "@/components/ui/modal";
@@ -47,6 +49,8 @@ import { useTranslation } from "@/lib/i18n/context";
 import { ConfirmModal, type ConfirmModalState } from "@/components/ui/confirm-modal";
 import {
   fetchQuickPickerIdentities,
+  createWalletItem,
+  createUserAccount,
   type UserAccountItem,
 } from "@/lib/supabase/user-accounts";
 import {
@@ -131,6 +135,25 @@ export function resolveWaitlistName(item: WaitlistItem): string {
   }
   return item.project_name;
 }
+
+const QUICK_CHAIN_OPTIONS = [
+  { value: "EVM", label: "EVM (Ethereum, Base, Arb, BSC, Polygon)" },
+  { value: "Solana", label: "Solana (SOL)" },
+  { value: "Bitcoin", label: "Bitcoin (BTC / Runes / Ordinals)" },
+  { value: "Sui", label: "Sui Network" },
+  { value: "Aptos", label: "Aptos" },
+  { value: "Cosmos", label: "Cosmos / Injective" },
+  { value: "Other", label: "Lainnya / Other Chain" },
+];
+
+const QUICK_PLATFORM_OPTIONS = [
+  { value: "Twitter / X", label: "Twitter / X" },
+  { value: "Telegram", label: "Telegram" },
+  { value: "Discord", label: "Discord" },
+  { value: "Email", label: "Email (Farming / Utama)" },
+  { value: "Google", label: "Akun Google" },
+  { value: "Custom", label: "Platform Lainnya" },
+];
 
 export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps) {
   const router = useRouter();
@@ -239,6 +262,8 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   const [accountInput, setAccountInput] = useState("");
   const [refLinkInput, setRefLinkInput] = useState("");
   const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [joinSuccessNotification, setJoinSuccessNotification] = useState<string | null>(null);
 
   // Quick Picker states for wallets & accounts
   const { address: connectedAddress } = useAccount();
@@ -247,6 +272,22 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
   >([]);
   const [savedAccounts, setSavedAccounts] = useState<UserAccountItem[]>([]);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+
+  // Identity Picker Category & Search
+  const [pickerCategory, setPickerCategory] = useState<"all" | "wallets" | "socials" | "email">("all");
+  const [pickerSearch, setPickerSearch] = useState("");
+
+  // Inline Quick Add state (No page reload / navigation needed)
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [quickAddType, setQuickAddType] = useState<"wallet" | "account">("wallet");
+  const [quickWalletAddress, setQuickWalletAddress] = useState("");
+  const [quickWalletLabel, setQuickWalletLabel] = useState("");
+  const [quickWalletChain, setQuickWalletChain] = useState("EVM");
+  const [quickAccountPlatform, setQuickAccountPlatform] = useState("Twitter / X");
+  const [quickAccountHandle, setQuickAccountHandle] = useState("");
+  const [quickAccountLabel, setQuickAccountLabel] = useState("");
+  const [isSubmittingQuickAdd, setIsSubmittingQuickAdd] = useState(false);
+  const [quickAddError, setQuickAddError] = useState<string | null>(null);
 
   const loadIdentities = async () => {
     try {
@@ -514,6 +555,11 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     setTargetItemForJoin(item);
     setAccountInput(item.registered_account || "");
     setRefLinkInput(item.ref_link || "");
+    setSaveError(null);
+    setPickerSearch("");
+    setPickerCategory("all");
+    setIsQuickAddOpen(false);
+    setQuickAddError(null);
     loadIdentities();
   };
 
@@ -522,26 +568,289 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
     e.preventDefault();
     if (!targetItemForJoin) return;
 
+    const trimmedAccount = accountInput.trim();
+    if (!trimmedAccount) {
+      setSaveError(
+        isEn
+          ? "Please provide or select the account/wallet used to register."
+          : "Harap isi atau pilih akun / wallet yang dipakai untuk mendaftar waitlist ini."
+      );
+      return;
+    }
+
     setIsSavingStatus(true);
+    setSaveError(null);
     try {
-      const success = await updateWaitlistStatus(
+      await updateWaitlistStatus(
         targetItemForJoin.id,
         "joined",
-        accountInput.trim() || undefined,
+        trimmedAccount || undefined,
         refLinkInput.trim() || undefined
       );
 
-      if (success) {
-        setTargetItemForJoin(null);
-        await reloadData();
-        setActiveTab("joined");
-      }
-    } catch (err) {
+      const savedName = targetItemForJoin.project_name;
+      setTargetItemForJoin(null);
+      await reloadData();
+      setActiveTab("joined");
+
+      setJoinSuccessNotification(
+        isEn
+          ? `Waitlist notes for "${savedName}" saved successfully!`
+          : `Catatan pendaftaran waitlist "${savedName}" berhasil disimpan!`
+      );
+      setTimeout(() => setJoinSuccessNotification(null), 6000);
+    } catch (err: any) {
       console.error("Save join status error:", err);
+      setSaveError(
+        err?.message ||
+          (isEn
+            ? "Failed to save waitlist notes. Please check connection and try again."
+            : "Gagal menyimpan catatan waitlist. Periksa koneksi dan coba lagi.")
+      );
     } finally {
       setIsSavingStatus(false);
     }
   };
+
+  // Quick Add Wallet Handler
+  const handleQuickAddWallet = async () => {
+    const cleanAddr = quickWalletAddress.trim();
+    if (!cleanAddr) {
+      setQuickAddError(isEn ? "Wallet address is required." : "Alamat wallet wajib diisi.");
+      return;
+    }
+
+    setIsSubmittingQuickAdd(true);
+    setQuickAddError(null);
+    try {
+      const newWallet = await createWalletItem({
+        address: cleanAddr,
+        label: quickWalletLabel.trim() || null,
+        chain: quickWalletChain || "EVM",
+      });
+
+      setSavedWallets((prev) => [newWallet, ...prev.filter((w) => w.id !== newWallet.id)]);
+      setAccountInput(newWallet.address);
+      setQuickWalletAddress("");
+      setQuickWalletLabel("");
+      setIsQuickAddOpen(false);
+    } catch (err: any) {
+      console.error("Quick add wallet error:", err);
+      setQuickAddError(err?.message || (isEn ? "Failed to save wallet." : "Gagal menyimpan wallet."));
+    } finally {
+      setIsSubmittingQuickAdd(false);
+    }
+  };
+
+  // Quick Add Account Handler
+  const handleQuickAddAccount = async () => {
+    const cleanHandle = quickAccountHandle.trim();
+    if (!cleanHandle) {
+      setQuickAddError(isEn ? "Account handle / email is required." : "Handle akun / email wajib diisi.");
+      return;
+    }
+
+    setIsSubmittingQuickAdd(true);
+    setQuickAddError(null);
+    try {
+      const newAccount = await createUserAccount({
+        platform: quickAccountPlatform || "Twitter / X",
+        handle: cleanHandle,
+        label: quickAccountLabel.trim() || null,
+      });
+
+      if (newAccount) {
+        setSavedAccounts((prev) => [newAccount, ...prev.filter((a) => a.id !== newAccount.id)]);
+        setAccountInput(newAccount.handle);
+      }
+
+      setQuickAccountHandle("");
+      setQuickAccountLabel("");
+      setIsQuickAddOpen(false);
+    } catch (err: any) {
+      console.error("Quick add account error:", err);
+      setQuickAddError(err?.message || (isEn ? "Failed to save account." : "Gagal menyimpan akun."));
+    } finally {
+      setIsSubmittingQuickAdd(false);
+    }
+  };
+
+  // Prefill Quick Add from typed input
+  const handlePrefillQuickAdd = (typedVal: string) => {
+    const trimmed = typedVal.trim();
+    if (!trimmed) return;
+    setIsQuickAddOpen(true);
+    setQuickAddError(null);
+
+    if (trimmed.startsWith("0x") || trimmed.length >= 32) {
+      setQuickAddType("wallet");
+      setQuickWalletAddress(trimmed);
+      if (trimmed.startsWith("0x")) {
+        setQuickWalletChain("EVM");
+      } else {
+        setQuickWalletChain("Solana");
+      }
+    } else if (trimmed.includes("@") && trimmed.includes(".")) {
+      setQuickAddType("account");
+      setQuickAccountPlatform("Email");
+      setQuickAccountHandle(trimmed);
+    } else {
+      setQuickAddType("account");
+      if (trimmed.startsWith("@")) {
+        setQuickAccountPlatform("Twitter / X");
+      }
+      setQuickAccountHandle(trimmed);
+    }
+  };
+
+  // Category counts for quick picker tabs
+  const categoryCounts = useMemo(() => {
+    const totalWallets = (connectedAddress ? 1 : 0) + savedWallets.length;
+    const totalSocials = savedAccounts.filter(
+      (a) =>
+        !a.platform.toLowerCase().includes("email") &&
+        !a.platform.toLowerCase().includes("mail")
+    ).length;
+    const totalEmails =
+      (currentUserEmail && !savedAccounts.some((a) => a.handle.toLowerCase() === currentUserEmail.toLowerCase()) ? 1 : 0) +
+      savedAccounts.filter(
+        (a) =>
+          a.platform.toLowerCase().includes("email") ||
+          a.platform.toLowerCase().includes("mail")
+      ).length;
+    return {
+      all: totalWallets + totalSocials + totalEmails,
+      wallets: totalWallets,
+      socials: totalSocials,
+      email: totalEmails,
+    };
+  }, [connectedAddress, savedWallets, savedAccounts, currentUserEmail]);
+
+  // Filtered identities for quick picker list
+  const filteredIdentities = useMemo(() => {
+    const q = pickerSearch.trim().toLowerCase();
+
+    // 1. Browser wallet
+    const showConnected = connectedAddress && (pickerCategory === "all" || pickerCategory === "wallets");
+    const matchesConnected = !q || (connectedAddress && connectedAddress.toLowerCase().includes(q));
+    const connectedItem = showConnected && matchesConnected ? {
+      type: "connected" as const,
+      id: "connected_wallet",
+      address: connectedAddress!,
+      title: isEn ? "Connected Browser Wallet" : "Dompet Terkoneksi Browser",
+      chain: "Browser",
+      value: connectedAddress!,
+    } : null;
+
+    // 2. Saved wallets
+    const showWallets = pickerCategory === "all" || pickerCategory === "wallets";
+    const walletItems = showWallets
+      ? savedWallets
+          .filter((w) => {
+            if (!q) return true;
+            return (
+              w.address.toLowerCase().includes(q) ||
+              (w.label && w.label.toLowerCase().includes(q)) ||
+              (w.chain && w.chain.toLowerCase().includes(q))
+            );
+          })
+          .map((w) => ({
+            type: "wallet" as const,
+            id: w.id,
+            address: w.address,
+            label: w.label,
+            chain: w.chain || "EVM",
+            value: w.address,
+          }))
+      : [];
+
+    // 3. Saved social accounts
+    const showSocials = pickerCategory === "all" || pickerCategory === "socials";
+    const socialItems = showSocials
+      ? savedAccounts
+          .filter((a) => {
+            const isEmail =
+              a.platform.toLowerCase().includes("email") ||
+              a.platform.toLowerCase().includes("mail");
+            if (isEmail) return false;
+            if (!q) return true;
+            return (
+              a.handle.toLowerCase().includes(q) ||
+              (a.label && a.label.toLowerCase().includes(q)) ||
+              a.platform.toLowerCase().includes(q)
+            );
+          })
+          .map((a) => ({
+            type: "social" as const,
+            id: a.id,
+            handle: a.handle,
+            platform: a.platform,
+            label: a.label,
+            value: a.handle,
+          }))
+      : [];
+
+    // 4. Email accounts
+    const emailItems: Array<{
+      type: "email";
+      id: string;
+      handle: string;
+      label?: string | null;
+      value: string;
+    }> = [];
+
+    if (pickerCategory === "all" || pickerCategory === "email") {
+      if (
+        currentUserEmail &&
+        (!q || currentUserEmail.toLowerCase().includes(q)) &&
+        !savedAccounts.some((a) => a.handle.toLowerCase() === currentUserEmail.toLowerCase())
+      ) {
+        emailItems.push({
+          type: "email",
+          id: "login_email",
+          handle: currentUserEmail,
+          label: isEn ? "Primary Login Email" : "Email Login Utama",
+          value: currentUserEmail,
+        });
+      }
+
+      savedAccounts
+        .filter((a) => {
+          const isEmail =
+            a.platform.toLowerCase().includes("email") ||
+            a.platform.toLowerCase().includes("mail");
+          if (!isEmail) return false;
+          if (!q) return true;
+          return (
+            a.handle.toLowerCase().includes(q) ||
+            (a.label && a.label.toLowerCase().includes(q))
+          );
+        })
+        .forEach((a) => {
+          emailItems.push({
+            type: "email",
+            id: a.id,
+            handle: a.handle,
+            label: a.label || "Email",
+            value: a.handle,
+          });
+        });
+    }
+
+    const totalCount =
+      (connectedItem ? 1 : 0) +
+      walletItems.length +
+      socialItems.length +
+      emailItems.length;
+
+    return {
+      connected: connectedItem,
+      wallets: walletItems,
+      socials: socialItems,
+      emails: emailItems,
+      totalCount,
+    };
+  }, [pickerSearch, pickerCategory, connectedAddress, savedWallets, savedAccounts, currentUserEmail, isEn]);
 
   // Delete waitlist
   const handleDelete = (id: string, projectName?: string) => {
@@ -819,6 +1128,24 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
               ✕
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Waitlist Note Save Success Banner */}
+      {joinSuccessNotification && (
+        <div className="p-3.5 rounded-xl bg-status-completed/15 backdrop-blur-md border border-status-completed/30 flex items-center justify-between gap-3 shadow-lg shadow-status-completed/10 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Check className="w-5 h-5 text-status-completed shrink-0 stroke-[3]" />
+            <div className="text-body-sm text-text-primary font-medium">
+              {joinSuccessNotification}
+            </div>
+          </div>
+          <button
+            onClick={() => setJoinSuccessNotification(null)}
+            className="text-text-tertiary hover:text-text-primary text-xs font-mono px-1"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -1430,172 +1757,514 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
         isOpen={Boolean(targetItemForJoin)}
         onClose={() => setTargetItemForJoin(null)}
         title={isEn ? `Record Waitlist Registration: ${targetItemForJoin?.project_name || ""}` : `Catat Pendaftaran Waitlist: ${targetItemForJoin?.project_name || ""}`}
-        description={isEn ? "Save account or email info used to sign up for this waitlist so you won't forget during distribution." : "Simpan informasi akun atau email yang kamu gunakan untuk mendaftar waitlist ini agar tidak lupa saat distribusi."}
-        maxWidth="md"
+        description={isEn ? "Save account or wallet info used to sign up for this waitlist so you won't forget during reward distribution." : "Simpan informasi akun atau wallet yang kamu gunakan untuk mendaftar waitlist ini agar tidak lupa saat distribusi reward."}
+        maxWidth="lg"
       >
         <form onSubmit={handleSaveJoinStatus} className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-caption font-semibold text-text-primary">
-                {isEn ? "Registered Account / Wallet" : "Akun / Wallet Terdaftar"} <span className="text-accent">*</span>
-              </label>
-              <Link
-                href="/wallets"
-                target="_blank"
-                className="text-[11px] text-accent hover:underline inline-flex items-center gap-1 transition-colors font-medium"
-                title={isEn ? "Manage Wallets & Accounts" : "Kelola Dompet & Akun"}
+          {/* Error Notice */}
+          {saveError && (
+            <div className="p-3.5 rounded-xl bg-status-overdue/10 border border-status-overdue/30 text-status-overdue text-body-sm flex items-start gap-2.5 animate-in fade-in duration-200">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-status-overdue" />
+              <div className="space-y-0.5 flex-1 min-w-0">
+                <span className="font-semibold block">{isEn ? "Failed to Save" : "Gagal Menyimpan Catatan"}</span>
+                <span className="text-caption text-text-secondary break-words">{saveError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSaveError(null)}
+                className="text-text-tertiary hover:text-text-primary p-1 transition-colors"
+                title="Tutup"
               >
-                <span>{isEn ? "Manage Wallets & Accounts" : "Kelola Dompet & Akun"}</span>
-                <ExternalLink className="w-2.5 h-2.5" />
-              </Link>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Identity Quick Picker Section */}
+          <div className="p-3 sm:p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+            {/* Header with Title & Quick Add Action */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-[11px] font-mono font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-accent" />
+                <span>{isEn ? "Quick Pick from Saved Identities:" : "Pilih Cepat dari Dompet & Akun:"}</span>
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsQuickAddOpen(!isQuickAddOpen);
+                    setQuickAddError(null);
+                  }}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-caption font-semibold transition-all border ${
+                    isQuickAddOpen
+                      ? "bg-accent text-on-accent border-accent shadow-xs"
+                      : "bg-accent/15 text-accent border-accent/30 hover:bg-accent/25"
+                  }`}
+                  title={isEn ? "Add a new wallet or account directly without leaving this page" : "Tambah wallet atau akun baru langsung tanpa berpindah halaman"}
+                >
+                  <Plus className={`w-3.5 h-3.5 transition-transform ${isQuickAddOpen ? "rotate-45" : ""}`} />
+                  <span>{isQuickAddOpen ? (isEn ? "Close Form" : "Tutup") : (isEn ? "+ Quick Add" : "+ Tambah Cepat")}</span>
+                </button>
+
+                <Link
+                  href="/wallets"
+                  target="_blank"
+                  className="text-[11px] text-text-tertiary hover:text-accent transition-colors inline-flex items-center gap-1 font-medium"
+                  title={isEn ? "Manage all wallets & accounts in a new tab" : "Kelola semua dompet & akun di tab baru"}
+                >
+                  <span>{isEn ? "Manage" : "Kelola"}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              </div>
             </div>
 
-            {/* Quick Picker Buttons (Tombol Cepat) */}
-            {(savedWallets.length > 0 || savedAccounts.length > 0 || connectedAddress) && (
-              <div className="mb-2 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1.5">
-                <span className="text-[10px] font-mono text-text-tertiary uppercase tracking-wider flex items-center gap-1.5">
-                  <Zap className="w-3 h-3 text-accent" />
-                  <span>{isEn ? "Quick Select from Saved Identities:" : "Pilih Cepat dari Dompet & Akun:"}</span>
-                </span>
-                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-0.5">
-                  {/* Connected Browser Wallet */}
-                  {connectedAddress && (
+            {/* INLINE QUICK ADD FORM (NO PAGE RELOAD / NAV) */}
+            {isQuickAddOpen && (
+              <div className="p-3 rounded-xl bg-bg-elevated border border-accent/40 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center justify-between border-b border-border-hairline pb-2">
+                  <span className="text-caption font-semibold text-text-primary">
+                    {isEn ? "Quick Add Identity to Workspace:" : "Tambah Cepat ke Ruang Kerja:"}
+                  </span>
+                  <div className="inline-flex items-center p-0.5 rounded-lg bg-bg-base border border-border-hairline">
                     <button
                       type="button"
-                      onClick={() => setAccountInput(connectedAddress)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
-                        accountInput.toLowerCase() === connectedAddress.toLowerCase()
-                          ? "bg-accent text-on-accent border-accent font-semibold shadow-xs"
+                      onClick={() => {
+                        setQuickAddType("wallet");
+                        setQuickAddError(null);
+                      }}
+                      className={`px-2.5 py-0.5 rounded text-[11px] font-semibold transition-all ${
+                        quickAddType === "wallet"
+                          ? "bg-accent text-on-accent"
+                          : "text-text-tertiary hover:text-text-primary"
+                      }`}
+                    >
+                      {isEn ? "Wallet" : "Dompet"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuickAddType("account");
+                        setQuickAddError(null);
+                      }}
+                      className={`px-2.5 py-0.5 rounded text-[11px] font-semibold transition-all ${
+                        quickAddType === "account"
+                          ? "bg-accent text-on-accent"
+                          : "text-text-tertiary hover:text-text-primary"
+                      }`}
+                    >
+                      {isEn ? "Social / Email" : "Sosial / Email"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Add Error */}
+                {quickAddError && (
+                  <div className="p-2 rounded-lg bg-status-overdue/10 border border-status-overdue/30 text-status-overdue text-[11px]">
+                    {quickAddError}
+                  </div>
+                )}
+
+                {/* Wallet Form */}
+                {quickAddType === "wallet" && (
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                        {isEn ? "Wallet Public Address" : "Alamat Publik Dompet"} <span className="text-accent">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={quickWalletAddress}
+                        onChange={(e) => setQuickWalletAddress(e.target.value)}
+                        placeholder="0x... / Solana / Sui / Btc address"
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-bg-base border border-border-hairline text-body-sm text-text-primary font-mono placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                          {isEn ? "Label / Name (Optional)" : "Label / Nama (Opsional)"}
+                        </label>
+                        <input
+                          type="text"
+                          value={quickWalletLabel}
+                          onChange={(e) => setQuickWalletLabel(e.target.value)}
+                          placeholder={isEn ? "e.g. Metamask Main, Burner 1" : "Contoh: Metamask Utama, Tuyul 1"}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-bg-base border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                          Chain Network
+                        </label>
+                        <CustomSelect
+                          value={quickWalletChain}
+                          onChange={(val) => setQuickWalletChain(val)}
+                          options={QUICK_CHAIN_OPTIONS}
+                          size="sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsQuickAddOpen(false)}
+                        className="px-2.5 py-1 rounded-lg text-[11px] text-text-tertiary hover:text-text-primary"
+                      >
+                        {isEn ? "Cancel" : "Batal"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleQuickAddWallet}
+                        disabled={isSubmittingQuickAdd}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-accent text-on-accent font-semibold text-caption hover:bg-accent-pressed disabled:opacity-50 transition-colors"
+                      >
+                        {isSubmittingQuickAdd ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        )}
+                        <span>{isEn ? "Save & Select" : "Simpan & Pilih"}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Account Form */}
+                {quickAddType === "account" && (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                          Platform <span className="text-accent">*</span>
+                        </label>
+                        <CustomSelect
+                          value={quickAccountPlatform}
+                          onChange={(val) => setQuickAccountPlatform(val)}
+                          options={QUICK_PLATFORM_OPTIONS}
+                          size="sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                          {isEn ? "Username / Handle / Email" : "Username / Handle / Email"} <span className="text-accent">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={quickAccountHandle}
+                          onChange={(e) => setQuickAccountHandle(e.target.value)}
+                          placeholder="@username / user@mail.com"
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-bg-base border border-border-hairline text-body-sm text-text-primary font-mono placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                        {isEn ? "Label / Account Alias (Optional)" : "Label / Keterangan Akun (Opsional)"}
+                      </label>
+                      <input
+                        type="text"
+                        value={quickAccountLabel}
+                        onChange={(e) => setQuickAccountLabel(e.target.value)}
+                        placeholder={isEn ? "e.g. Farming X Account 2" : "Contoh: Akun X Farming 2"}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-bg-base border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsQuickAddOpen(false)}
+                        className="px-2.5 py-1 rounded-lg text-[11px] text-text-tertiary hover:text-text-primary"
+                      >
+                        {isEn ? "Cancel" : "Batal"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleQuickAddAccount}
+                        disabled={isSubmittingQuickAdd}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-accent text-on-accent font-semibold text-caption hover:bg-accent-pressed disabled:opacity-50 transition-colors"
+                      >
+                        {isSubmittingQuickAdd ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        )}
+                        <span>{isEn ? "Save & Select" : "Simpan & Pilih"}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Category Tabs & Mini Search (Organized multi-identity view) */}
+            {categoryCounts.all > 0 && (
+              <div className="space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  {/* Category Filter Pills */}
+                  <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-bg-base border border-border-hairline overflow-x-auto no-scrollbar">
+                    <button
+                      type="button"
+                      onClick={() => setPickerCategory("all")}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold whitespace-nowrap transition-all ${
+                        pickerCategory === "all"
+                          ? "bg-accent text-on-accent shadow-xs"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      {isEn ? "All" : "Semua"} ({categoryCounts.all})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPickerCategory("wallets")}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold whitespace-nowrap transition-all ${
+                        pickerCategory === "wallets"
+                          ? "bg-accent text-on-accent shadow-xs"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      {isEn ? "Wallets" : "Dompet"} ({categoryCounts.wallets})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPickerCategory("socials")}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold whitespace-nowrap transition-all ${
+                        pickerCategory === "socials"
+                          ? "bg-accent text-on-accent shadow-xs"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      {isEn ? "Socials" : "Sosial"} ({categoryCounts.socials})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPickerCategory("email")}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold whitespace-nowrap transition-all ${
+                        pickerCategory === "email"
+                          ? "bg-accent text-on-accent shadow-xs"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      Email ({categoryCounts.email})
+                    </button>
+                  </div>
+
+                  {/* Instant Mini Search Bar */}
+                  <div className="relative flex-1 sm:max-w-[210px]">
+                    <Search className="w-3.5 h-3.5 text-text-tertiary absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={pickerSearch}
+                      onChange={(e) => setPickerSearch(e.target.value)}
+                      placeholder={isEn ? "Filter identities..." : "Cari dompet/akun..."}
+                      className="w-full pl-7 pr-6 py-1 rounded-lg bg-bg-base border border-border-hairline text-[11px] text-text-primary font-mono placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                    />
+                    {pickerSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setPickerSearch("")}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary p-0.5 text-xs font-mono"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Filtered Identities List */}
+                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+                  {/* Connected Browser Wallet */}
+                  {filteredIdentities.connected && (
+                    <button
+                      type="button"
+                      onClick={() => setAccountInput(filteredIdentities.connected!.address)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-mono transition-all border ${
+                        accountInput.toLowerCase() === filteredIdentities.connected.address.toLowerCase()
+                          ? "bg-accent text-on-accent border-accent font-semibold shadow-xs ring-1 ring-accent"
                           : "bg-white/[0.04] text-accent border-accent/40 hover:bg-accent/15"
                       }`}
-                      title={`Connected: ${connectedAddress}`}
+                      title={`Connected Browser: ${filteredIdentities.connected.address}`}
                     >
-                      <Wallet className="w-3 h-3" />
-                      <span>
-                        {isEn ? "Connected" : "Terkoneksi"}: {connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)}
+                      <Wallet className="w-3.5 h-3.5" />
+                      <span className="px-1 py-0.2 rounded text-[9px] bg-accent/20 border border-accent/40 font-bold uppercase">
+                        Browser
                       </span>
-                      {accountInput.toLowerCase() === connectedAddress.toLowerCase() && (
+                      <span>
+                        {filteredIdentities.connected.address.slice(0, 6)}...{filteredIdentities.connected.address.slice(-4)}
+                      </span>
+                      {accountInput.toLowerCase() === filteredIdentities.connected.address.toLowerCase() && (
                         <Check className="w-3 h-3 stroke-[3]" />
                       )}
                     </button>
                   )}
 
                   {/* Saved Wallets */}
-                  {savedWallets.map((w) => {
+                  {filteredIdentities.wallets.map((w) => {
                     const isSelected = accountInput.toLowerCase() === w.address.toLowerCase();
                     return (
                       <button
                         key={w.id}
                         type="button"
                         onClick={() => setAccountInput(w.address)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-mono transition-all border ${
                           isSelected
-                            ? "bg-accent text-on-accent border-accent font-semibold shadow-xs"
+                            ? "bg-accent text-on-accent border-accent font-semibold shadow-xs ring-1 ring-accent"
                             : "bg-white/[0.04] text-text-primary border-border-hairline hover:border-accent hover:text-accent"
                         }`}
-                        title={`${w.label || "Wallet"}: ${w.address}`}
+                        title={`${w.label || "Wallet"} (${w.chain}): ${w.address}`}
                       >
-                        <Wallet className="w-3 h-3 text-accent" />
-                        <span>
+                        <Wallet className="w-3.5 h-3.5 text-accent shrink-0" />
+                        {w.chain && (
+                          <span className={`px-1 py-0.2 rounded text-[9px] font-bold uppercase border ${
+                            isSelected
+                              ? "bg-on-accent/15 text-on-accent border-on-accent/30"
+                              : "bg-white/[0.06] text-text-secondary border-white/10"
+                          }`}>
+                            {w.chain}
+                          </span>
+                        )}
+                        <span className="truncate max-w-[140px]">
                           {w.label ? `${w.label}: ` : ""}
                           {w.address.slice(0, 6)}...{w.address.slice(-4)}
                         </span>
-                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        {isSelected && <Check className="w-3 h-3 stroke-[3] shrink-0" />}
                       </button>
                     );
                   })}
 
                   {/* Saved Social Accounts */}
-                  {savedAccounts.map((acc) => {
+                  {filteredIdentities.socials.map((acc) => {
                     const isSelected = accountInput.toLowerCase() === acc.handle.toLowerCase();
                     const isTwitter =
                       acc.platform.toLowerCase().includes("twitter") ||
                       acc.platform.toLowerCase().includes("x");
                     const isDiscord = acc.platform.toLowerCase().includes("discord");
                     const isTelegram = acc.platform.toLowerCase().includes("telegram");
-                    const isMail =
-                      acc.platform.toLowerCase().includes("email") ||
-                      acc.platform.toLowerCase().includes("mail");
 
                     return (
                       <button
                         key={acc.id}
                         type="button"
                         onClick={() => setAccountInput(acc.handle)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-mono transition-all border ${
                           isSelected
-                            ? "bg-accent text-on-accent border-accent font-semibold shadow-xs"
+                            ? "bg-accent text-on-accent border-accent font-semibold shadow-xs ring-1 ring-accent"
                             : "bg-white/[0.04] text-text-primary border-border-hairline hover:border-link-teal hover:text-link-teal"
                         }`}
                         title={`${acc.label || acc.platform}: ${acc.handle}`}
                       >
-                        {isTwitter && <AtSign className="w-3 h-3 text-[#1DA1F2]" />}
-                        {isDiscord && <MessageSquare className="w-3 h-3 text-[#5865F2]" />}
-                        {isTelegram && <Send className="w-3 h-3 text-[#229ED9]" />}
-                        {isMail && <Mail className="w-3 h-3 text-accent" />}
-                        {!isTwitter && !isDiscord && !isTelegram && !isMail && (
-                          <UserCheck className="w-3 h-3 text-link-teal" />
+                        {isTwitter && <AtSign className="w-3.5 h-3.5 text-[#1DA1F2] shrink-0" />}
+                        {isDiscord && <MessageSquare className="w-3.5 h-3.5 text-[#5865F2] shrink-0" />}
+                        {isTelegram && <Send className="w-3.5 h-3.5 text-[#229ED9] shrink-0" />}
+                        {!isTwitter && !isDiscord && !isTelegram && (
+                          <UserCheck className="w-3.5 h-3.5 text-link-teal shrink-0" />
                         )}
-                        <span>{acc.label ? `${acc.label} (${acc.handle})` : acc.handle}</span>
-                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        <span className="truncate max-w-[160px]">
+                          {acc.label ? `${acc.label} (${acc.handle})` : acc.handle}
+                        </span>
+                        {isSelected && <Check className="w-3 h-3 stroke-[3] shrink-0" />}
                       </button>
                     );
                   })}
 
-                  {/* Quick User Login Email */}
-                  {currentUserEmail &&
-                    !savedAccounts.some(
-                      (a) => a.handle.toLowerCase() === currentUserEmail.toLowerCase()
-                    ) && (
+                  {/* Email Accounts */}
+                  {filteredIdentities.emails.map((item) => {
+                    const isSelected = accountInput.toLowerCase() === item.handle.toLowerCase();
+                    return (
                       <button
+                        key={item.id}
                         type="button"
-                        onClick={() => setAccountInput(currentUserEmail)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
-                          accountInput.toLowerCase() === currentUserEmail.toLowerCase()
-                            ? "bg-accent text-on-accent border-accent font-semibold shadow-xs"
-                            : "bg-white/[0.04] text-text-secondary border-border-hairline hover:border-accent hover:text-accent"
+                        onClick={() => setAccountInput(item.handle)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-mono transition-all border ${
+                          isSelected
+                            ? "bg-accent text-on-accent border-accent font-semibold shadow-xs ring-1 ring-accent"
+                            : "bg-white/[0.04] text-text-primary border-border-hairline hover:border-accent hover:text-accent"
                         }`}
-                        title={`Login Email: ${currentUserEmail}`}
+                        title={`${item.label || "Email"}: ${item.handle}`}
                       >
-                        <Mail className="w-3 h-3 text-accent" />
-                        <span>Email: {currentUserEmail}</span>
-                        {accountInput.toLowerCase() === currentUserEmail.toLowerCase() && (
-                          <Check className="w-3 h-3 stroke-[3]" />
-                        )}
+                        <Mail className="w-3.5 h-3.5 text-accent shrink-0" />
+                        <span className="truncate max-w-[190px]">
+                          {item.label ? `${item.label}: ` : ""}{item.handle}
+                        </span>
+                        {isSelected && <Check className="w-3 h-3 stroke-[3] shrink-0" />}
                       </button>
-                    )}
+                    );
+                  })}
+
+                  {/* Empty Search State */}
+                  {filteredIdentities.totalCount === 0 && (
+                    <div className="w-full py-4 text-center text-[11px] text-text-tertiary">
+                      {isEn
+                        ? `No identities matched "${pickerSearch}". Click "+ Quick Add" above to create one.`
+                        : `Tidak ada dompet atau akun yang cocok dengan "${pickerSearch}". Klik "+ Tambah Cepat" di atas.`}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {savedWallets.length === 0 && savedAccounts.length === 0 && !connectedAddress && (
-              <div className="mb-2 p-2 rounded-lg bg-white/[0.02] border border-border-hairline text-[11px] text-text-tertiary flex items-center justify-between">
+            {/* Empty State when zero identities saved */}
+            {categoryCounts.all === 0 && !isQuickAddOpen && (
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-border-hairline text-[11px] text-text-tertiary flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span>
-                  {isEn ? "No saved wallets or accounts yet." : "Belum ada wallet atau akun tersimpan."}
+                  {isEn
+                    ? "No saved wallets or accounts yet in your workspace."
+                    : "Belum ada wallet atau akun tersimpan di ruang kerja Anda."}
                 </span>
-                <Link
-                  href="/wallets"
-                  target="_blank"
-                  className="text-accent hover:underline inline-flex items-center gap-0.5 font-medium"
+                <button
+                  type="button"
+                  onClick={() => setIsQuickAddOpen(true)}
+                  className="text-accent hover:underline font-semibold inline-flex items-center gap-1 self-start sm:self-auto"
                 >
-                  <span>{isEn ? "+ Save in Wallets & Accounts" : "+ Catat di Wallets & Akun"}</span>
-                  <ExternalLink className="w-2.5 h-2.5" />
-                </Link>
+                  <span>{isEn ? "+ Quick Add Now" : "+ Tambah Cepat Sekarang"}</span>
+                </button>
               </div>
             )}
+          </div>
 
+          {/* Account Input Field */}
+          <div>
+            <label className="block text-caption font-semibold text-text-primary mb-1">
+              {isEn ? "Registered Account / Wallet" : "Akun / Wallet Terdaftar"} <span className="text-accent">*</span>
+            </label>
             <input
               type="text"
               required
               value={accountInput}
-              onChange={(e) => setAccountInput(e.target.value)}
+              onChange={(e) => {
+                setAccountInput(e.target.value);
+                if (saveError) setSaveError(null);
+              }}
               placeholder={
                 isEn
-                  ? "e.g. hunter@gmail.com / @x_handle / 0x123..."
-                  : "Contoh: airdrop_hunter@gmail.com / @username_x / 0x123..."
+                  ? "e.g. hunter@gmail.com / @x_handle / 0x123... / Solana..."
+                  : "Contoh: airdrop_hunter@gmail.com / @username_x / 0x123... / Solana..."
               }
               className="w-full px-3 py-2 rounded-md bg-bg-elevated border border-border-hairline text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent font-mono"
             />
+
+            {/* Smart Suggestion Chip to Save Typed Value */}
+            {accountInput.trim().length >= 3 &&
+              !savedWallets.some((w) => w.address.toLowerCase() === accountInput.trim().toLowerCase()) &&
+              !savedAccounts.some((a) => a.handle.toLowerCase() === accountInput.trim().toLowerCase()) &&
+              (!currentUserEmail || currentUserEmail.toLowerCase() !== accountInput.trim().toLowerCase()) &&
+              (!connectedAddress || connectedAddress.toLowerCase() !== accountInput.trim().toLowerCase()) && (
+                <div className="mt-1.5 flex items-center justify-between gap-2 p-2 rounded-lg bg-accent/10 border border-accent/20 text-[11px] text-accent animate-in fade-in duration-150">
+                  <span className="truncate">
+                    {isEn ? `Save "${accountInput}" to your identities?` : `Simpan "${accountInput}" ke daftar Dompet & Akun Anda?`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handlePrefillQuickAdd(accountInput)}
+                    className="px-2 py-0.5 rounded font-semibold bg-accent text-on-accent hover:bg-accent-pressed transition-colors shrink-0 text-[10px]"
+                  >
+                    {isEn ? "+ Save to Data" : "+ Simpan ke Data"}
+                  </button>
+                </div>
+            )}
+
             <p className="text-[11px] text-text-tertiary mt-1">
               {isEn
                 ? "Note email, wallet, or social handle used when submitting this waitlist."
@@ -1603,6 +2272,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             </p>
           </div>
 
+          {/* Referral Link / Registration URL */}
           <div>
             <label className="block text-caption font-semibold text-text-primary mb-1">
               {isEn ? "Referral Link / Registration URL (Optional)" : "Link Referal / URL Pendaftaran (Opsional)"}
@@ -1616,6 +2286,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             />
           </div>
 
+          {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-hairline">
             <ButtonSecondary type="button" onClick={() => setTargetItemForJoin(null)}>
               {isEn ? "Cancel" : "Batal"}
@@ -1623,14 +2294,14 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
             <button
               type="submit"
               disabled={isSavingStatus}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-accent text-on-accent font-semibold text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-accent text-on-accent font-semibold text-body-sm hover:bg-accent-pressed disabled:opacity-50 transition-colors shadow-sm"
             >
               {isSavingStatus ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
                 <ShieldCheck className="w-4 h-4" />
               )}
-              <span>{isEn ? "Save Notes" : "Simpan Catatan"}</span>
+              <span>{isSavingStatus ? (isEn ? "Saving..." : "Menyimpan...") : (isEn ? "Save Notes" : "Simpan Catatan")}</span>
             </button>
           </div>
         </form>

@@ -261,3 +261,67 @@ export async function fetchQuickPickerIdentities(): Promise<{
     userEmail: user.email || null,
   };
 }
+
+/**
+ * Save a new wallet item for the logged-in user.
+ * If wallet address already exists for user, updates label/chain and returns existing.
+ */
+export async function createWalletItem(payload: {
+  address: string;
+  label?: string | null;
+  chain?: string | null;
+}): Promise<{ id: string; address: string; label: string | null; chain: string | null }> {
+  const supabase = createClient() as any;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Sesi login berakhir.");
+
+  const cleanAddr = payload.address.trim();
+  if (!cleanAddr) throw new Error("Alamat wallet tidak boleh kosong.");
+
+  // Check if wallet already exists for this user
+  const { data: existing } = await supabase
+    .from("wallets")
+    .select("id, address, label, chain")
+    .eq("user_id", user.id)
+    .ilike("address", cleanAddr)
+    .maybeSingle();
+
+  if (existing) {
+    if (payload.label || payload.chain) {
+      await supabase
+        .from("wallets")
+        .update({
+          label: payload.label?.trim() || existing.label,
+          chain: payload.chain?.trim() || existing.chain,
+        })
+        .eq("id", existing.id);
+      return {
+        ...existing,
+        label: payload.label?.trim() || existing.label,
+        chain: payload.chain?.trim() || existing.chain,
+      };
+    }
+    return existing;
+  }
+
+  const { data, error } = await supabase
+    .from("wallets")
+    .insert({
+      user_id: user.id,
+      address: cleanAddr,
+      label: payload.label?.trim() || null,
+      chain: payload.chain?.trim() || null,
+    })
+    .select("id, address, label, chain")
+    .single();
+
+  if (error) {
+    console.error("createWalletItem error:", error);
+    throw new Error(error.message || "Gagal menyimpan wallet.");
+  }
+
+  return data;
+}

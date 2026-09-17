@@ -94,39 +94,70 @@ export async function updateWaitlistStatus(
         const { error } = await supabase
           .from("waitlists")
           .update({
-            registered_account: registeredAccount,
-            ref_link: refLink,
+            registered_account: registeredAccount || null,
+            ref_link: refLink || null,
             updated_at: nowIso,
           })
           .eq("id", waitlistId);
-        return !error;
+        if (error) {
+          console.error("updateWaitlistStatus update error:", error);
+          throw new Error(error.message || "Gagal memperbarui catatan waitlist.");
+        }
+        return true;
       }
 
-      // If joining from shared pending catalog, insert a personal joined record for this user
-      const { error } = await supabase
+      // If joining from shared pending catalog, check if user already has a joined row for this source_url
+      const { data: existingJoined } = await supabase
         .from("waitlists")
-        .upsert(
-          {
-            user_id: user.id,
-            project_name: targetItem.project_name,
-            title: targetItem.title,
-            summary: targetItem.summary,
-            channel: targetItem.channel,
-            source_url: targetItem.source_url,
-            raw_text: targetItem.raw_text,
-            status: "joined",
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("source_url", targetItem.source_url)
+        .eq("status", "joined")
+        .maybeSingle();
+
+      if (existingJoined) {
+        const { error } = await supabase
+          .from("waitlists")
+          .update({
             registered_account: registeredAccount || null,
             ref_link: refLink || targetItem.ref_link || null,
-            tasks: targetItem.tasks || [],
-            joined_at: nowIso,
-            created_at: targetItem.created_at || nowIso,
-            expires_at: targetItem.expires_at,
             updated_at: nowIso,
-          },
-          { onConflict: "user_id,source_url" }
-        );
+          })
+          .eq("id", existingJoined.id);
+        if (error) {
+          console.error("updateWaitlistStatus existingJoined update error:", error);
+          throw new Error(error.message || "Gagal memperbarui catatan waitlist.");
+        }
+        return true;
+      }
 
-      return !error;
+      // Insert a fresh personal joined record for this user
+      const { error } = await supabase
+        .from("waitlists")
+        .insert({
+          user_id: user.id,
+          project_name: targetItem.project_name,
+          title: targetItem.title,
+          summary: targetItem.summary,
+          channel: targetItem.channel,
+          source_url: targetItem.source_url,
+          raw_text: targetItem.raw_text,
+          status: "joined",
+          registered_account: registeredAccount || null,
+          ref_link: refLink || targetItem.ref_link || null,
+          tasks: targetItem.tasks || [],
+          joined_at: nowIso,
+          created_at: targetItem.created_at || nowIso,
+          expires_at: targetItem.expires_at,
+          updated_at: nowIso,
+        });
+
+      if (error) {
+        console.error("updateWaitlistStatus insert error:", error);
+        throw new Error(error.message || "Gagal menyimpan catatan waitlist baru.");
+      }
+
+      return true;
     } else {
       // Unjoin: if this is user's personal row, delete it
       if (targetItem.user_id === user.id) {
@@ -134,13 +165,17 @@ export async function updateWaitlistStatus(
           .from("waitlists")
           .delete()
           .eq("id", waitlistId);
-        return !error;
+        if (error) {
+          console.error("updateWaitlistStatus delete error:", error);
+          throw new Error(error.message || "Gagal menghapus status join waitlist.");
+        }
+        return true;
       }
       return true;
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error("updateWaitlistStatus error:", err);
-    return false;
+    throw err;
   }
 }
 
