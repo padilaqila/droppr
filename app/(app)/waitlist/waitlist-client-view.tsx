@@ -1570,7 +1570,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                       title={isEn ? "Convert to full Droppr project" : "Jadikan proyek garapan Droppr"}
                     >
                       <FolderPlus className="w-3.5 h-3.5" />
-                      <span>{isEn ? "+ Project" : "+ Proyek"}</span>
+                      <span>{isEn ? "Project" : "Proyek"}</span>
                     </button>
                   </div>
                 </div>
@@ -1804,7 +1804,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   title={isEn ? "Add a new wallet or account directly without leaving this page" : "Tambah wallet atau akun baru langsung tanpa berpindah halaman"}
                 >
                   <Plus className={`w-3.5 h-3.5 transition-transform ${isQuickAddOpen ? "rotate-45" : ""}`} />
-                  <span>{isQuickAddOpen ? (isEn ? "Close Form" : "Tutup") : (isEn ? "+ Quick Add" : "+ Tambah Cepat")}</span>
+                  <span>{isQuickAddOpen ? (isEn ? "Close Form" : "Tutup") : (isEn ? "Quick Add" : "Tambah Cepat")}</span>
                 </button>
 
                 <Link
@@ -2197,8 +2197,8 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   {filteredIdentities.totalCount === 0 && (
                     <div className="w-full py-4 text-center text-[11px] text-text-tertiary">
                       {isEn
-                        ? `No identities matched "${pickerSearch}". Click "+ Quick Add" above to create one.`
-                        : `Tidak ada dompet atau akun yang cocok dengan "${pickerSearch}". Klik "+ Tambah Cepat" di atas.`}
+                        ? `No identities matched "${pickerSearch}". Click "Quick Add" above to create one.`
+                        : `Tidak ada dompet atau akun yang cocok dengan "${pickerSearch}". Klik "Tambah Cepat" di atas.`}
                     </div>
                   )}
                 </div>
@@ -2218,7 +2218,8 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   onClick={() => setIsQuickAddOpen(true)}
                   className="text-accent hover:underline font-semibold inline-flex items-center gap-1 self-start sm:self-auto"
                 >
-                  <span>{isEn ? "+ Quick Add Now" : "+ Tambah Cepat Sekarang"}</span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isEn ? "Quick Add Now" : "Tambah Cepat Sekarang"}</span>
                 </button>
               </div>
             )}
@@ -2258,9 +2259,10 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                   <button
                     type="button"
                     onClick={() => handlePrefillQuickAdd(accountInput)}
-                    className="px-2 py-0.5 rounded font-semibold bg-accent text-on-accent hover:bg-accent-pressed transition-colors shrink-0 text-[10px]"
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded font-semibold bg-accent text-on-accent hover:bg-accent-pressed transition-colors shrink-0 text-[10px]"
                   >
-                    {isEn ? "+ Save to Data" : "+ Simpan ke Data"}
+                    <Plus className="w-3 h-3" />
+                    <span>{isEn ? "Save to Data" : "Simpan ke Data"}</span>
                   </button>
                 </div>
             )}
@@ -2466,7 +2468,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           title="Ekstrak langkah-langkah tugas dari pesan ini dan pindahkan ke tugas proyek airdrop"
                         >
                           <Rocket className="w-3 h-3" />
-                          <span>+ Pindahkan ke Tugas Airdrop</span>
+                          <span>Pindahkan ke Tugas Airdrop</span>
                         </button>
                       </div>
                     </div>

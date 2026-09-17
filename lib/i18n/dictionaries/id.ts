@@ -260,7 +260,7 @@ export const id = {
     paidOnly: "Berbayar / Gas",
     unimported: "Belum Jadi Proyek",
     imported: "Sudah Jadi Proyek",
-    addProject: "+ Kerjakan Jadi Proyek",
+    addProject: "Kerjakan Jadi Proyek",
     viewProject: "Lihat Proyek",
     viewOriginal: "Postingan Asli",
     emptyFeed: "Belum ada sinyal airdrop",

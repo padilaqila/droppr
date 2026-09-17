@@ -262,7 +262,7 @@ export const en: Dictionary = {
     paidOnly: "Paid / Gas",
     unimported: "Not Imported",
     imported: "Imported as Project",
-    addProject: "+ Work as Project",
+    addProject: "Work as Project",
     viewProject: "View Project",
     viewOriginal: "Original Post",
     emptyFeed: "No airdrop signals yet",
