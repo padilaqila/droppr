@@ -73,7 +73,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
 
   return (
     <>
-      <header className="h-14 bg-bg-base border-b border-border-hairline px-3 sm:px-6 flex items-center justify-between sticky top-0 z-20">
+      <header className="h-14 bg-bg-base/80 backdrop-blur-md border-b border-border-hairline px-3 sm:px-6 flex items-center justify-between sticky top-0 z-20">
         {/* Left Side: Hamburger (Mobile) + Mini Brand (Mobile) + Search Bar */}
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Hamburger Menu Button (Mobile Only) */}

@@ -56,20 +56,48 @@
     scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
   }
 
+  /* Morfi Markets inspired high-density dot grid & ambient sapphire radial glow */
   .bg-dot-grid-static {
-    background-size: 26px 26px;
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1.2px, transparent 1.2px);
+    background-color: var(--color-bg-base, #14181F);
+    background-image:
+      /* Layer 1: High-density crisp dot grid (20px pitch, 1.1px radius) */
+      radial-gradient(circle at center, rgba(255, 255, 255, 0.085) 1.1px, transparent 1.1px),
+      /* Layer 2: Radiant Sapphire / Royal Blue Ambient Radial Glow (centered top) */
+      radial-gradient(ellipse 85% 650px at 50% 0%, rgba(37, 99, 235, 0.18) 0%, rgba(29, 78, 216, 0.09) 45%, transparent 85%),
+      /* Layer 3: Soft ambient atmospheric tint across upper workspace */
+      linear-gradient(180deg, rgba(30, 64, 175, 0.06) 0%, transparent 280px);
+    background-size: 20px 20px, 100% 750px, 100% 280px;
+    background-position: center top, center top, center top;
+    background-repeat: repeat, no-repeat, no-repeat;
   }
   .light .bg-dot-grid-static {
-    background-image: radial-gradient(circle, rgba(20, 24, 31, 0.12) 1.2px, transparent 1.2px);
+    background-color: var(--color-light-surface, #F5F3EF);
+    background-image:
+      radial-gradient(circle at center, rgba(20, 24, 31, 0.075) 1.1px, transparent 1.1px),
+      radial-gradient(ellipse 85% 650px at 50% 0%, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.03) 45%, transparent 85%),
+      linear-gradient(180deg, rgba(59, 130, 246, 0.04) 0%, transparent 280px);
+    background-size: 20px 20px, 100% 750px, 100% 280px;
+    background-position: center top, center top, center top;
+    background-repeat: repeat, no-repeat, no-repeat;
   }
 
   .bg-dot-matrix {
-    background-size: 24px 24px;
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.15) 1.25px, transparent 1.25px);
+    background-color: var(--color-bg-base, #14181F);
+    background-image:
+      radial-gradient(circle at center, rgba(255, 255, 255, 0.09) 1.1px, transparent 1.1px),
+      radial-gradient(ellipse 85% 650px at 50% 0%, rgba(37, 99, 235, 0.18) 0%, rgba(29, 78, 216, 0.09) 45%, transparent 85%);
+    background-size: 20px 20px, 100% 750px;
+    background-position: center top, center top;
+    background-repeat: repeat, no-repeat;
   }
   .light .bg-dot-matrix {
-    background-image: radial-gradient(circle, rgba(20, 24, 31, 0.18) 1.25px, transparent 1.25px);
+    background-color: var(--color-light-surface, #F5F3EF);
+    background-image:
+      radial-gradient(circle at center, rgba(20, 24, 31, 0.08) 1.1px, transparent 1.1px),
+      radial-gradient(ellipse 85% 650px at 50% 0%, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.03) 45%, transparent 85%);
+    background-size: 20px 20px, 100% 750px;
+    background-position: center top, center top;
+    background-repeat: repeat, no-repeat;
   }
 
   @keyframes radar-pulse {
