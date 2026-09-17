@@ -10,7 +10,9 @@ interface ModalProps {
   title: string;
   description?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl";
+  bodyClassName?: string;
 }
 
 export function Modal({
@@ -19,7 +21,9 @@ export function Modal({
   title,
   description,
   children,
+  footer,
   maxWidth = "lg",
+  bodyClassName,
 }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -52,7 +56,7 @@ export function Modal({
   }[maxWidth];
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2.5 sm:p-4 overscroll-contain">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 overscroll-contain">
       {/* Full-screen Backdrop overlay */}
       <div
         className="fixed inset-0 bg-[#07090E]/80 backdrop-blur-md transition-opacity"
@@ -61,12 +65,12 @@ export function Modal({
 
       {/* Modal Dialog Content */}
       <div
-        className={`relative w-full ${maxWidthClass} bg-bg-elevated border border-border-hairline rounded-2xl shadow-2xl z-10 overflow-hidden flex flex-col max-h-[90vh] overscroll-contain my-auto`}
+        className={`relative w-full ${maxWidthClass} bg-bg-elevated border border-border-hairline rounded-2xl shadow-2xl z-10 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[86vh] overscroll-contain my-auto`}
         role="dialog"
         aria-modal="true"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-border-hairline">
+        {/* Header (Pinned Top) */}
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-border-hairline shrink-0">
           <div>
             <h3 className="text-body-md sm:text-heading-3 font-semibold text-text-primary">
               {title}
@@ -87,8 +91,17 @@ export function Modal({
           </button>
         </div>
 
-        {/* Body Content */}
-        <div className="p-3.5 sm:p-6 overflow-y-auto no-scrollbar">{children}</div>
+        {/* Body Content (Scrollable Middle) */}
+        <div className={`flex-1 overflow-y-auto min-h-0 custom-scrollbar overscroll-contain ${bodyClassName ?? "p-3.5 sm:p-6"}`}>
+          {children}
+        </div>
+
+        {/* Optional Sticky Footer (Pinned Bottom) */}
+        {footer && (
+          <div className="shrink-0 border-t border-border-hairline bg-bg-elevated/95 backdrop-blur-md px-4 py-3 sm:px-6 sm:py-3.5 z-10">
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body

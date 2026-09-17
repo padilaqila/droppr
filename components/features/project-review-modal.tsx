@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/modal";
-import { ButtonPrimary } from "@/components/ui/button";
+import { ButtonPrimary, ButtonSecondary } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CustomSelect } from "@/components/ui/select";
 import {
@@ -640,12 +640,81 @@ export function ProjectReviewModal({
       isOpen={isOpen}
       onClose={onClose}
       title={isEn ? "Review & Refine Project Data" : "Review & Rapikan Data Proyek"}
-      description={isEn ? "Check and adjust farming routine & lifecycle data before adding to Droppr." : "Periksa dan sesuaikan rutinitas & siklus garapan sebelum resmi ditambahkan ke Droppr."}
+      description={
+        isEn
+          ? "Check and adjust farming routine & lifecycle data before adding to Droppr."
+          : "Periksa dan sesuaikan rutinitas & siklus garapan sebelum resmi ditambahkan ke Droppr."
+      }
       maxWidth="5xl"
+      bodyClassName="p-4 sm:p-6"
+      footer={
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+          {/* Status summary pill */}
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-text-tertiary">
+            <span className="inline-block w-2 h-2 rounded-full bg-accent shrink-0" />
+            <span className="text-text-secondary font-medium">
+              {selectedWalletIds.length > 0
+                ? isEn
+                  ? `${selectedWalletIds.length} wallets linked`
+                  : `${selectedWalletIds.length} dompet terpilih`
+                : isEn
+                ? "No wallet linked"
+                : "Tanpa dompet"}
+            </span>
+            <span>•</span>
+            <span>
+              {taskType === "daily"
+                ? isEn ? "Daily Routine" : "Rutinitas Harian"
+                : taskType === "weekly"
+                ? isEn ? "Weekly Routine" : "Rutinitas Mingguan"
+                : isEn ? "One-Time" : "Sekali Selesai"}
+            </span>
+            <span>•</span>
+            <span>
+              {reminderOption === "daily"
+                ? isEn ? `Alarm ${reminderTime}` : `Alarm ${reminderTime} WIB`
+                : reminderOption === "once"
+                ? `Alarm ${reminderDate}`
+                : reminderOption === "weekly"
+                ? (isEn ? "Weekly Alarm" : "Alarm Mingguan")
+                : (isEn ? "No Alarm" : "Tanpa Alarm")}
+            </span>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-2.5 shrink-0">
+            <ButtonSecondary
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="!py-2.5 !px-5 text-body-sm font-medium"
+            >
+              {isEn ? "Cancel" : "Batal"}
+            </ButtonSecondary>
+
+            <ButtonPrimary
+              type="submit"
+              form="project-review-form"
+              disabled={isSaving || !name.trim()}
+              className="!py-2.5 !px-6 text-body-sm font-semibold inline-flex items-center gap-2 shadow-lg shadow-accent/20"
+            >
+              {isSaving ? (
+                <>
+                  <RotateCcw className="w-4 h-4 animate-spin" />
+                  <span>{isEn ? "Saving Project..." : "Menyimpan Proyek..."}</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>{isEn ? "Save & Open Project" : "Simpan & Buka Proyek"}</span>
+                </>
+              )}
+            </ButtonPrimary>
+          </div>
+        </div>
+      }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-        {/* Modal Body - Scrollable with comfortable breathing room */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 max-h-[calc(90vh-130px)] font-sans">
+      <form id="project-review-form" onSubmit={handleSubmit} className="space-y-6 font-sans">
           {/* Top Info Banner */}
           <div className="p-3.5 rounded-xl bg-accent/10 border border-accent/25 flex items-start gap-3 text-body-sm text-text-secondary">
             <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
@@ -1705,37 +1774,6 @@ export function ProjectReviewModal({
               />
             )}
           </div>
-        </div>
-
-        {/* Modal Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-t border-white/[0.08] bg-white/[0.02]">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-            className="px-4 py-2 rounded-xl text-body-sm font-medium text-text-secondary hover:text-text-primary hover:bg-white/[0.06] transition-colors disabled:opacity-50"
-          >
-            {isEn ? "Cancel" : "Batal"}
-          </button>
-
-          <ButtonPrimary
-            type="submit"
-            disabled={isSaving}
-            className="!py-2.5 !px-6 text-body-sm font-semibold inline-flex items-center gap-2 shadow-lg shadow-accent/20"
-          >
-            {isSaving ? (
-              <>
-                <RotateCcw className="w-4 h-4 animate-spin" />
-                <span>{isEn ? "Saving Project..." : "Menyimpan Proyek..."}</span>
-              </>
-            ) : (
-              <>
-                <Check className="w-4 h-4" />
-                <span>{isEn ? "Save & Open Project" : "Simpan & Buka Proyek"}</span>
-              </>
-            )}
-          </ButtonPrimary>
-        </div>
       </form>
     </Modal>
   );
