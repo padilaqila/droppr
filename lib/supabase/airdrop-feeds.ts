@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
 import { cleanHtmlEntities, sanitizeSurrogates, sanitizeJsonObject } from "./thread-updates";
-import { parseAirdropProjectData, cleanProjectName } from "./airdrop-parser";
+import { parseAirdropProjectData, cleanProjectName, isPotentialAirdropText } from "./airdrop-parser";
 import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
+import type { TelegramUpdateItem } from "@/app/api/telegram/search/route";
 
 export interface AirdropFeedItem {
   id: string;
@@ -203,6 +204,64 @@ export async function cleanupExpiredFeeds(): Promise<number> {
   }
 
   return 0;
+}
+
+/**
+ * Save an archived or deep-searched Telegram post into the airdrop_feeds table.
+ * Automatically gives it a fresh 30-day retention window from the moment of import.
+ */
+export async function saveTelegramPostToFeed(update: TelegramUpdateItem): Promise<{
+  success: boolean;
+  feedItem?: AirdropFeedItem;
+  error?: string;
+}> {
+  const supabase = createClient() as any;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Sesi login tidak valid. Silakan login ulang." };
+  }
+
+  try {
+    const parsed = parseAirdropProjectData(update.text, update.postUrl);
+    const postTime = update.date ? new Date(update.date).getTime() : Date.now();
+    const validTime = !isNaN(postTime) ? postTime : Date.now();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+    const row = {
+      user_id: user.id,
+      channel: update.channel,
+      channel_name: sanitizeSurrogates(update.channelName),
+      title: sanitizeSurrogates(parsed.name || cleanProjectName(update.text.split("\n")[0] || "Airdrop Project")),
+      summary: sanitizeSurrogates(update.text.slice(0, 200).replace(/\s+/g, " ")),
+      category: isPotentialAirdropText(update.text) ? "airdrop" : "testnet",
+      cost: "Gratis ($0)",
+      tasks: parsed.tasks.map((t) => sanitizeSurrogates(t.title)),
+      source_url: update.postUrl,
+      raw_text: sanitizeSurrogates(update.text),
+      created_at: new Date(validTime).toISOString(),
+      expires_at: new Date(Date.now() + thirtyDaysMs).toISOString(),
+      is_imported: false,
+    };
+
+    const { data, error } = await supabase
+      .from("airdrop_feeds")
+      .upsert([row], { onConflict: "source_url" })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error saving telegram post to feed:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, feedItem: data as AirdropFeedItem };
+  } catch (err: any) {
+    console.error("saveTelegramPostToFeed error:", err);
+    return { success: false, error: err?.message || "Gagal menyimpan postingan ke feed." };
+  }
 }
 
 export interface ConvertFeedResult {

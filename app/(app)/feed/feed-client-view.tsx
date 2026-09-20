@@ -37,11 +37,16 @@ import {
   Calendar,
   RotateCw,
   History,
+  AlertTriangle,
+  BookmarkPlus,
+  SearchX,
+  Radio,
 } from "lucide-react";
 import {
   fetchAirdropFeeds,
   deleteAirdropFeed,
   cleanupExpiredFeeds,
+  saveTelegramPostToFeed,
   type AirdropFeedItem,
 } from "@/lib/supabase/airdrop-feeds";
 import { ProjectReviewModal } from "@/components/features/project-review-modal";
@@ -50,6 +55,8 @@ import { getTranslationAction } from "@/lib/utils/language-prefs";
 import { cleanDuplicateLinks } from "@/lib/utils/clean-links";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmModal, type ConfirmModalState } from "@/components/ui/confirm-modal";
+import type { TelegramUpdateItem } from "@/app/api/telegram/search/route";
+import { cleanProjectName, isPotentialAirdropText } from "@/lib/supabase/airdrop-parser";
 
 interface FeedClientViewProps {
   initialFeeds: AirdropFeedItem[];
@@ -364,6 +371,163 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("droppr-sync-search", { detail: { query: val } }));
     }
+  };
+
+  // Telegram Channel Deep Search fallback state (when local feed search returns 0 results)
+  const [isDeepSearchingTg, setIsDeepSearchingTg] = useState(false);
+  const [deepTgResults, setDeepTgResults] = useState<TelegramUpdateItem[]>([]);
+  const [deepSearchAttemptedQuery, setDeepSearchAttemptedQuery] = useState("");
+  const [savingPostUrl, setSavingPostUrl] = useState<string | null>(null);
+
+  // Check whether search query matches any item in the full feeds list (ignoring category/cost filters)
+  const hasMatchInAnyCategory = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return false;
+    return feeds.some((f) => {
+      const matchTitle = f.title.toLowerCase().includes(q);
+      const matchSummary = (f.summary || "").toLowerCase().includes(q);
+      const matchRaw = f.raw_text.toLowerCase().includes(q);
+      return matchTitle || matchSummary || matchRaw;
+    });
+  }, [feeds, searchQuery]);
+
+  // Automatic Deep Search on Telegram channels when query yields 0 local matches
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q || q.length < 2) {
+      setDeepTgResults([]);
+      setDeepSearchAttemptedQuery("");
+      setIsDeepSearchingTg(false);
+      return;
+    }
+
+    // If local feed has matching items, do not trigger Telegram deep search
+    if (hasMatchInAnyCategory) {
+      setDeepTgResults([]);
+      setDeepSearchAttemptedQuery("");
+      setIsDeepSearchingTg(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsDeepSearchingTg(true);
+    setDeepSearchAttemptedQuery(q);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/telegram/search?q=${encodeURIComponent(q)}&channel=all`);
+        if (res.ok && !cancelled) {
+          const json = await res.json();
+          setDeepTgResults(Array.isArray(json.updates) ? json.updates : []);
+        } else if (!cancelled) {
+          setDeepTgResults([]);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Deep Telegram search error:", err);
+          setDeepTgResults([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsDeepSearchingTg(false);
+        }
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, hasMatchInAnyCategory]);
+
+  const handleTriggerDeepSearch = async (queryToSearch?: string) => {
+    const q = (queryToSearch || searchQuery).trim();
+    if (!q) return;
+    setIsDeepSearchingTg(true);
+    setDeepSearchAttemptedQuery(q);
+    try {
+      const res = await fetch(`/api/telegram/search?q=${encodeURIComponent(q)}&channel=all`);
+      if (res.ok) {
+        const json = await res.json();
+        setDeepTgResults(Array.isArray(json.updates) ? json.updates : []);
+      }
+    } catch (err) {
+      console.error("Manual deep Telegram search error:", err);
+    } finally {
+      setIsDeepSearchingTg(false);
+    }
+  };
+
+  const handleSaveTgToFeed = async (update: TelegramUpdateItem) => {
+    setSavingPostUrl(update.postUrl);
+    try {
+      const result = await saveTelegramPostToFeed(update);
+      if (result.success && result.feedItem) {
+        setFeeds((prev) => [result.feedItem!, ...prev.filter((f) => f.source_url !== update.postUrl)]);
+        setConfirmModal({
+          isOpen: true,
+          isAlert: true,
+          title: locale === "en" ? "Saved to Feed" : "Tersimpan ke Feed",
+          description:
+            locale === "en"
+              ? `Airdrop post "${result.feedItem.title}" has been saved to your Feed with a fresh 30-day active retention.`
+              : `Postingan airdrop "${result.feedItem.title}" berhasil disimpan ke Feed Anda dengan masa aktif 30 hari ke depan.`,
+          variant: "success",
+          confirmLabel: "OK",
+        });
+      } else {
+        setConfirmModal({
+          isOpen: true,
+          isAlert: true,
+          title: locale === "en" ? "Failed to Save" : "Gagal Menyimpan",
+          description: result.error || (locale === "en" ? "Unable to save post to feed." : "Tidak dapat menyimpan postingan ke feed."),
+          variant: "danger",
+          confirmLabel: "OK",
+        });
+      }
+    } catch (err: any) {
+      console.error("handleSaveTgToFeed error:", err);
+    } finally {
+      setSavingPostUrl(null);
+    }
+  };
+
+  const handleConvertTgToProject = (update: TelegramUpdateItem) => {
+    const parsedTitle = cleanProjectName(update.text.split("\n")[0] || searchQuery);
+    const feedItem: AirdropFeedItem = {
+      id: `tg-${update.id.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+      channel: (update.channel as any) || "dutacryptoairdrop",
+      channel_name: update.channelName || "Telegram Channel",
+      title: parsedTitle,
+      summary: update.text.slice(0, 200).replace(/\s+/g, " "),
+      category: isPotentialAirdropText(update.text) ? "airdrop" : "testnet",
+      cost: "Gratis ($0)",
+      tasks: [],
+      source_url: update.postUrl,
+      raw_text: update.text,
+      is_imported: false,
+      created_at: update.date,
+    };
+    setReviewingFeed(feedItem);
+  };
+
+  const handlePreviewTgUpdate = (update: TelegramUpdateItem) => {
+    const parsedTitle = cleanProjectName(update.text.split("\n")[0] || searchQuery);
+    const feedItem: AirdropFeedItem = {
+      id: `tg-${update.id.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+      channel: (update.channel as any) || "dutacryptoairdrop",
+      channel_name: update.channelName || "Telegram Channel",
+      title: parsedTitle,
+      summary: update.text.slice(0, 200).replace(/\s+/g, " "),
+      category: isPotentialAirdropText(update.text) ? "airdrop" : "testnet",
+      cost: "Gratis ($0)",
+      tasks: [],
+      source_url: update.postUrl,
+      raw_text: update.text,
+      is_imported: false,
+      created_at: update.date,
+    };
+    handleOpenPreview(feedItem);
   };
 
   // Realtime Supabase synchronization + Tab Focus auto-refetch
@@ -1236,48 +1400,316 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
       {/* FEED STREAM CONTAINER (Liquid Frosted Glass Telegram Message Style) */}
       <div className="space-y-4">
         {displayedFeeds.length === 0 ? (
-          <div className="p-12 text-center space-y-3 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20">
-            {matchingWaitlistCount && matchingWaitlistCount > 0 ? (
-              <div className="space-y-3 max-w-md mx-auto">
-                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center mx-auto shadow-lg shadow-purple-950/20">
-                  <Hourglass className="w-6 h-6" />
+          <div className="space-y-4">
+            {/* Case A: Found in other categories because of active filter */}
+            {hasMatchInAnyCategory ? (
+              <div className="p-8 sm:p-10 text-center space-y-3 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20">
+                <div className="w-12 h-12 rounded-2xl bg-accent/15 text-accent border border-accent/25 flex items-center justify-center mx-auto shadow-lg shadow-accent/10">
+                  <Layers2 className="w-6 h-6" />
                 </div>
                 <h3 className="text-body-md font-semibold text-text-primary">
                   {locale === "en"
-                    ? `"${searchQuery}" is registered in Waitlists!`
-                    : `"${searchQuery}" terdaftar di halaman Waitlist!`}
-                </h3>
-                <p className="text-caption text-text-secondary">
-                  {locale === "en"
-                    ? `Found ${matchingWaitlistCount} project(s) matching your search in the Waitlist section. Feed Airdrop is dedicated to Testnet & Airdrop tasks.`
-                    : `Ditemukan ${matchingWaitlistCount} garapan yang cocok di Halaman Waitlist. Feed Airdrop dikhususkan untuk tugas Testnet & Airdrop.`}
-                </p>
-                <div className="pt-2 flex justify-center gap-3">
-                  <Link
-                    href={`/waitlist?q=${encodeURIComponent(searchQuery.trim())}`}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-caption font-semibold transition-all shadow-md"
-                  >
-                    <span>{locale === "en" ? "View in Waitlists" : "Buka di Halaman Waitlist"}</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <>
-                <Rss className="w-9 h-9 text-text-tertiary mx-auto opacity-50" />
-                <h3 className="text-body-md font-semibold text-text-primary">
-                  {t("feed.noMatch")}
+                    ? `Matching project found in another category!`
+                    : `Garapan yang cocok ditemukan di kategori lain!`}
                 </h3>
                 <p className="text-caption text-text-secondary max-w-md mx-auto">
-                  {t("feed.noMatchDesc")}
+                  {locale === "en"
+                    ? `Keyword "${searchQuery}" matches items in your local feed, but is currently hidden by active category or cost filters.`
+                    : `Kata kunci "${searchQuery}" cocok dengan data di feed lokal, namun tersembunyi oleh filter kategori, biaya, atau rentang waktu yang sedang aktif.`}
                 </p>
-                <div className="pt-2">
-                  <ButtonPrimary onClick={handleSyncFeed} disabled={isSyncing} className="rounded-xl">
-                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
-                    <span>{t("feed.syncNow")}</span>
+                <div className="pt-2 flex justify-center gap-3">
+                  <ButtonPrimary
+                    onClick={() => {
+                      setCategoryFilter("all");
+                      setCostFilter("all");
+                      setTimeRange("all");
+                      setChannelFilter("all");
+                    }}
+                    className="rounded-xl text-caption"
+                  >
+                    <span>{locale === "en" ? "Reset All Filters" : "Reset Filter & Tampilkan"}</span>
                   </ButtonPrimary>
                 </div>
-              </>
+              </div>
+            ) : isDeepSearchingTg ? (
+              /* Case B: Scanning Telegram channel archives in background */
+              <div className="p-12 text-center space-y-4 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20">
+                <div className="w-14 h-14 rounded-2xl bg-accent/15 text-accent border border-accent/30 flex items-center justify-center mx-auto animate-pulse shadow-lg shadow-accent/15">
+                  <Send className="w-7 h-7 animate-bounce" />
+                </div>
+                <div className="space-y-1 max-w-md mx-auto">
+                  <h3 className="text-body-md font-semibold text-text-primary flex items-center justify-center gap-2">
+                    <Radio className="w-4 h-4 text-accent animate-spin" />
+                    <span>
+                      {locale === "en"
+                        ? `Scanning Telegram archives for "${searchQuery}"...`
+                        : `Memindai arsip Telegram untuk "${searchQuery}"...`}
+                    </span>
+                  </h3>
+                  <p className="text-caption text-text-secondary">
+                    {locale === "en"
+                      ? "Querying Airdrop Finder & Duta Crypto public channel histories. This might take a few seconds."
+                      : "Mencari di riwayat channel publik Airdrop Finder & Duta Crypto. Harap tunggu beberapa detik."}
+                  </p>
+                </div>
+                <div className="w-48 h-1.5 bg-white/[0.06] rounded-full overflow-hidden mx-auto">
+                  <div className="w-full h-full bg-accent animate-pulse" />
+                </div>
+              </div>
+            ) : deepTgResults.length > 0 ? (
+              /* Case C: Matching posts found in Telegram archives */
+              <div className="space-y-4">
+                {/* Result Announcement Banner */}
+                <div className="p-4 rounded-2xl bg-accent/10 border border-accent/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-accent/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-accent/20 text-accent border border-accent/30 flex items-center justify-center shrink-0">
+                      <Send className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-body-sm font-semibold text-text-primary">
+                        {locale === "en"
+                          ? `Found ${deepTgResults.length} post(s) in Telegram archives for "${searchQuery}"`
+                          : `Ditemukan ${deepTgResults.length} postingan di arsip Telegram untuk "${searchQuery}"`}
+                      </h3>
+                      <p className="text-caption text-text-secondary mt-0.5">
+                        {locale === "en"
+                          ? "Not present in your active 30-day feed, but recovered directly from Telegram channel history."
+                          : "Tidak ada di feed aktif 30 hari lokal Anda, namun berhasil ditemukan di arsip channel Telegram."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTriggerDeepSearch()}
+                    disabled={isDeepSearchingTg}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/15 hover:bg-accent/25 text-accent text-caption font-medium border border-accent/30 transition-all shrink-0 self-start sm:self-auto"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isDeepSearchingTg ? "animate-spin" : ""}`} />
+                    <span>{locale === "en" ? "Re-scan" : "Pindai Ulang"}</span>
+                  </button>
+                </div>
+
+                {/* Cards List from Telegram */}
+                {deepTgResults.map((item) => {
+                  const channelInfo = getChannelInfo(item.channel);
+                  const postDate = new Date(item.date);
+                  const now = new Date();
+                  const diffTime = Math.abs(now.getTime() - postDate.getTime());
+                  const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+                  const isOlderThan30Days = diffDays > 30;
+                  const parsedTitle = cleanProjectName(item.text.split("\n")[0] || searchQuery);
+                  const isSavingThis = savingPostUrl === item.postUrl;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-5 sm:p-6 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.2] transition-all duration-200 space-y-4 shadow-xl shadow-black/20"
+                    >
+                      {/* Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full overflow-hidden border border-white/15 bg-white/[0.05] shrink-0 shadow-md flex items-center justify-center">
+                            {channelInfo.logo ? (
+                              <Image
+                                src={channelInfo.logo}
+                                alt={channelInfo.name}
+                                width={40}
+                                height={40}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Send className="w-4 h-4 text-accent" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-body-sm font-bold text-text-primary truncate">
+                                {parsedTitle}
+                              </span>
+                              {isOlderThan30Days ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/30">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{locale === "en" ? `Archive (${diffDays}d ago)` : `Arsip (> 30 Hari: ${diffDays} hari lalu)`}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-accent/15 text-accent border border-accent/25">
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>{locale === "en" ? `Recent (${diffDays}d ago)` : `Sinyal Baru (${diffDays === 0 ? "Hari ini" : `${diffDays} hari lalu`})`}</span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-caption text-text-tertiary mt-0.5">
+                              <span className="text-text-secondary font-medium">{item.channelName}</span>
+                              <span>•</span>
+                              <span title={formatFullDate(item.date, locale === "en")}>
+                                {formatFullDate(item.date, locale === "en")}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <a
+                          href={item.postUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary hover:text-text-primary text-caption font-medium border border-white/[0.08] transition-all self-start sm:self-auto shrink-0"
+                        >
+                          <Send className="w-3 h-3 text-accent" />
+                          <span>{locale === "en" ? "Telegram Post" : "Buka di TG"}</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+
+                      {/* Archive Warning if > 30 days */}
+                      {isOlderThan30Days && (
+                        <div className="p-3 rounded-xl bg-badge-bg-ready-claim/20 border border-status-ready-claim/25 flex items-start gap-2.5 text-caption text-status-ready-claim leading-relaxed">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-status-ready-claim" />
+                          <div>
+                            <span className="font-semibold">{locale === "en" ? "Archived Signal (> 30 Days Old): " : "Sinyal Arsip (> 30 Hari Lalu): "}</span>
+                            <span>
+                              {locale === "en"
+                                ? "This signal was published over 30 days ago. Make sure the airdrop, testnet campaign, or snapshot is still active before performing tasks."
+                                : "Sinyal ini dipublikasikan lebih dari 30 hari lalu. Pastikan airdrop, kampanye testnet, atau snapshot masih aktif sebelum mulai menggarap."}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Snippet */}
+                      <div className="p-3.5 sm:p-4 rounded-xl bg-bg-surface/60 border border-white/[0.04] text-body-sm text-text-secondary leading-relaxed max-h-48 overflow-y-auto custom-scrollbar font-mono text-[12.5px] whitespace-pre-wrap selection:bg-accent/20">
+                        {item.text.slice(0, 500)}
+                        {item.text.length > 500 && "..."}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => handlePreviewTgUpdate(item)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-text-primary text-caption font-medium border border-white/[0.08] transition-all"
+                        >
+                          <BookOpen className="w-3.5 h-3.5 text-accent" />
+                          <span>{locale === "en" ? "Read Full & Translate" : "Baca Lengkap & Terjemah"}</span>
+                        </button>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <ButtonSecondary
+                            type="button"
+                            onClick={() => handleSaveTgToFeed(item)}
+                            disabled={isSavingThis}
+                            className="rounded-xl text-caption inline-flex items-center gap-1.5"
+                            title={locale === "en" ? "Save to Feed (30-day active retention)" : "Simpan ke Feed (masa aktif 30 hari)"}
+                          >
+                            {isSavingThis ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <BookmarkPlus className="w-3.5 h-3.5 text-accent" />
+                            )}
+                            <span>{isSavingThis ? (locale === "en" ? "Saving..." : "Menyimpan...") : (locale === "en" ? "Save to Feed" : "+ Simpan ke Feed")}</span>
+                          </ButtonSecondary>
+
+                          <button
+                            type="button"
+                            onClick={() => handleConvertTgToProject(item)}
+                            className="px-4 py-2 rounded-xl text-caption font-semibold text-on-accent bg-accent hover:bg-accent-pressed active:bg-accent-deep transition-all shadow-lg shadow-accent/20 inline-flex items-center gap-1.5 active:scale-[0.98]"
+                          >
+                            <FolderPlus className="w-3.5 h-3.5" />
+                            <span>{locale === "en" ? "Make Project (Permanent)" : "+ Jadikan Proyek"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Case D: Truly empty (neither in local nor in Telegram) */
+              <div className="p-12 text-center space-y-3 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-xl shadow-black/20">
+                {matchingWaitlistCount && matchingWaitlistCount > 0 ? (
+                  <div className="space-y-3 max-w-md mx-auto">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center mx-auto shadow-lg shadow-purple-950/20">
+                      <Hourglass className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-body-md font-semibold text-text-primary">
+                      {locale === "en"
+                        ? `"${searchQuery}" is registered in Waitlists!`
+                        : `"${searchQuery}" terdaftar di halaman Waitlist!`}
+                    </h3>
+                    <p className="text-caption text-text-secondary">
+                      {locale === "en"
+                        ? `Found ${matchingWaitlistCount} project(s) matching your search in the Waitlist section. Feed Airdrop is dedicated to Testnet & Airdrop tasks.`
+                        : `Ditemukan ${matchingWaitlistCount} garapan yang cocok di Halaman Waitlist. Feed Airdrop dikhususkan untuk tugas Testnet & Airdrop.`}
+                    </p>
+                    <div className="pt-2 flex justify-center gap-3">
+                      <Link
+                        href={`/waitlist?q=${encodeURIComponent(searchQuery.trim())}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-caption font-semibold transition-all shadow-md"
+                      >
+                        <span>{locale === "en" ? "View in Waitlists" : "Buka di Halaman Waitlist"}</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                ) : searchQuery.trim().length >= 2 ? (
+                  <div className="space-y-3 max-w-md mx-auto">
+                    <div className="w-12 h-12 rounded-2xl bg-white/[0.04] text-text-tertiary border border-white/[0.08] flex items-center justify-center mx-auto">
+                      <SearchX className="w-6 h-6 text-text-tertiary" />
+                    </div>
+                    <h3 className="text-body-md font-semibold text-text-primary">
+                      {locale === "en" ? "No Matching Airdrop Signals" : "Tidak Ada Sinyal Airdrop yang Cocok"}
+                    </h3>
+                    <p className="text-caption text-text-secondary">
+                      {locale === "en"
+                        ? `No signals found for "${searchQuery}" in your local feed or Telegram channel archives (Airdrop Finder & Duta Crypto).`
+                        : `Tidak ditemukan postingan dengan kata kunci "${searchQuery}" di feed lokal maupun arsip channel Telegram (Airdrop Finder & Duta Crypto).`}
+                    </p>
+                    <div className="pt-3 flex flex-wrap items-center justify-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerDeepSearch()}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-accent/15 hover:bg-accent/25 text-accent text-caption font-semibold border border-accent/30 transition-all"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>{locale === "en" ? "Scan Telegram Again" : "Pindai Ulang Telegram"}</span>
+                      </button>
+                      <a
+                        href={`https://t.me/s/airdropfind?q=${encodeURIComponent(searchQuery.trim())}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary text-caption font-medium border border-white/[0.08] transition-all"
+                      >
+                        <Send className="w-3.5 h-3.5 text-accent" />
+                        <span>{locale === "en" ? "Search TG Web ↗" : "Cari di TG Web ↗"}</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleSearchChange("")}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-text-tertiary text-caption font-medium border border-white/[0.08] transition-all"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>{locale === "en" ? "Clear Search" : "Hapus Pencarian"}</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Rss className="w-9 h-9 text-text-tertiary mx-auto opacity-50" />
+                    <h3 className="text-body-md font-semibold text-text-primary">
+                      {t("feed.noMatch")}
+                    </h3>
+                    <p className="text-caption text-text-secondary max-w-md mx-auto">
+                      {t("feed.noMatchDesc")}
+                    </p>
+                    <div className="pt-2">
+                      <ButtonPrimary onClick={handleSyncFeed} disabled={isSyncing} className="rounded-xl">
+                        <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
+                        <span>{t("feed.syncNow")}</span>
+                      </ButtonPrimary>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         ) : (
