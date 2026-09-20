@@ -1389,7 +1389,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                           </span>
                           {isPotentialWaitlist(item) && (
                             <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0 shadow-xs"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/30 shrink-0 shadow-none"
                               title="Terkonfirmasi sebagai garapan airdrop potensial dari Telegram"
                             >
                               <span>📌</span>
@@ -1623,7 +1623,7 @@ export function WaitlistClientView({ initialWaitlists }: WaitlistClientViewProps
                         </h3>
                         {isPotentialWaitlist(item) && (
                           <span
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0 shadow-xs"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/30 shrink-0 shadow-none"
                             title="Terkonfirmasi sebagai garapan airdrop potensial dari Telegram"
                           >
                             <span>📌</span>

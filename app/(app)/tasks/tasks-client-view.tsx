@@ -385,13 +385,13 @@ export function TasksClientView({
             onClick={() => setActiveTab("daily")}
             className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
               activeTab === "daily"
-                ? "bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-xs"
+                ? "bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/40 shadow-none"
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <Clock className="w-3.5 h-3.5 text-accent" />
             <span>{t("tasks.tabs.daily")}</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/15 text-[10px] font-mono leading-none">
+            <span className="px-1.5 py-0.5 rounded-full bg-badge-bg-ready-claim text-[10px] font-mono leading-none">
               {stats.daily}
             </span>
           </button>
@@ -402,13 +402,13 @@ export function TasksClientView({
             onClick={() => setActiveTab("weekly")}
             className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
               activeTab === "weekly"
-                ? "bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-xs"
+                ? "bg-badge-bg-in-progress text-status-in-progress border border-status-in-progress/40 shadow-none"
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <Repeat className="w-3.5 h-3.5 text-sky-400" />
+            <Repeat className="w-3.5 h-3.5 text-status-in-progress" />
             <span>{t("tasks.tabs.weekly")}</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-sky-500/15 text-[10px] font-mono leading-none">
+            <span className="px-1.5 py-0.5 rounded-full bg-badge-bg-in-progress text-[10px] font-mono leading-none">
               {stats.weekly}
             </span>
           </button>
@@ -419,13 +419,13 @@ export function TasksClientView({
             onClick={() => setActiveTab("one_time")}
             className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
               activeTab === "one_time"
-                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-xs"
+                ? "bg-badge-bg-waiting text-status-waiting border border-status-waiting/40 shadow-none"
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <Zap className="w-3.5 h-3.5 text-indigo-300" />
+            <Zap className="w-3.5 h-3.5 text-status-waiting" />
             <span>{t("tasks.tabs.oneTime")}</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-[10px] font-mono leading-none">
+            <span className="px-1.5 py-0.5 rounded-full bg-badge-bg-waiting text-[10px] font-mono leading-none">
               {stats.oneTime}
             </span>
           </button>
@@ -436,13 +436,13 @@ export function TasksClientView({
             onClick={() => setActiveTab("waiting")}
             className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
               activeTab === "waiting"
-                ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-xs"
+                ? "bg-badge-bg-waiting text-status-waiting border border-status-waiting/40 shadow-none"
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <PauseCircle className="w-3.5 h-3.5 text-purple-300" />
+            <PauseCircle className="w-3.5 h-3.5 text-status-waiting" />
             <span>{t("tasks.tabs.waiting")}</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-purple-500/15 text-[10px] font-mono leading-none">
+            <span className="px-1.5 py-0.5 rounded-full bg-badge-bg-waiting text-[10px] font-mono leading-none">
               {stats.waiting}
             </span>
           </button>
@@ -453,13 +453,13 @@ export function TasksClientView({
             onClick={() => setActiveTab("ready_to_claim")}
             className={`px-3.5 py-1.5 rounded-lg text-caption font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
               activeTab === "ready_to_claim"
-                ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-xs"
+                ? "bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/40 shadow-none"
                 : "text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             }`}
           >
-            <Gift className="w-3.5 h-3.5 text-amber-300" />
+            <Gift className="w-3.5 h-3.5 text-status-ready-claim" />
             <span>{t("tasks.tabs.readyToClaim")}</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-amber-400/15 text-[10px] font-mono leading-none">
+            <span className="px-1.5 py-0.5 rounded-full bg-badge-bg-ready-claim text-[10px] font-mono leading-none">
               {stats.readyToClaim}
             </span>
           </button>
@@ -598,7 +598,7 @@ export function TasksClientView({
                         href={claimUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 transition-all text-caption font-bold shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent hover:bg-accent-pressed active:bg-accent-deep text-on-accent transition-colors text-caption font-bold shadow-none"
                         title={isEn ? "Open official claim portal" : "Buka portal klaim token resmi"}
                       >
                         <Gift className="w-3.5 h-3.5" />
@@ -646,32 +646,32 @@ export function TasksClientView({
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="flex items-start gap-3 min-w-0">
                       {opType === "daily" && (
-                        <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-9 h-9 rounded-xl bg-badge-bg-ready-claim border border-status-ready-claim/30 text-status-ready-claim flex items-center justify-center shrink-0 mt-0.5">
                           <Clock className="w-4 h-4" />
                         </div>
                       )}
                       {opType === "weekly" && (
-                        <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-9 h-9 rounded-xl bg-badge-bg-in-progress border border-status-in-progress/30 text-status-in-progress flex items-center justify-center shrink-0 mt-0.5">
                           <Repeat className="w-4 h-4" />
                         </div>
                       )}
                       {opType === "one_time" && (
-                        <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-9 h-9 rounded-xl bg-badge-bg-waiting border border-status-waiting/30 text-status-waiting flex items-center justify-center shrink-0 mt-0.5">
                           <Zap className="w-4 h-4" />
                         </div>
                       )}
                       {opType === "waiting" && (
-                        <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-9 h-9 rounded-xl bg-badge-bg-waiting border border-status-waiting/30 text-status-waiting flex items-center justify-center shrink-0 mt-0.5">
                           <PauseCircle className="w-4 h-4" />
                         </div>
                       )}
                       {opType === "ready_to_claim" && (
-                        <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-400/40 text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-9 h-9 rounded-xl bg-badge-bg-ready-claim border border-status-ready-claim/40 text-status-ready-claim flex items-center justify-center shrink-0 mt-0.5">
                           <Gift className="w-4 h-4" />
                         </div>
                       )}
                       {opType === "completed" && (
-                        <div className="w-9 h-9 rounded-xl bg-status-completed/15 border border-status-completed/30 text-status-completed flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-9 h-9 rounded-xl bg-badge-bg-completed border border-status-completed/30 text-status-completed flex items-center justify-center shrink-0 mt-0.5">
                           <CheckCircle2 className="w-4 h-4" />
                         </div>
                       )}
@@ -696,7 +696,7 @@ export function TasksClientView({
                                 onClick={() => handleSwitchRoutine(project, "daily")}
                                 className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
                                   opType === "daily"
-                                    ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-xs"
+                                    ? "bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/40 shadow-none"
                                     : "text-text-tertiary hover:text-text-primary"
                                 }`}
                               >
@@ -708,7 +708,7 @@ export function TasksClientView({
                                 onClick={() => handleSwitchRoutine(project, "weekly")}
                                 className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
                                   opType === "weekly"
-                                    ? "bg-sky-500/25 text-sky-300 border border-sky-500/40 shadow-xs"
+                                    ? "bg-badge-bg-in-progress text-status-in-progress border border-status-in-progress/40 shadow-none"
                                     : "text-text-tertiary hover:text-text-primary"
                                 }`}
                               >
@@ -720,7 +720,7 @@ export function TasksClientView({
                                 onClick={() => handleSwitchRoutine(project, "one_time")}
                                 className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
                                   opType === "one_time"
-                                    ? "bg-indigo-500/25 text-indigo-200 border border-indigo-500/40 shadow-xs"
+                                    ? "bg-badge-bg-waiting text-status-waiting border border-status-waiting/40 shadow-none"
                                     : "text-text-tertiary hover:text-text-primary"
                                 }`}
                               >
@@ -770,8 +770,8 @@ export function TasksClientView({
                           options={[
                             { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <PauseCircle className="w-3.5 h-3.5 text-text-tertiary" /> },
                             { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <Play className="w-3.5 h-3.5 text-status-in-progress" /> },
-                            { value: "waiting", label: isEn ? "Waiting Snapshot" : "Menunggu Snapshot", icon: <Hourglass className="w-3.5 h-3.5 text-purple-400" /> },
-                            { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <Gift className="w-3.5 h-3.5 text-amber-400" /> },
+                            { value: "waiting", label: isEn ? "Waiting Snapshot" : "Menunggu Snapshot", icon: <Hourglass className="w-3.5 h-3.5 text-status-waiting" /> },
+                            { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <Gift className="w-3.5 h-3.5 text-status-ready-claim" /> },
                             { value: "completed", label: isEn ? "Completed" : "Selesai Diklaim", icon: <CheckCircle2 className="w-3.5 h-3.5 text-status-completed" /> },
                           ]}
                         />
@@ -785,13 +785,13 @@ export function TasksClientView({
                           onClick={() => handleToggleDaily(project)}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-caption font-semibold transition-all border ${
                             isDailyDone
-                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
+                              ? "bg-badge-bg-completed text-status-completed border-status-completed/30 hover:bg-badge-bg-completed/80"
                               : "bg-white/[0.04] text-text-primary border-white/[0.1] hover:bg-white/[0.08]"
                           }`}
                         >
                           {isDailyDone ? (
                             <>
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <Check className="w-3.5 h-3.5 text-status-completed" />
                               <span>{t("tasks.card.doneToday")}</span>
                             </>
                           ) : (
@@ -809,7 +809,7 @@ export function TasksClientView({
                           type="button"
                           disabled={isUpdating}
                           onClick={() => handleChangeStatus(project, "completed")}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 transition-all text-caption font-semibold"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-badge-bg-completed text-status-completed hover:bg-badge-bg-completed/80 border border-status-completed/40 transition-all text-caption font-semibold"
                           title={isEn ? "Mark as successfully claimed" : "Tandai reward sudah selesai diklaim"}
                         >
                           <Check className="w-3.5 h-3.5" />
@@ -823,7 +823,7 @@ export function TasksClientView({
                           type="button"
                           disabled={isUpdating}
                           onClick={() => handleChangeStatus(project, "ready_to_claim")}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 border border-amber-400/40 transition-all text-caption font-semibold"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-badge-bg-ready-claim text-status-ready-claim hover:bg-badge-bg-ready-claim/80 border border-status-ready-claim/40 transition-all text-caption font-semibold"
                         >
                           <Gift className="w-3.5 h-3.5" />
                           <span>{isEn ? "Allocation Live" : "Siap Klaim"}</span>
@@ -867,7 +867,7 @@ export function TasksClientView({
                           <button
                             type="button"
                             onClick={() => handleSaveClaimUrl(project)}
-                            className="px-3 py-1.5 rounded-lg bg-accent text-on-accent text-caption font-bold shadow-xs"
+                            className="px-3 py-1.5 rounded-lg bg-accent text-on-accent text-caption font-bold shadow-none"
                           >
                             Simpan
                           </button>
@@ -885,7 +885,7 @@ export function TasksClientView({
                       ) : (
                         <div className="flex items-center justify-between gap-2 w-full">
                           <div className="flex items-center gap-2 text-[11px] text-text-tertiary font-mono truncate">
-                            <span className="text-amber-400 font-bold">Portal Klaim:</span>
+                            <span className="text-status-ready-claim font-bold">Portal Klaim:</span>
                             <span className="truncate text-text-secondary">
                               {claimUrl || (isEn ? "No claim link attached yet." : "Belum ada link klaim terpasang.")}
                             </span>

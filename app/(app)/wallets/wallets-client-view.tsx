@@ -581,6 +581,36 @@ export function WalletsClientView({
         </div>
       </div>
 
+      {/* Permanent Zero-Custodial Security Policy Banner (PRD §5.6 & DESIGN.md) */}
+      <div className="p-4 sm:p-4.5 rounded-xl bg-bg-elevated border border-border-hairline flex flex-col sm:flex-row sm:items-start gap-3.5 shadow-none">
+        <div className="w-9 h-9 rounded-xl bg-badge-bg-completed border border-status-completed/30 text-status-completed flex items-center justify-center shrink-0 mt-0.5">
+          <ShieldCheck className="w-5 h-5" />
+        </div>
+        <div className="space-y-1 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-body-sm font-bold text-text-primary">
+              {isEn ? "Strict Zero-Custodial Security Policy" : "Peringatan Keamanan Non-Custodial"}
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-badge-bg-completed text-status-completed border border-status-completed/30 font-bold">
+              100% READ-ONLY
+            </span>
+          </div>
+          <p className="text-[12.5px] text-text-secondary leading-relaxed">
+            {isEn ? (
+              <>
+                <strong className="text-text-primary font-semibold">Droppr never asks for, accepts, or stores private keys, seed phrases, or passwords.</strong>{" "}
+                All blockchain data is read-only. For mainnet & valuable wallets, <strong className="text-accent font-semibold">always store seed phrases in physical offline records</strong> (paper / cold steel).
+              </>
+            ) : (
+              <>
+                <strong className="text-text-primary font-semibold">Droppr tidak pernah meminta, menerima, atau menyimpan private key, seed phrase, maupun kata sandi.</strong>{" "}
+                Seluruh data on-chain bersifat read-only. Untuk wallet utama, <strong className="text-accent font-semibold">selalu simpan seed phrase di catatan fisik offline</strong> (kertas / cold steel).
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+
       {/* Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-border-hairline pb-3">
         <button
@@ -588,8 +618,8 @@ export function WalletsClientView({
           onClick={() => setActiveTab("wallets")}
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-caption sm:text-body-sm font-semibold transition-all ${
             activeTab === "wallets"
-              ? "bg-accent text-on-accent shadow-md shadow-accent/20"
-              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+              ? "bg-accent text-on-accent shadow-none"
+              : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
           }`}
         >
           <Wallet className="w-4 h-4" />
@@ -610,8 +640,8 @@ export function WalletsClientView({
           onClick={() => setActiveTab("accounts")}
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-caption sm:text-body-sm font-semibold transition-all ${
             activeTab === "accounts"
-              ? "bg-accent text-on-accent shadow-md shadow-accent/20"
-              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+              ? "bg-accent text-on-accent shadow-none"
+              : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
           }`}
         >
           <AtSign className="w-4 h-4" />
@@ -627,45 +657,6 @@ export function WalletsClientView({
           </span>
         </button>
       </div>
-
-      {/* Security & Vault Hub Card */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-bg-elevated via-bg-elevated to-bg-base border border-border-hairline space-y-3.5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-body-sm font-bold text-text-primary">
-                  {isEn ? "Strict Zero-Custodial Security Policy" : "Prinsip Keamanan Non-Custodial Droppr"}
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-                  100% READ-ONLY
-                </span>
-              </div>
-              <p className="text-[12.5px] text-text-secondary leading-relaxed">
-                {isEn ? (
-                  <>
-                    Droppr never asks for, accepts, or stores private keys, seed phrases, or passwords in our databases.
-                    <strong className="text-text-primary ml-1">
-                      No place on the internet is 100% safe.
-                    </strong>{" "}
-                    For mainnet & valuable wallets, <strong className="text-amber-300">ALWAYS store seeds in physical offline records</strong> (paper / cold steel).
-                  </>
-                ) : (
-                  <>
-                    Droppr tidak pernah meminta, menerima, atau menyimpan private key, seed phrase, maupun kata sandi di database kami.
-                    <strong className="text-text-primary ml-1">
-                      Tidak ada tempat di internet yang 100% aman.
-                    </strong>{" "}
-                    Untuk wallet utama (Mainnet), <strong className="text-amber-300">SELALU simpan seed phrase di catatan fisik offline</strong> (buku kertas / cold steel storage).
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
 
         {/* Dedicated PAPIC Brankas Recommendation for Burner/Testnet */}
         <div className="p-3 sm:p-3.5 rounded-xl bg-white/[0.02] border border-border-hairline flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-body-sm">
@@ -699,7 +690,6 @@ export function WalletsClientView({
             <ExternalLink className="w-3 h-3" />
           </a>
         </div>
-      </div>
 
       {/* Quick Inline Editing Tip */}
       <div className="p-3 rounded-xl bg-accent/5 border border-accent/20 flex items-center gap-2.5 text-caption text-text-secondary">

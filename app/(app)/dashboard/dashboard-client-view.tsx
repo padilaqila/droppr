@@ -157,6 +157,7 @@ export function DashboardClientView({
   const [selectedGuideProject, setSelectedGuideProject] = useState<ProjectRow | null>(null);
   const [activeGuideModalIndex, setActiveGuideModalIndex] = useState<number>(0);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const [guideModalQueue, setGuideModalQueue] = useState<ProjectRow[]>([]);
 
   // Reminder Modal states
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
@@ -254,14 +255,20 @@ export function DashboardClientView({
     }
   };
 
-  // Toggle Project Daily Task Done
-  const handleMarkProjectDone = async (projectId: string) => {
+  // Toggle Project Daily Task Done (supports optional explicit target status)
+  const handleMarkProjectDone = async (projectId: string, explicitStatus?: boolean) => {
     const proj = projects.find((p) => p.id === projectId);
     if (!proj) return;
 
     const pTasks = tasks.filter((t) => t.project_id === projectId);
     const currentlyDone = isProjectDailyDone(proj, pTasks);
-    const newStatus = !currentlyDone;
+    const newStatus = explicitStatus !== undefined ? explicitStatus : !currentlyDone;
+
+    // If explicitStatus matches current state, no action needed
+    if (explicitStatus !== undefined && currentlyDone === explicitStatus) {
+      return;
+    }
+
     const nowIso = newStatus ? new Date().toISOString() : null;
 
     // 1. Optimistic update on projects state (updates social_links.last_daily_completed_at)
@@ -282,7 +289,25 @@ export function DashboardClientView({
       })
     );
 
-    // 2. Optimistic update on tasks state (both status AND completed_at)
+    // 2. Optimistic update on active guide modal queue (keeps order and items stable while modal is open)
+    setGuideModalQueue((prev) =>
+      prev.map((p) => {
+        if (p.id !== projectId) return p;
+        const currentSocial = (p.social_links as Record<string, any>) || {};
+        const updatedSocial = { ...currentSocial };
+        if (newStatus) {
+          updatedSocial.last_daily_completed_at = nowIso;
+        } else {
+          delete updatedSocial.last_daily_completed_at;
+        }
+        return {
+          ...p,
+          social_links: updatedSocial,
+        };
+      })
+    );
+
+    // 3. Optimistic update on tasks state (both status AND completed_at)
     setTasks((prev) =>
       prev.map((t) =>
         t.project_id === projectId
@@ -302,7 +327,7 @@ export function DashboardClientView({
         : (isEn ? `Tasks reset for ${proj.name}` : `Tugas dibuka kembali untuk ${proj.name}`)
     );
 
-    // 3. Persist to database
+    // 4. Persist to database
     try {
       const res = await toggleProjectDailyTask(projectId, newStatus);
       if (!res.success) {
@@ -316,6 +341,7 @@ export function DashboardClientView({
   const handleOpenGuideModal = (project: ProjectRow) => {
     const queue = displayedProjects.length > 0 ? displayedProjects : projects;
     const idx = queue.findIndex((p) => p.id === project.id);
+    setGuideModalQueue(queue);
     setActiveGuideModalIndex(idx >= 0 ? idx : 0);
     setSelectedGuideProject(project);
     setIsGuideModalOpen(true);
@@ -329,6 +355,7 @@ export function DashboardClientView({
         ? displayedProjects
         : projects;
     if (queue.length === 0) return;
+    setGuideModalQueue(queue);
     setActiveGuideModalIndex(0);
     setSelectedGuideProject(queue[0]);
     setIsGuideModalOpen(true);
@@ -336,6 +363,9 @@ export function DashboardClientView({
 
   const handleGuideUpdated = (projectId: string, newGuide: string) => {
     setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, guide_content: newGuide } : p))
+    );
+    setGuideModalQueue((prev) =>
       prev.map((p) => (p.id === projectId ? { ...p, guide_content: newGuide } : p))
     );
   };
@@ -881,19 +911,19 @@ export function DashboardClientView({
                 onClick={() => setActiveProjectFilter("timed")}
                 className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all shrink-0 flex items-center gap-1.5 ${
                   activeProjectFilter === "timed"
-                    ? "bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/40"
+                    ? "bg-badge-bg-ready-claim text-status-ready-claim font-semibold border border-status-ready-claim/40"
                     : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2"
                 }`}
                 title={isEn ? "Projects with specific timed alarms" : "Proyek yang dipasangi alarm jam tertentu"}
               >
-                <Bell className={`w-3.5 h-3.5 ${activeProjectFilter === "timed" ? "text-amber-400" : "text-text-tertiary"}`} />
+                <Bell className={`w-3.5 h-3.5 ${activeProjectFilter === "timed" ? "text-accent" : "text-text-tertiary"}`} />
                 <span>{isEn ? "Timed Alarms" : "Alarm Jam"}</span>
                 <span
                   className={`ml-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ${
                     activeProjectFilter === "timed"
-                      ? "bg-amber-500/30 text-amber-200"
+                      ? "bg-badge-bg-ready-claim text-status-ready-claim"
                       : timedProjects.length > 0
-                      ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                      ? "bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/30"
                       : "bg-bg-elevated-2 text-text-secondary border border-border-hairline"
                   }`}
                 >
@@ -1162,8 +1192,8 @@ export function DashboardClientView({
                               <span>{isEn ? `Overdue • Passed ${reminderTime} WIB` : `Telat • Lewat ${reminderTime} WIB`}</span>
                             </span>
                           ) : projectReminder && isTodayReminder ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1 font-mono">
-                              <Bell className="w-3 h-3 text-amber-400" />
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-badge-bg-ready-claim text-status-ready-claim font-semibold border border-status-ready-claim/30 flex items-center gap-1 font-mono">
+                              <Bell className="w-3 h-3 text-accent" />
                               <span>{isEn ? `Alarm @ ${reminderTime} WIB` : `Alarm @ ${reminderTime} WIB`}</span>
                             </span>
                           ) : activeProjectFilter === "upcoming" ? (
@@ -1182,8 +1212,8 @@ export function DashboardClientView({
                         {/* Reminder & Meta Info */}
                         <div className="flex items-center gap-2 text-[11.5px] text-text-tertiary flex-wrap">
                           {projectReminder ? (
-                            <span className="text-amber-400 font-medium flex items-center gap-1 font-mono">
-                              <Bell className="w-3 h-3 text-amber-400" />
+                            <span className="text-accent font-medium flex items-center gap-1 font-mono">
+                              <Bell className="w-3 h-3 text-accent" />
                               <span>{scheduleLabel}</span>
                             </span>
                           ) : (
@@ -1551,13 +1581,14 @@ export function DashboardClientView({
         onClose={() => {
           setIsGuideModalOpen(false);
           setSelectedGuideProject(null);
+          setGuideModalQueue([]);
         }}
         project={selectedGuideProject}
-        projectsQueue={displayedProjects.length > 0 ? displayedProjects : projects}
+        projectsQueue={guideModalQueue.length > 0 ? guideModalQueue : (displayedProjects.length > 0 ? displayedProjects : projects)}
         activeProjectIndex={activeGuideModalIndex}
         onNavigateIndex={(idx) => {
           setActiveGuideModalIndex(idx);
-          const queue = displayedProjects.length > 0 ? displayedProjects : projects;
+          const queue = guideModalQueue.length > 0 ? guideModalQueue : (displayedProjects.length > 0 ? displayedProjects : projects);
           if (queue[idx]) {
             setSelectedGuideProject(queue[idx]);
           }
@@ -1587,7 +1618,7 @@ export function DashboardClientView({
         onRestoreProject={(id) => {
           handleRestoreProject(id);
         }}
-        onMarkComplete={handleMarkProjectDone}
+        onMarkComplete={(id) => handleMarkProjectDone(id, true)}
         onOpenReminderModal={(id) => {
           handleOpenReminderForProject(id);
         }}

@@ -198,7 +198,7 @@ export function BatchTelegramSyncModal({
                             {it.title}
                           </span>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-badge-bg-in-progress text-status-in-progress border border-status-in-progress/30">
                               {it.channelName}
                             </span>
                             <a

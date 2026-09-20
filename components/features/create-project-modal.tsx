@@ -548,8 +548,8 @@ export function CreateProjectModal({
                   onChange={(val) => setStatus(val as ProjectStatus)}
                   options={[
                     { value: "in_progress", label: isEn ? "In Progress" : "Sedang Dikerjakan", icon: <Play className="w-3.5 h-3.5 text-status-in-progress" /> },
-                    { value: "waiting", label: isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE", icon: <Hourglass className="w-3.5 h-3.5 text-purple-400" /> },
-                    { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <Gift className="w-3.5 h-3.5 text-amber-400" /> },
+                    { value: "waiting", label: isEn ? "Waiting Snapshot/TGE" : "Menunggu Snapshot/TGE", icon: <Hourglass className="w-3.5 h-3.5 text-status-waiting" /> },
+                    { value: "ready_to_claim", label: isEn ? "Ready to Claim" : "Siap Klaim Reward", icon: <Gift className="w-3.5 h-3.5 text-status-ready-claim" /> },
                     { value: "completed", label: isEn ? "Completed" : "Selesai Diklaim", icon: <CheckCircle2 className="w-3.5 h-3.5 text-status-completed" /> },
                     { value: "not_started", label: isEn ? "Not Started" : "Belum Mulai", icon: <PauseCircle className="w-3.5 h-3.5 text-text-tertiary" /> },
                   ]}
@@ -588,8 +588,8 @@ export function CreateProjectModal({
             </div>
 
             {status === "ready_to_claim" && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1 animate-fadeIn">
-                <label className="block text-caption font-semibold text-amber-400">
+              <div className="p-3 rounded-xl bg-badge-bg-ready-claim border border-status-ready-claim/30 space-y-1 animate-fadeIn">
+                <label className="block text-caption font-semibold text-status-ready-claim">
                   {isEn ? "Claim / Allocation Portal URL" : "Link Portal Klaim / Checker Alokasi"}
                 </label>
                 <input
@@ -723,7 +723,7 @@ export function CreateProjectModal({
           <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-caption font-semibold text-text-primary flex items-center gap-1.5">
-                <Wallet className="w-3.5 h-3.5 text-amber-400" />
+                <Wallet className="w-3.5 h-3.5 text-accent" />
                 <span>{isEn ? "Wallet Used" : "Wallet yang Digunakan"}</span>
               </span>
               <span className="text-[11px] text-text-tertiary">
@@ -743,7 +743,7 @@ export function CreateProjectModal({
                       onClick={() => handleToggleWallet(w.id)}
                       className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
                         isSelected
-                          ? "bg-amber-500/15 border-amber-500/40 text-amber-400 shadow-xs"
+                          ? "bg-accent/15 border-accent/40 text-accent shadow-none"
                           : "bg-white/[0.02] border-white/[0.06] text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
                       }`}
                     >
@@ -757,7 +757,7 @@ export function CreateProjectModal({
                       <div
                         className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${
                           isSelected
-                            ? "bg-amber-500 border-amber-500 text-black"
+                            ? "bg-accent border-accent text-on-accent"
                             : "border-white/[0.2] bg-white/[0.02]"
                         }`}
                       >

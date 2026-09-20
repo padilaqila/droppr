@@ -68,12 +68,13 @@ export async function GET(request: Request) {
     );
   }
 
-  // Filter channels: if user specified channel, use only that one (as requested)
-  const channelsToScan = channelParam
-    ? TARGET_CHANNELS.filter((c) => c.username.toLowerCase() === channelParam)
-    : [TARGET_CHANNELS[0]]; // Default to single channel: airdropfind
+  // Filter channels: if user specified channel (and not 'all'), scan that channel; otherwise scan all target channels
+  const channelsToScan =
+    !channelParam || channelParam === "all"
+      ? TARGET_CHANNELS
+      : TARGET_CHANNELS.filter((c) => c.username.toLowerCase() === channelParam);
 
-  const activeChannels = channelsToScan.length > 0 ? channelsToScan : [TARGET_CHANNELS[0]];
+  const activeChannels = channelsToScan.length > 0 ? channelsToScan : TARGET_CHANNELS;
 
   try {
     // Fetch search results from the active channel

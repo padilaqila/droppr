@@ -62,7 +62,7 @@ export interface TodayTaskGuideModalProps {
   onGuideUpdated?: (projectId: string, newGuide: string) => void;
   onSkipProject?: (projectId: string) => void;
   onRestoreProject?: (projectId: string) => void;
-  onMarkComplete?: (projectId: string) => Promise<void> | void;
+  onMarkComplete?: (projectId: string, explicitStatus?: boolean) => Promise<void> | void;
   onOpenReminderModal?: (projectId: string) => void;
   onDeleteReminder?: (reminderId: string) => Promise<void> | void;
 }
@@ -306,7 +306,7 @@ function renderInteractiveGuide(text: string) {
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="text-amber-400 hover:text-amber-300 underline underline-offset-2 inline-flex items-center gap-1 font-medium transition-colors break-all"
+          className="text-link-teal hover:text-link-teal-pressed underline underline-offset-2 inline-flex items-center gap-1 font-medium transition-colors break-all"
         >
           <span>{label}</span>
           <ExternalLink className="w-3 h-3 shrink-0 inline" />
@@ -320,7 +320,7 @@ function renderInteractiveGuide(text: string) {
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="text-amber-400 hover:text-amber-300 underline underline-offset-2 inline-flex items-center gap-1 font-mono text-[12.5px] transition-colors break-all"
+          className="text-link-teal hover:text-link-teal-pressed underline underline-offset-2 inline-flex items-center gap-1 font-mono text-[12.5px] transition-colors break-all"
         >
           <span>{url}</span>
           <ExternalLink className="w-3 h-3 shrink-0 inline" />
@@ -413,16 +413,16 @@ export function TodayTaskGuideModal({
     }
   }, [activeProjectIndex, queue.length]);
 
-  // Sync when project prop changes directly
+  // Sync when project prop changes directly (only when idle to prevent transition jitter)
   useEffect(() => {
-    if (project && queue.length > 0) {
+    if (project && queue.length > 0 && animationState === "idle") {
       const idx = queue.findIndex((p) => p.id === project.id);
-      if (idx !== -1) {
+      if (idx !== -1 && idx !== currentIndex) {
         setCurrentIndex(idx);
         setShowCelebration(false);
       }
     }
-  }, [project, queue]);
+  }, [project, queue, animationState, currentIndex]);
 
   // Lock body scroll
   useEffect(() => {
@@ -625,7 +625,7 @@ export function TodayTaskGuideModal({
       setCurrentIndex(nextIdx);
       onNavigateIndex?.(nextIdx);
       setAnimationState("entering-from-right");
-      setTimeout(() => setAnimationState("idle"), 60);
+      setTimeout(() => setAnimationState("idle"), 40);
     }, 200);
   };
 
@@ -638,7 +638,7 @@ export function TodayTaskGuideModal({
       setCurrentIndex(prevIdx);
       onNavigateIndex?.(prevIdx);
       setAnimationState("entering-from-left");
-      setTimeout(() => setAnimationState("idle"), 60);
+      setTimeout(() => setAnimationState("idle"), 40);
     }, 200);
   };
 
@@ -654,7 +654,7 @@ export function TodayTaskGuideModal({
         setCurrentIndex(nextIdx);
         onNavigateIndex?.(nextIdx);
         setAnimationState("entering-from-right");
-        setTimeout(() => setAnimationState("idle"), 60);
+        setTimeout(() => setAnimationState("idle"), 40);
       }, 200);
     } else {
       // Reached the end of the queue!
@@ -687,7 +687,7 @@ export function TodayTaskGuideModal({
             setCurrentIndex(firstUnresolvedIdx);
             onNavigateIndex?.(firstUnresolvedIdx);
             setAnimationState("entering-from-right");
-            setTimeout(() => setAnimationState("idle"), 60);
+            setTimeout(() => setAnimationState("idle"), 40);
           }, 200);
         } else {
           setAnimationState("sliding-left");
@@ -701,28 +701,34 @@ export function TodayTaskGuideModal({
   };
 
   // Complete & Auto Advance
-  const handleMarkDoneAndAdvance = async () => {
-    if (!currentProject || isMarkingDone) return;
-    setIsMarkingDone(true);
-    try {
-      if (onMarkComplete) {
-        await onMarkComplete(currentProject.id);
-      }
-      advanceAfterAction(currentProject.id, "done");
-    } finally {
-      setIsMarkingDone(false);
+  const handleMarkDoneAndAdvance = () => {
+    if (!currentProject || isMarkingDone || animationState !== "idle") return;
+
+    const projectIdToComplete = currentProject.id;
+    const isAlreadyDone = currentIsDone;
+
+    // 1. Trigger slide animation IMMEDIATELY for seamless UI responsiveness
+    advanceAfterAction(projectIdToComplete, "done");
+
+    // 2. Asynchronously mark complete in background without stalling the slide transition
+    if (!isAlreadyDone && onMarkComplete) {
+      setIsMarkingDone(true);
+      Promise.resolve(onMarkComplete(projectIdToComplete, true)).finally(() => {
+        setIsMarkingDone(false);
+      });
     }
   };
 
   // Skip & Auto Advance
   const handleSkipAndAdvance = () => {
-    if (!currentProject) return;
+    if (!currentProject || animationState !== "idle") return;
+    const projectId = currentProject.id;
     if (currentIsSkipped) {
-      onRestoreProject?.(currentProject.id);
+      onRestoreProject?.(projectId);
     } else {
-      onSkipProject?.(currentProject.id);
+      onSkipProject?.(projectId);
     }
-    advanceAfterAction(currentProject.id, "skip");
+    advanceAfterAction(projectId, "skip");
   };
 
   const actionsRef = useRef({
@@ -851,20 +857,20 @@ export function TodayTaskGuideModal({
     transitionStyle = "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)";
   } else if (animationState === "entering-from-right") {
     transformStyle = "translateX(40px)";
-    transitionStyle = "all 0.15s ease-out";
+    transitionStyle = "none";
   } else if (animationState === "entering-from-left") {
     transformStyle = "translateX(-40px)";
-    transitionStyle = "all 0.15s ease-out";
+    transitionStyle = "none";
   } else {
     transformStyle = "translateX(0px) rotate(0deg)";
-    transitionStyle = "all 0.2s ease-out";
+    transitionStyle = "all 0.22s cubic-bezier(0.16, 1, 0.3, 1)";
   }
 
   const opacityStyle =
     animationState === "sliding-left" || animationState === "sliding-right"
       ? 0
       : animationState === "entering-from-right" || animationState === "entering-from-left"
-      ? 0.5
+      ? 0
       : 1;
 
   // Render Celebration Screen
@@ -882,13 +888,13 @@ export function TodayTaskGuideModal({
           role="dialog"
           aria-modal="true"
         >
-          {/* Ambient top highlight */}
-          <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-amber-500/30 via-amber-400/80 to-emerald-500/30" />
+          {/* Subtle top hairline accent */}
+          <div className="absolute top-0 inset-x-0 h-[2px] bg-accent/40" />
 
           {/* Celebration Icon */}
-          <div className="w-16 h-16 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center shadow-lg shadow-accent/10 relative">
+          <div className="w-16 h-16 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center relative">
             <Trophy className="w-8 h-8" />
-            <Sparkles className="w-4 h-4 text-amber-400 absolute -top-1 -right-1 animate-bounce" />
+            <Sparkles className="w-4 h-4 text-accent absolute -top-1 -right-1 animate-bounce" />
           </div>
 
           <div className="space-y-1.5">
@@ -978,8 +984,8 @@ export function TodayTaskGuideModal({
         role="dialog"
         aria-modal="true"
       >
-        {/* Top Ambient Highlight */}
-        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-amber-500/30 via-amber-400/80 to-violet-500/30" />
+        {/* Top Accent Highlight */}
+        <div className="absolute top-0 inset-x-0 h-[2px] bg-accent/40" />
 
         {/* 1. TINDER-STYLE QUEUE PROGRESS & FAST-FLOW CONTROLS STRIP */}
         <div className="px-4 py-2.5 sm:px-6 bg-bg-base/70 border-b border-border-hairline flex items-center justify-between gap-3 text-caption">
@@ -1000,7 +1006,7 @@ export function TodayTaskGuideModal({
           {/* Center: Slim Progress Bar */}
           <div className="flex-1 max-w-[180px] sm:max-w-[240px] h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-300 rounded-full"
+              className="h-full bg-accent transition-all duration-300 rounded-full"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -1070,7 +1076,7 @@ export function TodayTaskGuideModal({
               <div className="space-y-1.5 min-w-0 flex-1">
                 {/* Project Title & Status */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
                   <h2 className="text-heading-3 sm:text-heading-2 font-bold text-text-primary font-sans tracking-tight truncate">
                     {currentProject.name}
                   </h2>
@@ -1084,14 +1090,14 @@ export function TodayTaskGuideModal({
                   <StatusBadge status={currentProject.status} />
 
                   {currentIsDone && (
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-badge-bg-completed text-status-completed border border-status-completed/30 flex items-center gap-1">
                       <Check className="w-3 h-3" />
                       <span>{isEn ? "Done Today" : "Selesai Hari Ini"}</span>
                     </span>
                   )}
 
                   {currentIsSkipped && (
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-400/15 text-amber-400 border border-amber-400/30 flex items-center gap-1">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/30 flex items-center gap-1">
                       <FastForward className="w-3 h-3" />
                       <span>{isEn ? "Skipped" : "Dilewati"}</span>
                     </span>
@@ -1099,7 +1105,7 @@ export function TodayTaskGuideModal({
 
                   {isPotentialProject && (
                     <span
-                      className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1 shadow-xs"
+                      className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/30 flex items-center gap-1 shadow-xs"
                       title="Terkonfirmasi sebagai Potential Airdrop dari channel Telegram"
                     >
                       <span>📌</span>
@@ -1115,7 +1121,7 @@ export function TodayTaskGuideModal({
                       href={telegramPostUrl || channelSource.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-500 dark:text-sky-300 text-[11px] font-medium transition-colors group/ch"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-badge-bg-in-progress hover:bg-badge-bg-in-progress/80 border border-status-in-progress/30 text-status-in-progress text-[11px] font-medium transition-colors group/ch"
                       title="Buka sumber channel Telegram"
                     >
                       {channelSource.logo ? (
@@ -1129,10 +1135,10 @@ export function TodayTaskGuideModal({
                           />
                         </div>
                       ) : (
-                        <Send className="w-3 h-3 text-sky-500 dark:text-sky-400 shrink-0" />
+                        <Send className="w-3 h-3 text-status-in-progress shrink-0" />
                       )}
                       <span>{channelSource.name}</span>
-                      <span className="text-sky-500/70 dark:text-sky-400/60 font-mono text-[10px]">
+                      <span className="text-status-in-progress/70 font-mono text-[10px]">
                         {channelSource.handle}
                       </span>
                       <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover/ch:opacity-100 transition-opacity" />
@@ -1140,8 +1146,8 @@ export function TodayTaskGuideModal({
                   )}
 
                   {scheduleText && (
-                    <span className="inline-flex items-center gap-1.5 text-amber-500 dark:text-amber-300/90 font-medium">
-                      <Clock className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                    <span className="inline-flex items-center gap-1.5 text-accent font-medium">
+                      <Clock className="w-3.5 h-3.5 text-accent" />
                       <span>{isEn ? `Schedule: ${scheduleText} (07:00 WIB)` : `Jadwal: ${scheduleText} (07:00 WIB)`}</span>
                     </span>
                   )}
@@ -1155,9 +1161,9 @@ export function TodayTaskGuideModal({
                     href={primaryActionUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-semibold text-caption sm:text-body-sm shadow-[0_0_20px_-3px_rgba(240,169,59,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0"
+                    className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-accent hover:bg-accent-pressed active:bg-accent-deep text-on-accent font-semibold text-caption sm:text-body-sm transition-colors shrink-0 shadow-none"
                   >
-                    <Flame className="w-4 h-4 fill-black" />
+                    <Flame className="w-4 h-4 fill-on-accent" />
                     <span>{isEn ? `Farm ${dappUrl ? "on DApp" : "on Web"}` : `Mulai Garap ${dappUrl ? "di DApp" : "di Web"}`}</span>
                     <ExternalLink className="w-3.5 h-3.5 stroke-[2.5]" />
                   </a>
@@ -1171,7 +1177,7 @@ export function TodayTaskGuideModal({
             {/* Header Row: Title & Edit Button */}
             <div className="flex items-center justify-between">
               <h3 className="text-body-sm font-bold text-text-primary font-sans flex items-center gap-2">
-                <span className="w-1.5 h-4 rounded-full bg-amber-400" />
+                <span className="w-1.5 h-4 rounded-full bg-accent" />
                 <span>{isEn ? "Project Guide & Post" : "Catatan & Panduan Lengkap"}</span>
               </h3>
 
@@ -1182,7 +1188,7 @@ export function TodayTaskGuideModal({
                     setGuideInput(rawPostContent || currentProject.guide_content || "");
                     setIsEditingGuide(true);
                   }}
-                  className="text-[11px] text-text-secondary hover:text-amber-500 dark:hover:text-amber-300 flex items-center gap-1 transition-colors font-medium"
+                  className="text-[11px] text-text-secondary hover:text-accent flex items-center gap-1 transition-colors font-medium"
                 >
                   <Edit2 className="w-3 h-3" />
                   <span>{rawPostContent ? (isEn ? "Edit Notes" : "Edit Catatan") : (isEn ? "+ Write Notes" : "+ Tulis Catatan")}</span>
@@ -1197,7 +1203,7 @@ export function TodayTaskGuideModal({
                   onChange={(e) => setGuideInput(e.target.value)}
                   rows={10}
                   placeholder={isEn ? "Write notes or guide here..." : "Tulis catatan atau panduan di sini..."}
-                  className="w-full rounded-xl bg-bg-base border border-border-hairline p-3 text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all font-sans leading-relaxed resize-y no-scrollbar"
+                  className="w-full rounded-xl bg-bg-base border border-border-hairline p-3 text-body-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all font-sans leading-relaxed resize-y no-scrollbar"
                 />
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] text-text-tertiary">
@@ -1218,7 +1224,7 @@ export function TodayTaskGuideModal({
                       type="button"
                       onClick={handleSaveGuide}
                       disabled={isSavingGuide}
-                      className="px-3.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-semibold text-caption transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                      className="px-3.5 py-1.5 rounded-md bg-accent hover:bg-accent-pressed active:bg-accent-deep text-on-accent font-semibold text-caption transition-colors flex items-center gap-1.5 disabled:opacity-50"
                     >
                       <Save className="w-3.5 h-3.5" />
                       <span>{isSavingGuide ? (isEn ? "Saving..." : "Menyimpan...") : (isEn ? "Save Notes" : "Simpan Catatan")}</span>
@@ -1246,8 +1252,8 @@ export function TodayTaskGuideModal({
                 {/* Direktori Tautan Resmi */}
                 {officialLinks.length > 0 && (
                   <div className="space-y-2">
-                    <div className="text-[12px] font-semibold text-amber-500 dark:text-amber-400/90 flex items-center gap-1.5 uppercase tracking-wider">
-                      <Layers className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                    <div className="text-[12px] font-semibold text-accent flex items-center gap-1.5 uppercase tracking-wider">
+                      <Layers className="w-3.5 h-3.5 text-accent" />
                       <span>{isEn ? `Official Links Directory (${officialLinks.length})` : `Direktori Tautan Resmi (${officialLinks.length})`}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1271,14 +1277,14 @@ export function TodayTaskGuideModal({
                             href={lnk.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="group/link flex items-center justify-between p-2.5 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline hover:border-amber-400/50 transition-all text-left"
+                            className="group/link flex items-center justify-between p-2.5 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 border border-border-hairline hover:border-accent/40 transition-all text-left"
                           >
                             <div className="min-w-0 flex-1 pr-2">
                               <span
                                 className={`text-[11px] block font-medium transition-colors ${
                                   isYouTube
-                                    ? "text-rose-500 dark:text-rose-400 group-hover/link:text-rose-600 dark:group-hover/link:text-rose-300"
-                                    : "text-text-secondary group-hover/link:text-amber-500 dark:group-hover/link:text-amber-400"
+                                    ? "text-status-overdue"
+                                    : "text-text-secondary group-hover/link:text-accent"
                                 }`}
                               >
                                 {label}
@@ -1287,9 +1293,9 @@ export function TodayTaskGuideModal({
                                 {displayUrl}
                               </span>
                             </div>
-                            <div className="w-6 h-6 rounded-lg bg-bg-base group-hover/link:bg-amber-400 group-hover/link:text-black flex items-center justify-center text-text-secondary transition-colors shrink-0">
+                            <div className="w-6 h-6 rounded-lg bg-bg-base group-hover/link:bg-accent group-hover/link:text-on-accent flex items-center justify-center text-text-secondary transition-colors shrink-0">
                               {isYouTube ? (
-                                <Video className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 group-hover/link:text-black" />
+                                <Video className="w-3.5 h-3.5 text-status-overdue group-hover/link:text-on-accent" />
                               ) : (
                                 <ExternalLink className="w-3 h-3" />
                               )}
@@ -1304,8 +1310,8 @@ export function TodayTaskGuideModal({
                 {/* Postingan Asli Telegram */}
                 <div className="space-y-2 pt-2 border-t border-border-hairline">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="text-[12px] font-semibold text-sky-500 dark:text-sky-400/90 flex items-center gap-1.5 uppercase tracking-wider">
-                      <Send className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
+                    <div className="text-[12px] font-semibold text-status-in-progress flex items-center gap-1.5 uppercase tracking-wider">
+                      <Send className="w-3.5 h-3.5 text-status-in-progress" />
                       <span>{isEn ? "Original Telegram Post" : "Postingan Asli Telegram"}</span>
                     </div>
 
@@ -1317,12 +1323,12 @@ export function TodayTaskGuideModal({
                           disabled={isTranslatingOriginal}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-caption font-medium transition-all ${
                             showTranslatedOriginal
-                              ? "bg-amber-400/20 text-amber-600 dark:text-amber-300 border-amber-400/40"
+                              ? "bg-badge-bg-ready-claim text-accent border-accent/40"
                               : "bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border-border-hairline"
                           }`}
                           title={isEn ? "Translate post text" : "Terjemahkan teks postingan"}
                         >
-                          <Languages className={`w-3.5 h-3.5 ${isTranslatingOriginal ? "animate-spin text-amber-500" : ""}`} />
+                          <Languages className={`w-3.5 h-3.5 ${isTranslatingOriginal ? "animate-spin text-accent" : ""}`} />
                           <span>
                             {isTranslatingOriginal
                               ? (locale === "id" ? "Menerjemahkan..." : "Translating...")
@@ -1345,12 +1351,12 @@ export function TodayTaskGuideModal({
                         >
                           {isCopied ? (
                             <>
-                              <Check className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
-                              <span className="text-emerald-600 dark:text-emerald-400 font-medium">{isEn ? "Copied!" : "Tersalin!"}</span>
+                              <Check className="w-3 h-3 text-status-completed" />
+                              <span className="text-status-completed font-medium">{isEn ? "Copied!" : "Tersalin!"}</span>
                             </>
                           ) : (
                             <>
-                              <Copy className="w-3 h-3 text-sky-500 dark:text-sky-400" />
+                              <Copy className="w-3 h-3 text-status-in-progress" />
                               <span>{isEn ? "Copy Post" : "Salin Postingan"}</span>
                             </>
                           )}
@@ -1374,7 +1380,7 @@ export function TodayTaskGuideModal({
                             />
                           </div>
                         ) : (
-                          <div className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-500 dark:text-sky-400 shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-badge-bg-in-progress border border-status-in-progress/30 flex items-center justify-center text-status-in-progress shrink-0">
                             <Send className="w-3 h-3" />
                           </div>
                         )}
@@ -1383,7 +1389,7 @@ export function TodayTaskGuideModal({
                           <span className="text-caption font-bold text-text-primary block truncate">
                             {channelSource.name}
                           </span>
-                          <span className="text-[10.5px] text-sky-600 dark:text-sky-400/80 font-mono block truncate">
+                          <span className="text-[10.5px] text-status-in-progress/80 font-mono block truncate">
                             {channelSource.handle}
                           </span>
                         </div>
@@ -1393,7 +1399,7 @@ export function TodayTaskGuideModal({
                             href={telegramPostUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-[11px] text-sky-500 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300 inline-flex items-center gap-1 font-medium shrink-0"
+                            className="text-[11px] text-link-teal hover:text-link-teal-pressed hover:underline inline-flex items-center gap-1 font-medium shrink-0"
                           >
                             <span>{isEn ? "Open in TG" : "Buka di TG"}</span>
                             <ExternalLink className="w-2.5 h-2.5" />
@@ -1404,8 +1410,8 @@ export function TodayTaskGuideModal({
 
                     <div className="text-body-sm text-text-primary whitespace-pre-wrap leading-relaxed font-sans space-y-2">
                       {showTranslatedOriginal && translatedOriginalPost && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-400/15 border border-amber-400/30 text-[10.5px] font-medium text-amber-700 dark:text-amber-300 w-fit">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-badge-bg-ready-claim border border-status-ready-claim/30 text-[10.5px] font-medium text-status-ready-claim w-fit">
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                           <span>{locale === "id" ? "Diterjemahkan ke Bahasa Indonesia" : "Translated to English"}</span>
                         </div>
                       )}
@@ -1437,10 +1443,10 @@ export function TodayTaskGuideModal({
               type="button"
               onClick={handleMarkDoneAndAdvance}
               disabled={isMarkingDone}
-              className={`flex-1 sm:flex-initial h-10 px-4 rounded-xl font-semibold text-caption sm:text-body-sm border transition-all shadow-sm inline-flex items-center justify-center gap-2 ${
+              className={`flex-1 sm:flex-initial h-10 px-4 rounded-xl font-semibold text-caption sm:text-body-sm border transition-all inline-flex items-center justify-center gap-2 ${
                 currentIsDone
-                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30"
-                  : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white border-transparent shadow-[0_0_20px_-4px_rgba(16,185,129,0.3)]"
+                  ? "bg-badge-bg-completed text-status-completed border-status-completed/40 hover:bg-badge-bg-completed/80"
+                  : "bg-status-completed hover:opacity-90 text-white border-transparent shadow-none"
               } active:scale-[0.98] disabled:opacity-50`}
               title={
                 currentIsDone
@@ -1462,7 +1468,7 @@ export function TodayTaskGuideModal({
               onClick={handleSkipAndAdvance}
               className={`h-10 px-3.5 rounded-xl border text-caption sm:text-body-sm font-medium transition-all inline-flex items-center justify-center gap-1.5 ${
                 currentIsSkipped
-                  ? "bg-amber-400/20 hover:bg-amber-400/30 text-amber-700 dark:text-amber-300 border-amber-400/40"
+                  ? "bg-badge-bg-ready-claim hover:bg-badge-bg-ready-claim/80 text-status-ready-claim border-status-ready-claim/40"
                   : "bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border-border-hairline"
               } active:scale-[0.98] shrink-0`}
               title={
@@ -1473,7 +1479,7 @@ export function TodayTaskGuideModal({
             >
               {currentIsSkipped ? (
                 <>
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
+                  <RotateCcw className="w-3.5 h-3.5 text-accent shrink-0" />
                   <span>{isEn ? "Restore" : "Batal Lewati"}</span>
                 </>
               ) : (
@@ -1516,21 +1522,21 @@ export function TodayTaskGuideModal({
 
             {/* Reminder button */}
             {currentReminder ? (
-              <div className="inline-flex items-center h-10 rounded-xl bg-amber-400/15 border border-amber-400/35 p-0.5">
+              <div className="inline-flex items-center h-10 rounded-xl bg-badge-bg-ready-claim border border-status-ready-claim/30 p-0.5">
                 <button
                   type="button"
                   onClick={() => onOpenReminderModal?.(currentProject.id)}
-                  className="h-full px-2.5 rounded-lg inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-300 hover:bg-amber-400/20 text-caption font-medium transition-colors"
+                  className="h-full px-2.5 rounded-lg inline-flex items-center gap-1.5 text-status-ready-claim hover:bg-badge-bg-ready-claim/70 text-caption font-medium transition-colors"
                   title={isEn ? "Change reminder time" : "Ubah jam pengingat"}
                 >
-                  <Bell className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 fill-amber-400/30" />
+                  <Bell className="w-3.5 h-3.5 text-accent fill-accent/30" />
                   <span>{currentReminder.time || (isEn ? "Reminder" : "Pengingat")}</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleDeleteReminderClick}
                   disabled={isDeletingReminder}
-                  className="h-full px-2 rounded-lg text-rose-500 hover:bg-rose-500/20 transition-colors"
+                  className="h-full px-2 rounded-lg text-status-overdue hover:bg-badge-bg-overdue transition-colors"
                   title={isEn ? "Delete reminder" : "Hapus pengingat"}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -1543,7 +1549,7 @@ export function TodayTaskGuideModal({
                 className="h-10 px-3 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border border-border-hairline inline-flex items-center gap-1.5 text-caption font-medium transition-all"
                 title={isEn ? "Set time reminder" : "Atur alarm pengingat"}
               >
-                <Bell className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                <Bell className="w-3.5 h-3.5 text-accent" />
                 <span>{isEn ? "Reminder" : "Pengingat"}</span>
               </button>
             )}
@@ -1554,7 +1560,7 @@ export function TodayTaskGuideModal({
             <Link
               href={`/projects/${currentProject.id}`}
               prefetch={false}
-              className="h-10 px-3 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-amber-500 dark:hover:text-amber-300 border border-border-hairline inline-flex items-center gap-1.5 text-caption font-medium transition-all"
+              className="h-10 px-3 rounded-xl bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-accent border border-border-hairline inline-flex items-center gap-1.5 text-caption font-medium transition-all"
               title={isEn ? "Open full project workstation" : "Buka workstation proyek lengkap"}
             >
               <ExternalLink className="w-3.5 h-3.5" />

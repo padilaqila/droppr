@@ -32,6 +32,11 @@ import {
   ArrowUpDown,
   ArrowDown,
   ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  RotateCw,
+  History,
 } from "lucide-react";
 import {
   fetchAirdropFeeds,
@@ -182,6 +187,26 @@ export function formatTimeAgo(isoString?: string | null, locale: "id" | "en" = "
   }
 }
 
+// Format full date & time (e.g. "20 Sep 2026, 18:45 WIB")
+export function formatFullDate(isoString?: string | null, isEn: boolean = false): string {
+  if (!isoString) return "";
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "";
+    return (
+      d.toLocaleDateString(isEn ? "en-US" : "id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }) + " WIB"
+    );
+  } catch {
+    return "";
+  }
+}
+
 // Render raw telegram text with interactive links in preview modal, deduplicating duplicate URLs
 function renderInteractiveText(text: string) {
   const cleanText = cleanDuplicateLinks(text);
@@ -202,7 +227,7 @@ function renderInteractiveText(text: string) {
           href={match[2]}
           target="_blank"
           rel="noreferrer"
-          className="text-amber-400 hover:text-amber-300 underline underline-offset-2 inline-flex items-center gap-1 font-medium transition-colors break-all"
+          className="text-link-teal hover:text-link-teal-pressed underline underline-offset-2 inline-flex items-center gap-1 font-medium transition-colors break-all"
         >
           <span>{match[1]}</span>
           <ExternalLink className="w-3 h-3 shrink-0 inline" />
@@ -223,7 +248,7 @@ function renderInteractiveText(text: string) {
           href={rawUrl}
           target="_blank"
           rel="noreferrer"
-          className="text-amber-400 hover:text-amber-300 underline underline-offset-2 inline-flex items-center gap-1 font-mono text-[12px] transition-colors break-all"
+          className="text-link-teal hover:text-link-teal-pressed underline underline-offset-2 inline-flex items-center gap-1 font-mono text-[12px] transition-colors break-all"
         >
           <span>{rawUrl}</span>
           <ExternalLink className="w-3 h-3 shrink-0 inline" />
@@ -276,6 +301,15 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   const [previewTranslatedText, setPreviewTranslatedText] = useState<string | null>(null);
   const [showPreviewTranslated, setShowPreviewTranslated] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // Telegram live search & mention intelligence
+  const [tgSearchResult, setTgSearchResult] = useState<{
+    count: number;
+    updates: any[];
+    lastCheckedAt: Date;
+  } | null>(null);
+  const [isSearchingTg, setIsSearchingTg] = useState(false);
+  const [showTgHistoryDrawer, setShowTgHistoryDrawer] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -398,6 +432,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
     setShowPreviewTranslated(false);
     setIsPreviewTranslating(false);
     setIsPreviewCopied(false);
+    setShowTgHistoryDrawer(false);
   };
 
   const handleClosePreview = () => {
@@ -406,6 +441,8 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
     setShowPreviewTranslated(false);
     setIsPreviewTranslating(false);
     setIsPreviewCopied(false);
+    setShowTgHistoryDrawer(false);
+    setTgSearchResult(null);
   };
 
   const handleTranslatePreview = async () => {
@@ -619,6 +656,192 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
   // Feeds to display
   const displayedFeeds = filteredFeeds;
 
+  // Current preview index in displayed list
+  const currentPreviewIndex = useMemo(() => {
+    if (!previewingFeed) return -1;
+    return filteredFeeds.findIndex((f) => f.id === previewingFeed.id);
+  }, [previewingFeed, filteredFeeds]);
+
+  const handleNextPreview = () => {
+    if (currentPreviewIndex >= 0 && currentPreviewIndex < filteredFeeds.length - 1) {
+      handleOpenPreview(filteredFeeds[currentPreviewIndex + 1]);
+    }
+  };
+
+  const handlePrevPreview = () => {
+    if (currentPreviewIndex > 0) {
+      handleOpenPreview(filteredFeeds[currentPreviewIndex - 1]);
+    }
+  };
+
+  const handleDeletePreview = (feed: AirdropFeedItem) => {
+    if (feed.is_imported || feed.linked_project_id) {
+      setConfirmModal({
+        isOpen: true,
+        isAlert: true,
+        title: locale === "en" ? "Project Still Active" : "Proyek Masih Aktif",
+        description:
+          locale === "en"
+            ? "This airdrop is already saved as an active project in your workspace.\n\nYou cannot delete it from the feed because the project still exists.\n\nTo remove this project, please delete it directly from the Projects page."
+            : "Postingan airdrop ini sudah tersimpan sebagai Proyek aktif Anda.\n\nAnda tidak dapat menghapusnya langsung dari Feed karena proyek masih ada di direktori Proyek Anda.\n\nJika ingin menghapus garapan ini, silakan hapus langsung melalui halaman Proyek.",
+        variant: "warning",
+        confirmLabel: locale === "en" ? "Understood" : "Mengerti",
+      });
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: locale === "en" ? "Delete Feed Post" : "Hapus Postingan Feed",
+      description:
+        t("feed.confirmDeleteFeed") ||
+        (locale === "en"
+          ? "Delete this airdrop post from your feed?"
+          : "Hapus postingan sinyal airdrop ini dari feed?"),
+      confirmLabel: locale === "en" ? "Delete" : "Hapus",
+      variant: "danger",
+      onConfirm: async () => {
+        const curIdx = filteredFeeds.findIndex((f) => f.id === feed.id);
+        const remaining = filteredFeeds.filter((f) => f.id !== feed.id);
+        setFeeds((prev) => prev.filter((f) => f.id !== feed.id));
+        await deleteAirdropFeed(feed.id);
+
+        if (remaining.length === 0) {
+          handleClosePreview();
+        } else if (curIdx < remaining.length) {
+          handleOpenPreview(remaining[curIdx]);
+        } else {
+          handleOpenPreview(remaining[remaining.length - 1]);
+        }
+      },
+    });
+  };
+
+  // Keyboard navigation when preview modal is active
+  useEffect(() => {
+    if (!previewingFeed) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (document.activeElement?.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        handleNextPreview();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        handlePrevPreview();
+      } else if (e.key === "Delete") {
+        e.preventDefault();
+        handleDeletePreview(previewingFeed);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleClosePreview();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewingFeed, currentPreviewIndex, filteredFeeds]);
+
+  // Project key for mention counting & intelligence
+  const previewProjectKey = useMemo(() => {
+    if (!previewingFeed) return "";
+    return extractCoreProjectKey(previewingFeed.title);
+  }, [previewingFeed]);
+
+  // Local matching feeds from database
+  const previewMatchingFeeds = useMemo(() => {
+    if (!previewProjectKey) return [];
+    return feeds
+      .filter((f) => extractCoreProjectKey(f.title) === previewProjectKey)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }, [previewProjectKey, feeds]);
+
+  // Combined timeline & mention stats
+  const mentionTimeline = useMemo(() => {
+    if (!previewingFeed) return null;
+    const currentMs = new Date(previewingFeed.created_at).getTime();
+    const timestamps = [
+      currentMs,
+      ...previewMatchingFeeds.map((f) => new Date(f.created_at).getTime()),
+      ...(tgSearchResult?.updates || []).map((u: any) => new Date(u.date).getTime()),
+    ].filter((t) => !isNaN(t));
+
+    const earliestMs = timestamps.length > 0 ? Math.min(...timestamps) : currentMs;
+    const latestMs = timestamps.length > 0 ? Math.max(...timestamps) : currentMs;
+    const totalCount = Math.max(
+      previewMatchingFeeds.length,
+      (tgSearchResult?.updates?.length || 0),
+      1
+    );
+
+    return {
+      currentDate: previewingFeed.created_at,
+      earliestDate: new Date(earliestMs).toISOString(),
+      latestDate: new Date(latestMs).toISOString(),
+      totalMentions: totalCount,
+      feedCount: previewMatchingFeeds.length,
+      tgCount: tgSearchResult?.count || 0,
+    };
+  }, [previewingFeed, previewMatchingFeeds, tgSearchResult]);
+
+  // Automatic live Telegram update checker when preview changes
+  useEffect(() => {
+    if (!previewingFeed) {
+      setTgSearchResult(null);
+      setShowTgHistoryDrawer(false);
+      return;
+    }
+
+    const key = extractCoreProjectKey(previewingFeed.title);
+    if (!key || key.length < 2) return;
+
+    let cancelled = false;
+    setIsSearchingTg(true);
+    fetch(`/api/telegram/search?q=${encodeURIComponent(key)}&channel=all`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && json) {
+          setTgSearchResult({
+            count: json.count || 0,
+            updates: json.updates || [],
+            lastCheckedAt: new Date(),
+          });
+        }
+      })
+      .catch((err) => console.error("Telegram search auto check error:", err))
+      .finally(() => {
+        if (!cancelled) setIsSearchingTg(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewingFeed?.id]);
+
+  const handleRefreshTgUpdates = async () => {
+    if (!previewingFeed) return;
+    const key = extractCoreProjectKey(previewingFeed.title);
+    if (!key) return;
+    setIsSearchingTg(true);
+    try {
+      const res = await fetch(`/api/telegram/search?q=${encodeURIComponent(key)}&channel=all`);
+      if (res.ok) {
+        const json = await res.json();
+        setTgSearchResult({
+          count: json.count || 0,
+          updates: json.updates || [],
+          lastCheckedAt: new Date(),
+        });
+      }
+    } catch (err) {
+      console.error("Refresh telegram update error:", err);
+    } finally {
+      setIsSearchingTg(false);
+    }
+  };
+
   // Counts for category badges
   const testnetCount = useMemo(() => feeds.filter(isFeedTestnet).length, [feeds]);
   const airdropCount = useMemo(() => feeds.filter(isFeedAirdrop).length, [feeds]);
@@ -825,11 +1048,11 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               onClick={() => setCategoryFilter("retro")}
               className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
                 categoryFilter === "retro"
-                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-semibold"
+                  ? "bg-badge-bg-ready-claim text-status-ready-claim border-status-ready-claim/40 font-semibold"
                   : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
               }`}
             >
-              <Flame className="w-3 h-3 text-amber-400" />
+              <Flame className="w-3 h-3 text-accent" />
               <span>{t("feed.retro")} ({retroCount})</span>
             </button>
           </div>
@@ -870,11 +1093,11 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               onClick={() => setCostFilter("paid")}
               className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
                 costFilter === "paid"
-                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-semibold"
+                  ? "bg-badge-bg-ready-claim text-status-ready-claim border-status-ready-claim/40 font-semibold"
                   : "border-transparent bg-white/[0.02] text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
               }`}
             >
-              <Wallet className="w-3 h-3 text-amber-400" />
+              <Wallet className="w-3 h-3 text-accent" />
               <span>{t("feed.paid")} ({paidCostCount})</span>
             </button>
           </div>
@@ -1136,7 +1359,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                         <span>{t("feed.free")}</span>
                       </span>
                     ) : (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-badge-bg-ready-claim text-status-ready-claim border border-status-ready-claim/30 flex items-center gap-1">
                         <Wallet className="w-3 h-3" />
                         <span>{feed.cost || (locale === "en" ? "Gas Fee" : "Biaya Gas")}</span>
                       </span>
@@ -1144,7 +1367,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
 
                     {/* Category Badge */}
                     {isFeedRetro(feed) ? (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-badge-bg-ready-claim border border-status-ready-claim/30 text-status-ready-claim flex items-center gap-1">
                         <Flame className="w-3 h-3" />
                         <span>{t("feed.retro")}</span>
                       </span>
@@ -1163,7 +1386,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     {/* Potential Airdrop Badge */}
                     {isFeedPotential(feed) && (
                       <span
-                        className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 shadow-xs"
+                        className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-badge-bg-ready-claim border border-status-ready-claim/30 text-status-ready-claim flex items-center gap-1 shadow-xs"
                         title="Terkonfirmasi sebagai Potential Airdrop dari channel Telegram"
                       >
                         <span>📌</span>
@@ -1177,7 +1400,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       onClick={() => handleDeleteFeed(feed)}
                       className={`p-1.5 rounded-lg transition-colors ml-1 ${
                         isConverted
-                          ? "text-text-tertiary/40 hover:text-amber-400 hover:bg-amber-400/10 cursor-pointer"
+                          ? "text-text-tertiary/40 hover:text-accent hover:bg-accent/10 cursor-pointer"
                           : "text-text-tertiary hover:text-status-overdue hover:bg-white/[0.05]"
                       }`}
                       title={
@@ -1317,44 +1540,74 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
             />
 
             <div
-              className="relative z-10 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-bg-elevated border border-border-hairline shadow-2xl overflow-hidden my-auto"
+              className="relative z-10 w-full max-w-3xl max-h-[88vh] flex flex-col rounded-2xl bg-bg-elevated border border-border-hairline shadow-2xl overflow-hidden my-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Modal Header */}
+              {/* Modal Header with Navigation & Quick Actions */}
               <div className="p-4 sm:p-5 border-b border-border-hairline flex items-center justify-between gap-3 shrink-0 bg-bg-elevated">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full overflow-hidden border border-border-hairline bg-bg-base shrink-0 flex items-center justify-center shadow-sm">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-10 h-10 rounded-full overflow-hidden border border-border-hairline bg-bg-base shrink-0 flex items-center justify-center shadow-sm">
                     {getChannelInfo(previewingFeed.channel).logo ? (
                       <Image
                         src={getChannelInfo(previewingFeed.channel).logo!}
                         alt={previewingFeed.channel_name}
-                        width={36}
-                        height={36}
+                        width={40}
+                        height={40}
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <Send className="w-4 h-4 text-accent" />
                     )}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-body-md font-bold text-text-primary truncate">
                         {previewingFeed.title}
                       </h3>
                       {isFeedPotential(previewingFeed) && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 shadow-xs">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-badge-bg-ready-claim border border-status-ready-claim/30 text-status-ready-claim flex items-center gap-1 shadow-xs">
                           <span>📌</span>
                           <span>Potential Airdrop</span>
                         </span>
                       )}
                     </div>
-                    <p className="text-[12px] font-mono text-text-tertiary">
-                      {previewingFeed.channel_name} • {formatTimeAgo(previewingFeed.created_at)}
+                    <p className="text-[12px] font-mono text-text-tertiary truncate">
+                      <span className="text-text-secondary font-medium">{previewingFeed.channel_name}</span>
+                      {" • "}
+                      <span>{formatFullDate(previewingFeed.created_at, locale === "en")}</span>
+                      {" ("}
+                      <span>{formatTimeAgo(previewingFeed.created_at, locale)}</span>
+                      {")"}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  {/* Next / Prev Navigation Strip in Header */}
+                  <div className="flex items-center rounded-lg bg-bg-base border border-border-hairline p-0.5">
+                    <button
+                      type="button"
+                      onClick={handlePrevPreview}
+                      disabled={currentPreviewIndex <= 0}
+                      className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-elevated-2 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                      title={locale === "en" ? "Previous post (←)" : "Postingan sebelumnya (←)"}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="font-mono text-[11px] text-text-secondary px-2">
+                      {currentPreviewIndex >= 0 ? currentPreviewIndex + 1 : 1} / {filteredFeeds.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleNextPreview}
+                      disabled={currentPreviewIndex >= filteredFeeds.length - 1}
+                      className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-elevated-2 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                      title={locale === "en" ? "Next post (→)" : "Postingan berikutnya (→)"}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
                   {/* Translate Button */}
                   {previewAction.shouldShowTranslate && (
                     <button
@@ -1369,7 +1622,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       title="Terjemahkan teks postingan"
                     >
                       <Languages className={`w-3.5 h-3.5 ${isPreviewTranslating ? "animate-spin text-accent" : ""}`} />
-                      <span>
+                      <span className="hidden sm:inline">
                         {isPreviewTranslating
                           ? (locale === "id" ? "Menerjemahkan..." : "Translating...")
                           : showPreviewTranslated
@@ -1379,6 +1632,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     </button>
                   )}
 
+                  {/* Copy Button */}
                   <button
                     type="button"
                     onClick={() => {
@@ -1388,26 +1642,28 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                       setIsPreviewCopied(true);
                       setTimeout(() => setIsPreviewCopied(false), 2500);
                     }}
-                    className="px-2.5 py-1.5 rounded-lg bg-bg-elevated-2 hover:bg-bg-base text-text-secondary hover:text-text-primary border border-border-hairline text-caption font-medium transition-all flex items-center gap-1.5"
+                    className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-bg-elevated-2 hover:bg-bg-base text-text-secondary hover:text-text-primary border border-border-hairline text-caption font-medium transition-all flex items-center gap-1.5"
                     title="Salin teks postingan Telegram"
                   >
                     {isPreviewCopied ? (
                       <>
                         <Check className="w-3.5 h-3.5 text-status-completed" />
-                        <span className="text-status-completed">{t("common.copied")}</span>
+                        <span className="text-status-completed hidden sm:inline">{t("common.copied")}</span>
                       </>
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5" />
-                        <span>{t("common.copy")}</span>
+                        <span className="hidden sm:inline">{t("common.copy")}</span>
                       </>
                     )}
                   </button>
 
+                  {/* Close Button */}
                   <button
                     type="button"
                     onClick={handleClosePreview}
-                    className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-elevated-2 transition-colors"
+                    className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-elevated-2 transition-colors ml-0.5"
+                    title={t("common.close")}
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -1415,7 +1671,205 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               </div>
 
               {/* Modal Body */}
-              <div className="p-5 sm:p-6 overflow-y-auto space-y-3 no-scrollbar bg-bg-elevated">
+              <div className="p-4 sm:p-5 overflow-y-auto space-y-4 no-scrollbar bg-bg-elevated">
+                {/* 1. MENTION INTELLIGENCE & TIMELINE STATS CARD */}
+                <div className="p-3.5 sm:p-4 rounded-xl bg-bg-base/90 border border-border-hairline space-y-3 shadow-inner">
+                  {/* 4 Stat Pills */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left">
+                    {/* Stat 1: Post Date */}
+                    <div className="p-2.5 rounded-lg bg-bg-elevated border border-border-hairline">
+                      <div className="flex items-center gap-1.5 text-[11px] text-text-tertiary font-medium">
+                        <Clock className="w-3.5 h-3.5 text-accent" />
+                        <span>{locale === "en" ? "Post Date" : "Tanggal Post"}</span>
+                      </div>
+                      <div
+                        className="text-[12px] font-mono font-semibold text-text-primary mt-1 truncate"
+                        title={formatFullDate(previewingFeed.created_at, locale === "en")}
+                      >
+                        {formatFullDate(previewingFeed.created_at, locale === "en")}
+                      </div>
+                      <div className="text-[10.5px] text-text-tertiary font-mono">
+                        {formatTimeAgo(previewingFeed.created_at, locale)}
+                      </div>
+                    </div>
+
+                    {/* Stat 2: Total Mentions */}
+                    <div className="p-2.5 rounded-lg bg-bg-elevated border border-border-hairline">
+                      <div className="flex items-center gap-1.5 text-[11px] text-text-tertiary font-medium">
+                        <Flame className="w-3.5 h-3.5 text-accent" />
+                        <span>{locale === "en" ? "Total Mentions" : "Total Dibahas"}</span>
+                      </div>
+                      <div className="text-[12px] font-mono font-bold text-accent mt-1">
+                        {mentionTimeline?.totalMentions}x {locale === "en" ? "on TG" : "di Telegram"}
+                      </div>
+                      <div className="text-[10.5px] text-text-tertiary font-mono truncate">
+                        {mentionTimeline?.feedCount} {locale === "en" ? "feed post" : "di feed"}
+                        {mentionTimeline?.tgCount ? ` • +${mentionTimeline.tgCount} di TG` : ""}
+                      </div>
+                    </div>
+
+                    {/* Stat 3: First Post */}
+                    <div className="p-2.5 rounded-lg bg-bg-elevated border border-border-hairline">
+                      <div className="flex items-center gap-1.5 text-[11px] text-text-tertiary font-medium">
+                        <Calendar className="w-3.5 h-3.5 text-link-teal" />
+                        <span>{locale === "en" ? "First Mention" : "Pertama Kali"}</span>
+                      </div>
+                      <div
+                        className="text-[12px] font-mono font-semibold text-text-primary mt-1 truncate"
+                        title={mentionTimeline?.earliestDate ? formatFullDate(mentionTimeline.earliestDate, locale === "en") : ""}
+                      >
+                        {mentionTimeline?.earliestDate ? formatFullDate(mentionTimeline.earliestDate, locale === "en") : "-"}
+                      </div>
+                      <div className="text-[10.5px] text-text-tertiary font-mono">
+                        {mentionTimeline?.earliestDate ? formatTimeAgo(mentionTimeline.earliestDate, locale) : ""}
+                      </div>
+                    </div>
+
+                    {/* Stat 4: Latest Post */}
+                    <div className="p-2.5 rounded-lg bg-bg-elevated border border-border-hairline">
+                      <div className="flex items-center gap-1.5 text-[11px] text-text-tertiary font-medium">
+                        <Sparkles className="w-3.5 h-3.5 text-status-completed" />
+                        <span>{locale === "en" ? "Latest Mention" : "Terakhir Update"}</span>
+                      </div>
+                      <div
+                        className="text-[12px] font-mono font-semibold text-text-primary mt-1 truncate"
+                        title={mentionTimeline?.latestDate ? formatFullDate(mentionTimeline.latestDate, locale === "en") : ""}
+                      >
+                        {mentionTimeline?.latestDate ? formatFullDate(mentionTimeline.latestDate, locale === "en") : "-"}
+                      </div>
+                      <div className="text-[10.5px] text-text-tertiary font-mono">
+                        {mentionTimeline?.latestDate ? formatTimeAgo(mentionTimeline.latestDate, locale) : ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions Bar for Live Updates & History Toggle */}
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-border-hairline/60 text-[11px]">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRefreshTgUpdates}
+                        disabled={isSearchingTg}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bg-elevated hover:bg-bg-elevated-2 text-text-secondary hover:text-text-primary border border-border-hairline transition-colors disabled:opacity-50 font-medium"
+                        title="Pindai live channel Telegram untuk mencari pembaruan terkait sinyal ini"
+                      >
+                        <RotateCw className={`w-3 h-3 ${isSearchingTg ? "animate-spin text-accent" : ""}`} />
+                        <span>
+                          {isSearchingTg
+                            ? (locale === "en" ? "Scanning Telegram..." : "Memindai Telegram...")
+                            : (locale === "en" ? "Check TG Updates" : "Cek Update TG")}
+                        </span>
+                      </button>
+
+                      {tgSearchResult && (
+                        <span className="text-[10.5px] text-text-tertiary font-mono hidden sm:inline">
+                          {locale === "en" ? "Updated" : "Update sinkron"}
+                        </span>
+                      )}
+                    </div>
+
+                    {((tgSearchResult?.updates && tgSearchResult.updates.length > 0) || previewMatchingFeeds.length > 1) && (
+                      <button
+                        type="button"
+                        onClick={() => setShowTgHistoryDrawer(!showTgHistoryDrawer)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-accent/10 hover:bg-accent/20 text-accent font-medium transition-colors"
+                      >
+                        <History className="w-3 h-3" />
+                        <span>
+                          {showTgHistoryDrawer
+                            ? (locale === "en" ? "Hide History ▲" : "Tutup Riwayat ▲")
+                            : (locale === "en"
+                                ? `View History (${(tgSearchResult?.updates?.length || 0) + previewMatchingFeeds.length}) ▼`
+                                : `Lihat Riwayat (${(tgSearchResult?.updates?.length || 0) + previewMatchingFeeds.length}) ▼`)}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Expandable History Drawer */}
+                  {showTgHistoryDrawer && (
+                    <div className="pt-2 border-t border-border-hairline/60 space-y-2 animate-in fade-in duration-150">
+                      <div className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider flex items-center justify-between">
+                        <span>{locale === "en" ? "Post History & Telegram Updates" : "Riwayat Postingan & Update Telegram"}</span>
+                        <span className="text-[10px] font-mono text-text-tertiary">
+                          {(tgSearchResult?.updates?.length || 0) + previewMatchingFeeds.length} items
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar pr-0.5">
+                        {/* Matching Feeds */}
+                        {previewMatchingFeeds.map((mf) => (
+                          <div
+                            key={mf.id}
+                            className={`p-2 rounded-lg border text-left flex items-center justify-between gap-2 ${
+                              mf.id === previewingFeed.id
+                                ? "bg-accent/10 border-accent/30 text-text-primary"
+                                : "bg-bg-elevated border-border-hairline text-text-secondary"
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1 text-[11px]">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-text-primary truncate">{mf.channel_name}</span>
+                                {mf.id === previewingFeed.id && (
+                                  <span className="px-1.5 py-0.2 rounded bg-accent/20 text-accent text-[9.5px] font-bold">
+                                    {locale === "en" ? "Current" : "Sedang Dibuka"}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-text-tertiary font-mono text-[10px]">
+                                {formatFullDate(mf.created_at, locale === "en")} ({formatTimeAgo(mf.created_at, locale)})
+                              </div>
+                            </div>
+                            {mf.id !== previewingFeed.id && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPreview(mf)}
+                                className="px-2 py-0.5 rounded text-[10px] bg-bg-base hover:bg-bg-elevated-2 border border-border-hairline text-accent shrink-0 font-medium"
+                              >
+                                {locale === "en" ? "Open" : "Buka"}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Live Telegram Updates */}
+                        {(tgSearchResult?.updates || []).map((upd: any, idx: number) => (
+                          <div
+                            key={`tg-${idx}`}
+                            className="p-2 rounded-lg bg-bg-elevated border border-border-hairline text-left flex items-center justify-between gap-2 text-[11px]"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-status-in-progress font-semibold">{upd.channelName || upd.channel}</span>
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-badge-bg-in-progress text-status-in-progress border border-status-in-progress/30 font-mono">
+                                  Live TG
+                                </span>
+                              </div>
+                              <div className="text-text-tertiary font-mono text-[10px]">
+                                {formatFullDate(upd.date, locale === "en")} ({formatTimeAgo(upd.date, locale)})
+                              </div>
+                              {upd.text && (
+                                <p className="text-[11px] text-text-secondary line-clamp-1 mt-0.5">
+                                  {upd.text}
+                                </p>
+                              )}
+                            </div>
+                            <a
+                              href={upd.postUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-0.5 rounded text-[10px] bg-badge-bg-in-progress hover:bg-badge-bg-in-progress/80 border border-status-in-progress/30 text-status-in-progress shrink-0 inline-flex items-center gap-1 font-medium"
+                            >
+                              <span>TG</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. TRANSLATION INDICATOR (IF TRANSLATED) */}
                 {showPreviewTranslated && previewTranslatedText && (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-status-completed/10 border border-status-completed/25 text-[11px] font-medium text-status-completed w-fit">
                     <span className="w-1.5 h-1.5 rounded-full bg-status-completed animate-pulse" />
@@ -1427,6 +1881,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   </div>
                 )}
 
+                {/* 3. POST BODY CONTENT */}
                 <div className="p-4 rounded-xl bg-bg-base border border-border-hairline text-body-sm text-text-primary leading-relaxed whitespace-pre-line break-words font-sans selection:bg-accent/30 selection:text-text-primary">
                   {renderInteractiveText(
                     showPreviewTranslated && previewTranslatedText
@@ -1436,27 +1891,67 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                 </div>
               </div>
 
-              {/* Modal Footer */}
+              {/* Modal Footer with Hapus, Prev, Next, and Make Project */}
               <div className="p-4 sm:p-5 border-t border-border-hairline bg-bg-elevated flex flex-wrap items-center justify-between gap-3 shrink-0">
-                <a
-                  href={previewingFeed.source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-bg-elevated-2 hover:bg-bg-base text-link-teal text-caption font-medium border border-border-hairline transition-all"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{t("feed.openTelegram")}</span>
-                  <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
-                </a>
+                {/* Left: Open Telegram & Delete from Feed */}
+                <div className="flex items-center gap-2">
+                  <a
+                    href={previewingFeed.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-bg-elevated-2 hover:bg-bg-base text-link-teal text-caption font-medium border border-border-hairline transition-all"
+                    title="Buka pesan asli di web Telegram"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{t("feed.openTelegram")}</span>
+                    <span className="sm:hidden">TG</span>
+                    <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
+                  </a>
 
+                  {/* Delete button: removes feed post with confirmation and auto-advances to next */}
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePreview(previewingFeed)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-caption font-medium text-status-overdue hover:bg-badge-bg-overdue bg-badge-bg-overdue/60 border border-status-overdue/30 transition-all"
+                    title={locale === "en" ? "Delete this signal from feed (Del)" : "Hapus postingan sinyal ini dari feed (Del)"}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{locale === "en" ? "Delete" : "Hapus"}</span>
+                  </button>
+                </div>
+
+                {/* Right: Browse Previous / Next, Close, and Make Project */}
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={handlePrevPreview}
+                    disabled={currentPreviewIndex <= 0}
+                    className="px-3 py-2 rounded-xl text-caption text-text-secondary hover:text-text-primary bg-bg-elevated-2 hover:bg-bg-base border border-border-hairline disabled:opacity-30 disabled:cursor-not-allowed transition-all font-medium inline-flex items-center gap-1"
+                    title={locale === "en" ? "Previous post (←)" : "Postingan sebelumnya (←)"}
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{locale === "en" ? "Prev" : "Sebelumnya"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleNextPreview}
+                    disabled={currentPreviewIndex >= filteredFeeds.length - 1}
+                    className="px-3 py-2 rounded-xl text-caption text-text-secondary hover:text-text-primary bg-bg-elevated-2 hover:bg-bg-base border border-border-hairline disabled:opacity-30 disabled:cursor-not-allowed transition-all font-medium inline-flex items-center gap-1"
+                    title={locale === "en" ? "Next post (→)" : "Postingan berikutnya (→)"}
+                  >
+                    <span className="hidden sm:inline">{locale === "en" ? "Next" : "Berikutnya"}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={handleClosePreview}
-                    className="px-4 py-2 rounded-xl text-caption text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-all font-medium"
+                    className="px-3.5 py-2 rounded-xl text-caption text-text-secondary hover:text-text-primary bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-all font-medium"
                   >
                     {t("common.close")}
                   </button>
+
                   {previewingFeed.is_imported ? (
                     <Link
                       href={previewingFeed.linked_project_id ? `/projects/${previewingFeed.linked_project_id}` : "/projects"}

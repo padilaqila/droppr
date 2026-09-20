@@ -238,7 +238,7 @@ export function NotificationPopover() {
                     <button
                       type="button"
                       onClick={(e) => handleQuickComplete(proj.id, e)}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] font-semibold transition-all shrink-0 flex items-center gap-1 shadow-xs"
+                      className="px-2.5 py-1 rounded-lg bg-badge-bg-completed hover:bg-badge-bg-completed/80 border border-status-completed/30 text-status-completed text-[11px] font-semibold transition-all shrink-0 flex items-center gap-1 shadow-none"
                       title={isEn ? "Mark done for today" : "Tandai selesai hari ini"}
                     >
                       <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
