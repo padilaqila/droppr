@@ -160,15 +160,87 @@ export function isFeedPotential(feed: AirdropFeedItem): boolean {
   );
 }
 
+const GENERIC_AIRDROP_STOPWORDS = new Set([
+  "new",
+  "airdrop",
+  "airdrops",
+  "testnet",
+  "testnets",
+  "retro",
+  "retros",
+  "waitlist",
+  "waitlists",
+  "whitelist",
+  "whitelists",
+  "guaranteed",
+  "confirmed",
+  "potential",
+  "free",
+  "update",
+  "reminder",
+  "claim",
+  "reward",
+  "rewards",
+  "token",
+  "tokens",
+  "crypto",
+  "daily",
+  "task",
+  "tasks",
+  "join",
+  "earn",
+  "event",
+  "events",
+  "bot",
+  "bots",
+  "faucet",
+  "campaign",
+  "point",
+  "points",
+  "season",
+]);
+
 // Extracts core project name for intelligent grouping and mention counting
 export function extractCoreProjectKey(title: string): string {
-  return title
-    .replace(/^(TESTNET|AIRDROP|FREE|NEW AIRDROPS?|NEW TESTNET|NEW WAITLIST|UPDATE|REMINDER|CLAIM)\s*[:|-]?\s*/i, "")
+  if (!title) return "";
+
+  // 1. If title contains a colon ':', check if left side is category prefix
+  // e.g. "New Guaranteed Airdrops : Zycot" -> extracts "Zycot"
+  let target = title.trim();
+  if (target.includes(":")) {
+    const colonParts = target.split(":");
+    const leftPart = colonParts[0].trim().toLowerCase();
+    const rightPart = colonParts.slice(1).join(":").trim();
+    const leftWords = leftPart.replace(/[^\w\s]/g, "").split(/\s+/).filter(Boolean);
+    const hasCategoryWord = leftWords.some((w) => GENERIC_AIRDROP_STOPWORDS.has(w));
+    if (hasCategoryWord && rightPart) {
+      target = rightPart;
+    }
+  }
+
+  // 2. Strip common prefixes and tags
+  target = target
+    .replace(/^(?:📌\s*)?(?:\[NEW\]|\(NEW\)|NEW\s+GUARANTEED\s+AIRDROPS?|NEW\s+CONFIRMED\s+AIRDROPS?|NEW\s+AIRDROPS?|NEW\s+TESTNET|NEW\s+WAITLIST|NEW\s+RETRO|NEW\s+WHITELIST)\s*[:|-]?\s*/i, "")
+    .replace(/^(?:GUARANTEED|CONFIRMED|POTENTIAL)\s+(?:AIRDROPS?|TESTNET|WAITLIST)\s*[:|-]?\s*/i, "")
+    .replace(/^(TESTNET|AIRDROP|FREE|RETRO|WAITLIST|WHITELIST|UPDATE|REMINDER|CLAIM)\s*[:|-]?\s*/i, "")
     .replace(/\s*[|\-–—].*$/, "")
     .replace(/\(.*?\)/g, "")
-    .split(/\s+/)[0]
-    .toLowerCase()
     .trim();
+
+  // 3. Extract tokens and find the first non-stopword core brand token
+  const words = target
+    .replace(/[^\w\d\s_-]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  for (const word of words) {
+    const lower = word.toLowerCase();
+    if (!GENERIC_AIRDROP_STOPWORDS.has(lower) && lower.length >= 2 && !/^\d+$/.test(lower)) {
+      return lower;
+    }
+  }
+
+  return "";
 }
 
 // Human readable relative timestamp (WIB localized / i18n aware)
@@ -1994,7 +2066,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-body-md font-bold text-text-primary truncate">
-                        {previewingFeed.title}
+                        {cleanProjectName(previewingFeed.title)}
                       </h3>
                       {isFeedPotential(previewingFeed) && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-badge-bg-ready-claim border border-status-ready-claim/30 text-status-ready-claim flex items-center gap-1 shadow-xs">

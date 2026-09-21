@@ -58,10 +58,28 @@ export function isPotentialAirdropText(text?: string | null): boolean {
 export function cleanProjectName(rawTitle: string): string {
   if (!rawTitle) return "Airdrop Project";
 
-  let name = rawTitle
+  let name = rawTitle.trim();
+
+  // Strip colon-separated category headers (e.g. "New Guaranteed Airdrops : Zycot" -> "Zycot")
+  if (name.includes(":")) {
+    const colonParts = name.split(":");
+    const left = colonParts[0].trim().toLowerCase();
+    const right = colonParts.slice(1).join(":").trim();
+    if (
+      /^(?:📌\s*)?(?:new\s+)?(?:guaranteed|confirmed|potential)?\s*(?:airdrops?|testnet|retro|waitlist|whitelist|update|reminder|claim|free)/i.test(
+        left
+      ) &&
+      right
+    ) {
+      name = right;
+    }
+  }
+
+  name = name
     // Strip common prefixes including Potential Airdrop
-    .replace(/^(\[NEW\]|\(NEW\)|NEW AIRDROPS?|NEW TESTNET|NEW WAITLIST|NEW RETRO|NEW WHITELIST)\s*[:|-]?\s*/i, "")
+    .replace(/^(?:📌\s*)?(?:\[NEW\]|\(NEW\)|NEW\s+GUARANTEED\s+AIRDROPS?|NEW\s+CONFIRMED\s+AIRDROPS?|NEW\s+AIRDROPS?|NEW\s+TESTNET|NEW\s+WAITLIST|NEW\s+RETRO|NEW\s+WHITELIST)\s*[:|-]?\s*/i, "")
     .replace(/^(?:📌\s*)?(?:POTENTIAL\s+AIRDROPS?|POTENTIAL)\s*[:|-]?\s*/i, "")
+    .replace(/^(?:GUARANTEED|CONFIRMED)\s+(?:AIRDROPS?|TESTNET|WAITLIST)\s*[:|-]?\s*/i, "")
     .replace(/^(TESTNET|AIRDROP|FREE|RETRO|CONFIRMED AIRDROP)\s*[:|-]?\s*/i, "")
     .replace(/^(JOIN WAITLIST|DAFTAR WAITLIST|WAITLIST|WHITELIST)\s*[:|-]?\s*/i, "")
     .replace(/^(AIRDROP|TESTNET|WAITLIST|WHITELIST)\s+/i, "")
