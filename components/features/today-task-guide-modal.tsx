@@ -976,7 +976,7 @@ export function TodayTaskGuideModal({
 
       {/* Main Dialog Box */}
       <div
-        className="relative w-full max-w-3xl rounded-2xl bg-bg-elevated border border-border-hairline shadow-2xl text-left z-10 flex flex-col max-h-[92vh] overflow-hidden overscroll-contain my-auto animate-in zoom-in-95 duration-200 select-none"
+        className="relative w-full max-w-3xl h-[90vh] sm:h-[86vh] max-h-[850px] min-h-[580px] rounded-2xl bg-bg-elevated border border-border-hairline shadow-2xl text-left z-10 flex flex-col overflow-hidden overscroll-contain my-auto animate-in zoom-in-95 duration-200 select-none"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -1173,7 +1173,7 @@ export function TodayTaskGuideModal({
           </div>
 
           {/* Modal Scrollable Body */}
-          <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 no-scrollbar bg-bg-elevated">
+          <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 min-h-0 custom-scrollbar bg-bg-elevated">
             {/* Header Row: Title & Edit Button */}
             <div className="flex items-center justify-between">
               <h3 className="text-body-sm font-bold text-text-primary font-sans flex items-center gap-2">

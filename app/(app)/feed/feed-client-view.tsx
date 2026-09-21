@@ -2043,8 +2043,31 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
               onClick={handleClosePreview}
             />
 
+            {/* Floating Side Navigation Chevrons (Desktop) */}
+            <button
+              type="button"
+              onClick={handlePrevPreview}
+              disabled={currentPreviewIndex <= 0}
+              aria-label={locale === "en" ? "Previous feed" : "Postingan sebelumnya"}
+              className="hidden lg:flex fixed left-4 xl:left-8 top-1/2 -translate-y-1/2 z-[10000] w-12 h-12 rounded-full bg-bg-elevated/90 hover:bg-accent border border-border-hairline text-text-secondary hover:text-on-accent shadow-2xl backdrop-blur-md items-center justify-center transition-all disabled:opacity-0 disabled:pointer-events-none hover:scale-105 active:scale-95 group"
+              title={locale === "en" ? "Previous post (←)" : "Postingan sebelumnya (←)"}
+            >
+              <ChevronLeft className="w-6 h-6 transition-transform group-hover:-translate-x-0.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNextPreview}
+              disabled={currentPreviewIndex >= filteredFeeds.length - 1}
+              aria-label={locale === "en" ? "Next feed" : "Postingan berikutnya"}
+              className="hidden lg:flex fixed right-4 xl:right-8 top-1/2 -translate-y-1/2 z-[10000] w-12 h-12 rounded-full bg-bg-elevated/90 hover:bg-accent border border-border-hairline text-text-secondary hover:text-on-accent shadow-2xl backdrop-blur-md items-center justify-center transition-all disabled:opacity-0 disabled:pointer-events-none hover:scale-105 active:scale-95 group"
+              title={locale === "en" ? "Next post (→)" : "Postingan berikutnya (→)"}
+            >
+              <ChevronRight className="w-6 h-6 transition-transform group-hover:translate-x-0.5" />
+            </button>
+
             <div
-              className="relative z-10 w-full max-w-3xl max-h-[88vh] flex flex-col rounded-2xl bg-bg-elevated border border-border-hairline shadow-2xl overflow-hidden my-auto"
+              className="relative z-10 w-full max-w-3xl h-[88vh] sm:h-[84vh] max-h-[820px] min-h-[560px] flex flex-col rounded-2xl bg-bg-elevated border border-border-hairline shadow-2xl overflow-hidden my-auto animate-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header with Navigation & Quick Actions */}
@@ -2174,8 +2197,8 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                 </div>
               </div>
 
-              {/* Modal Body */}
-              <div className="p-4 sm:p-5 overflow-y-auto space-y-4 no-scrollbar bg-bg-elevated">
+              {/* Modal Body (Scrollable Middle with flex-1 min-h-0) */}
+              <div className="flex-1 min-h-0 p-4 sm:p-5 overflow-y-auto space-y-4 custom-scrollbar bg-bg-elevated">
                 {/* 1. MENTION INTELLIGENCE & TIMELINE STATS CARD */}
                 <div className="p-3.5 sm:p-4 rounded-xl bg-bg-base/90 border border-border-hairline space-y-3 shadow-inner">
                   {/* 4 Stat Pills */}
@@ -2373,10 +2396,56 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   )}
                 </div>
 
-                {/* 2. TRANSLATION INDICATOR (IF TRANSLATED) */}
+                {/* 2. LOCAL FEED DUPLICATE CLUSTER (If exists) */}
+                {previewMatchingFeeds.length > 1 && (
+                  <div className="p-3 sm:p-3.5 rounded-xl bg-accent/5 border border-accent/20 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-caption font-semibold text-accent">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>
+                          {locale === "en"
+                            ? `${previewMatchingFeeds.length} Related Signals in Feed`
+                            : `${previewMatchingFeeds.length} Sinyal Terkait di Feed`}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono text-text-tertiary">
+                        {locale === "en" ? "Click to view" : "Klik untuk membuka"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                      {previewMatchingFeeds.map((mf) => {
+                        const isCurrent = mf.id === previewingFeed.id;
+                        return (
+                          <button
+                            key={mf.id}
+                            type="button"
+                            onClick={() => {
+                              if (!isCurrent) {
+                                handleOpenPreview(mf);
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border shrink-0 transition-all flex items-center gap-1.5 ${
+                              isCurrent
+                                ? "bg-accent text-on-accent border-accent shadow-xs font-semibold cursor-default"
+                                : "bg-bg-elevated-2 hover:bg-bg-base border-border-hairline text-text-secondary hover:text-text-primary"
+                            }`}
+                          >
+                            <span>{mf.channel_name}</span>
+                            <span className="text-[10px] opacity-75 font-mono">
+                              ({formatTimeAgo(mf.created_at, locale)})
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Translation info pill */}
                 {showPreviewTranslated && previewTranslatedText && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-status-completed/10 border border-status-completed/25 text-[11px] font-medium text-status-completed w-fit">
-                    <span className="w-1.5 h-1.5 rounded-full bg-status-completed animate-pulse" />
+                  <div className="px-3 py-1.5 rounded-lg bg-status-completed/10 border border-status-completed/30 text-[11px] text-status-completed font-medium flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 shrink-0" />
                     <span>
                       {locale === "id"
                         ? "Diterjemahkan ke Bahasa Indonesia"
@@ -2395,10 +2464,10 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                 </div>
               </div>
 
-              {/* Modal Footer with Hapus, Prev, Next, and Make Project */}
-              <div className="p-4 sm:p-5 border-t border-border-hairline bg-bg-elevated flex flex-wrap items-center justify-between gap-3 shrink-0">
-                {/* Left: Open Telegram & Delete from Feed */}
-                <div className="flex items-center gap-2">
+              {/* Modal Footer with 3-Zone Stable Layout */}
+              <div className="p-3.5 sm:p-4 border-t border-border-hairline bg-bg-elevated flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 shrink-0">
+                {/* Zone 1 (Left): Open Telegram & Delete */}
+                <div className="flex items-center gap-2 shrink-0">
                   <a
                     href={previewingFeed.source_url}
                     target="_blank"
@@ -2412,7 +2481,6 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
                   </a>
 
-                  {/* Delete button: removes feed post with confirmation and auto-advances to next */}
                   <button
                     type="button"
                     onClick={() => handleDeletePreview(previewingFeed)}
@@ -2424,30 +2492,37 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                   </button>
                 </div>
 
-                {/* Right: Browse Previous / Next, Close, and Make Project */}
-                <div className="flex items-center gap-2">
+                {/* Zone 2 (Center): Dedicated Runner Navigation Strip (Non-shifting) */}
+                <div className="flex items-center justify-center rounded-xl bg-bg-base border border-border-hairline p-0.5 sm:p-1 gap-1 shrink-0 mx-auto sm:mx-0">
                   <button
                     type="button"
                     onClick={handlePrevPreview}
                     disabled={currentPreviewIndex <= 0}
-                    className="px-3 py-2 rounded-xl text-caption text-text-secondary hover:text-text-primary bg-bg-elevated-2 hover:bg-bg-base border border-border-hairline disabled:opacity-30 disabled:cursor-not-allowed transition-all font-medium inline-flex items-center gap-1"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-lg text-caption text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 disabled:opacity-25 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all font-medium inline-flex items-center gap-1"
                     title={locale === "en" ? "Previous post (←)" : "Postingan sebelumnya (←)"}
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{locale === "en" ? "Prev" : "Sebelumnya"}</span>
+                    <span className="hidden md:inline">{locale === "en" ? "Prev" : "Sebelum"}</span>
                   </button>
+
+                  <span className="font-mono text-[11px] text-text-secondary px-2 font-semibold select-none whitespace-nowrap">
+                    {currentPreviewIndex >= 0 ? currentPreviewIndex + 1 : 1} / {filteredFeeds.length}
+                  </span>
 
                   <button
                     type="button"
                     onClick={handleNextPreview}
                     disabled={currentPreviewIndex >= filteredFeeds.length - 1}
-                    className="px-3 py-2 rounded-xl text-caption text-text-secondary hover:text-text-primary bg-bg-elevated-2 hover:bg-bg-base border border-border-hairline disabled:opacity-30 disabled:cursor-not-allowed transition-all font-medium inline-flex items-center gap-1"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-lg text-caption text-text-secondary hover:text-text-primary hover:bg-bg-elevated-2 disabled:opacity-25 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all font-medium inline-flex items-center gap-1"
                     title={locale === "en" ? "Next post (→)" : "Postingan berikutnya (→)"}
                   >
-                    <span className="hidden sm:inline">{locale === "en" ? "Next" : "Berikutnya"}</span>
+                    <span className="hidden md:inline">{locale === "en" ? "Next" : "Berikut"}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
+                </div>
 
+                {/* Zone 3 (Right): Close & Make Project */}
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={handleClosePreview}
@@ -2460,7 +2535,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                     <Link
                       href={previewingFeed.linked_project_id ? `/projects/${previewingFeed.linked_project_id}` : "/projects"}
                       prefetch={false}
-                      className="px-4 py-2 rounded-xl text-caption font-semibold text-status-completed bg-status-completed/15 border border-status-completed/30 hover:bg-status-completed/25 transition-all flex items-center gap-1.5"
+                      className="min-w-[135px] justify-center px-4 py-2 rounded-xl text-caption font-semibold text-status-completed bg-status-completed/15 border border-status-completed/30 hover:bg-status-completed/25 transition-all flex items-center gap-1.5"
                     >
                       <Check className="w-3.5 h-3.5" />
                       <span>{t("feed.openProject")}</span>
@@ -2473,7 +2548,7 @@ export function FeedClientView({ initialFeeds }: FeedClientViewProps) {
                         handleClosePreview();
                         setReviewingFeed(item);
                       }}
-                      className="px-4 py-2 rounded-xl text-caption font-semibold text-on-accent bg-accent hover:bg-accent-pressed transition-all shadow-lg shadow-accent/20 flex items-center gap-1.5"
+                      className="min-w-[135px] justify-center px-4 py-2 rounded-xl text-caption font-semibold text-on-accent bg-accent hover:bg-accent-pressed transition-all shadow-lg shadow-accent/20 flex items-center gap-1.5"
                     >
                       <FolderPlus className="w-3.5 h-3.5" />
                       <span>{t("feed.makeProject")}</span>
